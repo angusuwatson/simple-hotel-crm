@@ -1235,7 +1235,7 @@ function lgf_calendar_view_render_add_booking_page() {
 
     if ( isset( $_POST['lgf_add_booking_submit'] ) ) {
         check_admin_referer( 'lgf_calendar_add_booking', 'lgf_calendar_add_booking_nonce' );
-        $result = lgf_calendar_view_create_wp_sync_booking( $form_data );
+        $result = lgf_calendar_view_create_booking( $form_data );
         if ( is_wp_error( $result ) ) {
             $error_message = $result->get_error_message();
         } else {
@@ -1262,7 +1262,11 @@ function lgf_calendar_view_render_add_booking_page() {
         $form_data['check_out'] = $check_out_value;
     }
 
-    $rooms = lgf_calendar_view_get_sync_room_options( $check_in_value, $check_out_value );
+    $rooms = lgf_calendar_view_get_room_options( $check_in_value, $check_out_value );
+    if ( is_wp_error( $rooms ) ) {
+        $error_message = $rooms->get_error_message();
+        $rooms = [];
+    }
     $channels = lgf_calendar_view_get_booking_channel_options();
     $statuses = lgf_calendar_view_get_booking_status_options();
     $dates_ready = preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_in_value ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_out_value ) && $check_out_value > $check_in_value;
@@ -1475,6 +1479,62 @@ function lgf_calendar_view_get_sync_room_options( $check_in = '', $check_out = '
     return $wpdb->get_results( "SELECT id, external_room_id, room_code, room_name FROM {$rooms_table} WHERE active = 1 ORDER BY sort_order ASC, room_name ASC", ARRAY_A );
 }
 
+function lgf_calendar_view_get_external_room_options( $check_in = '', $check_out = '' ) {
+    $connection = lgf_calendar_view_get_external_pg_connection();
+    if ( is_wp_error( $connection ) ) {
+        return $connection;
+    }
+
+    if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_in ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_out ) && $check_out > $check_in ) {
+        $result = pg_query_params(
+            $connection,
+            "SELECT r.id, r.code AS room_code, r.name AS room_name
+             FROM rooms r
+             WHERE r.active = true
+               AND NOT EXISTS (
+                   SELECT 1
+                   FROM booking_rooms br
+                   JOIN bookings b ON b.id = br.booking_id
+                   JOIN booking_statuses bs ON bs.code = b.status_code
+                   WHERE br.room_id = r.id
+                     AND bs.blocks_availability = true
+                     AND b.check_in_date < $1::date
+                     AND b.check_out_date > $2::date
+               )
+             ORDER BY r.code ASC, r.name ASC",
+            [ $check_out, $check_in ]
+        );
+    } else {
+        $result = pg_query( $connection, "SELECT id, code AS room_code, name AS room_name FROM rooms WHERE active = true ORDER BY code ASC, name ASC" );
+    }
+
+    if ( ! $result ) {
+        return [];
+    }
+
+    $rooms = [];
+    while ( $row = pg_fetch_assoc( $result ) ) {
+        $rooms[] = [
+            'id' => (int) $row['id'],
+            'external_room_id' => (int) $row['id'],
+            'room_code' => (string) $row['room_code'],
+            'room_name' => (string) $row['room_name'],
+        ];
+    }
+
+    usort( $rooms, function( $a, $b ) {
+        return ( lgf_calendar_view_get_room_sort_order( $a['room_code'], $a['room_name'] ) <=> lgf_calendar_view_get_room_sort_order( $b['room_code'], $b['room_name'] ) ) ?: strcasecmp( $a['room_name'], $b['room_name'] );
+    } );
+
+    return $rooms;
+}
+
+function lgf_calendar_view_get_room_options( $check_in = '', $check_out = '' ) {
+    return 'external_pg' === lgf_calendar_view_get_data_source()
+        ? lgf_calendar_view_get_external_room_options( $check_in, $check_out )
+        : lgf_calendar_view_get_sync_room_options( $check_in, $check_out );
+}
+
 function lgf_calendar_view_get_booking_status_options() {
     return [
         'pending' => 'Pending',
@@ -1596,6 +1656,35 @@ function lgf_calendar_view_check_wp_sync_room_availability( $room_sync_id, $chec
     return true;
 }
 
+function lgf_calendar_view_check_external_pg_room_availability( $room_id, $check_in, $check_out ) {
+    $connection = lgf_calendar_view_get_external_pg_connection();
+    if ( is_wp_error( $connection ) ) {
+        return $connection;
+    }
+
+    $result = pg_query_params(
+        $connection,
+        "SELECT COUNT(*)
+         FROM booking_rooms br
+         JOIN bookings b ON b.id = br.booking_id
+         JOIN booking_statuses bs ON bs.code = b.status_code
+         WHERE br.room_id = $1
+           AND bs.blocks_availability = true
+           AND b.check_in_date < $2::date
+           AND b.check_out_date > $3::date",
+        [ $room_id, $check_out, $check_in ]
+    );
+    if ( ! $result ) {
+        return new WP_Error( 'pg_availability_failed', __( 'Could not check room availability in the external PostgreSQL database.', 'lgf-calendar-view' ) );
+    }
+
+    if ( (int) pg_fetch_result( $result, 0, 0 ) > 0 ) {
+        return new WP_Error( 'room_unavailable', __( 'That room already has an overlapping booking for the selected dates.', 'lgf-calendar-view' ) );
+    }
+
+    return true;
+}
+
 function lgf_calendar_view_create_wp_sync_booking( $data ) {
     global $wpdb;
 
@@ -1676,6 +1765,123 @@ function lgf_calendar_view_create_wp_sync_booking( $data ) {
 
     lgf_calendar_view_clear_calendar_cache();
     return [ 'booking_id' => $external_booking_id, 'booking_room_id' => $next_booking_room_id - 1 ];
+}
+
+function lgf_calendar_view_split_guest_name( $guest_name ) {
+    $guest_name = trim( (string) $guest_name );
+    if ( '' === $guest_name ) {
+        return [ '', '' ];
+    }
+    $parts = preg_split( '/\s+/', $guest_name );
+    $last_name = array_pop( $parts );
+    $first_name = trim( implode( ' ', $parts ) );
+    return [ '' !== $first_name ? $first_name : $last_name, '' !== $first_name ? $last_name : '' ];
+}
+
+function lgf_calendar_view_create_external_pg_booking( $data ) {
+    $connection = lgf_calendar_view_get_external_pg_connection();
+    if ( is_wp_error( $connection ) ) {
+        return $connection;
+    }
+
+    $validated = lgf_calendar_view_validate_booking_form_data( $data );
+    if ( is_wp_error( $validated ) ) {
+        return $validated;
+    }
+
+    extract( $validated, EXTR_SKIP );
+    $source_channel = sanitize_text_field( (string) ( $data['source_channel'] ?? 'direct' ) );
+    if ( ! in_array( $source_channel, [ 'direct', 'motopress', 'booking_com' ], true ) ) {
+        $source_channel = 'direct';
+    }
+    $status_code = sanitize_text_field( (string) ( $data['status_code'] ?? 'confirmed' ) );
+    $phone = sanitize_text_field( (string) ( $data['phone'] ?? '' ) );
+    $import_notes = sanitize_textarea_field( (string) ( $data['import_notes'] ?? '' ) );
+    list( $first_name, $last_name ) = lgf_calendar_view_split_guest_name( $guest_name );
+
+    foreach ( $room_lines as $line ) {
+        $availability = lgf_calendar_view_check_external_pg_room_availability( $line['room_sync_id'], $check_in, $check_out );
+        if ( is_wp_error( $availability ) ) {
+            return $availability;
+        }
+    }
+
+    $booking_adults = array_sum( array_column( $room_lines, 'adults' ) );
+    $booking_children = array_sum( array_column( $room_lines, 'children' ) );
+    $booking_babies = array_sum( array_column( $room_lines, 'babies' ) );
+    $booking_room_rate = array_sum( array_column( $room_lines, 'room_rate_amount' ) );
+    $booking_extras = array_sum( array_column( $room_lines, 'extras_amount' ) );
+    $booking_tax = array_sum( array_column( $room_lines, 'tourist_tax_total' ) );
+    $booking_total = array_sum( array_column( $room_lines, 'total_amount' ) );
+
+    if ( ! pg_query( $connection, 'BEGIN' ) ) {
+        return new WP_Error( 'pg_transaction_failed', __( 'Could not start the external PostgreSQL booking transaction.', 'lgf-calendar-view' ) );
+    }
+
+    $guest_result = pg_query_params( $connection, 'INSERT INTO guests (first_name, last_name, phone) VALUES ($1, $2, $3) RETURNING id', [ $first_name, $last_name, $phone ?: null ] );
+    if ( ! $guest_result ) {
+        pg_query( $connection, 'ROLLBACK' );
+        return new WP_Error( 'pg_guest_insert_failed', __( 'Could not create the guest in the external PostgreSQL database.', 'lgf-calendar-view' ) );
+    }
+    $guest_id = (int) pg_fetch_result( $guest_result, 0, 0 );
+
+    $booking_result = pg_query_params(
+        $connection,
+        'INSERT INTO bookings (guest_id, source_channel, source_booking_id, status_code, contacted_date, check_in_date, check_out_date, adults, children, babies, room_rate_amount, extras_amount, tourist_tax_amount, total_amount, internal_notes) VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING id',
+        [ $guest_id, $source_channel, $status_code, $contacted_date ?: null, $check_in, $check_out, $booking_adults, $booking_children, $booking_babies, $booking_room_rate, $booking_extras, $booking_tax, $booking_total, $import_notes ?: null ]
+    );
+    if ( ! $booking_result ) {
+        pg_query( $connection, 'ROLLBACK' );
+        return new WP_Error( 'pg_booking_insert_failed', __( 'Could not create the booking in the external PostgreSQL database.', 'lgf-calendar-view' ) );
+    }
+    $booking_id = (int) pg_fetch_result( $booking_result, 0, 0 );
+
+    $last_booking_room_id = 0;
+    foreach ( $room_lines as $line ) {
+        $room_result = pg_query_params(
+            $connection,
+            'INSERT INTO booking_rooms (booking_id, room_id, guest_count, adults, children, babies, room_rate_amount, extras_amount, tourist_tax_amount, total_amount) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id',
+            [ $booking_id, $line['room_sync_id'], $line['guest_count'], $line['adults'], $line['children'], $line['babies'], $line['room_rate_amount'], $line['extras_amount'], $line['tourist_tax_total'], $line['total_amount'] ]
+        );
+        if ( ! $room_result ) {
+            pg_query( $connection, 'ROLLBACK' );
+            return new WP_Error( 'pg_booking_room_insert_failed', __( 'Could not create a booking room in the external PostgreSQL database.', 'lgf-calendar-view' ) );
+        }
+
+        $booking_room_id = (int) pg_fetch_result( $room_result, 0, 0 );
+        $last_booking_room_id = $booking_room_id;
+        $room_rate_nightly = lgf_calendar_view_distribute_amounts( $line['room_rate_amount'], $nights );
+        $extras_nightly = lgf_calendar_view_distribute_amounts( $line['extras_amount'], $nights );
+        $tax_nightly = lgf_calendar_view_distribute_amounts( $line['tourist_tax_total'], $nights );
+
+        for ( $i = 0; $i < $nights; $i++ ) {
+            $stay_date = gmdate( 'Y-m-d', strtotime( $check_in . ' +' . $i . ' day' ) );
+            $night_total = round( $room_rate_nightly[ $i ] + $extras_nightly[ $i ] + $tax_nightly[ $i ], 2 );
+            $night_result = pg_query_params(
+                $connection,
+                'INSERT INTO booking_room_nights (booking_room_id, stay_date, guest_count, adults, children, babies, room_rate_amount, extras_amount, tourist_tax_amount, total_amount) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)',
+                [ $booking_room_id, $stay_date, $line['guest_count'], $line['adults'], $line['children'], $line['babies'], $room_rate_nightly[ $i ], $extras_nightly[ $i ], $tax_nightly[ $i ], $night_total ]
+            );
+            if ( ! $night_result ) {
+                pg_query( $connection, 'ROLLBACK' );
+                return new WP_Error( 'pg_booking_night_insert_failed', __( 'Could not create booking nights in the external PostgreSQL database.', 'lgf-calendar-view' ) );
+            }
+        }
+    }
+
+    if ( ! pg_query( $connection, 'COMMIT' ) ) {
+        pg_query( $connection, 'ROLLBACK' );
+        return new WP_Error( 'pg_commit_failed', __( 'Could not commit the external PostgreSQL booking transaction.', 'lgf-calendar-view' ) );
+    }
+
+    lgf_calendar_view_clear_calendar_cache();
+    return [ 'booking_id' => $booking_id, 'booking_room_id' => $last_booking_room_id ];
+}
+
+function lgf_calendar_view_create_booking( $data ) {
+    return 'external_pg' === lgf_calendar_view_get_data_source()
+        ? lgf_calendar_view_create_external_pg_booking( $data )
+        : lgf_calendar_view_create_wp_sync_booking( $data );
 }
 
 add_action( 'rest_api_init', function() {
