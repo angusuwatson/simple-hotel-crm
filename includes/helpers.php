@@ -103,6 +103,53 @@ function simple_hotel_crm_get_booking_overlay( $reserved_room_id ) {
     return $cache[ $reserved_room_id ];
 }
 
+function simple_hotel_crm_copy_booking_overlay( $from_reserved_room_id, $to_reserved_room_id, $booking_id = 0, $room_id = 0 ) {
+    global $wpdb;
+
+    $from_reserved_room_id = (int) $from_reserved_room_id;
+    $to_reserved_room_id   = (int) $to_reserved_room_id;
+    if ( $from_reserved_room_id <= 0 || $to_reserved_room_id <= 0 || $from_reserved_room_id === $to_reserved_room_id ) {
+        return false;
+    }
+
+    $table = simple_hotel_crm_booking_overlay_table();
+    $overlay = $wpdb->get_row(
+        $wpdb->prepare( "SELECT * FROM {$table} WHERE reserved_room_id = %d LIMIT 1", $from_reserved_room_id ),
+        ARRAY_A
+    );
+    if ( ! is_array( $overlay ) || empty( $overlay ) ) {
+        return false;
+    }
+
+    unset( $overlay['id'] );
+    $overlay['reserved_room_id'] = $to_reserved_room_id;
+    if ( $booking_id > 0 ) {
+        $overlay['booking_id'] = (int) $booking_id;
+    }
+    if ( $room_id > 0 ) {
+        $overlay['room_id'] = (int) $room_id;
+    }
+
+    $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE reserved_room_id = %d", $to_reserved_room_id ) );
+    $formats = [ '%d', '%d', '%d', '%s', '%s', '%f', '%s', '%d', '%d', '%f', '%f', '%s', '%s' ];
+    if ( $existing ) {
+        return false !== $wpdb->update( $table, $overlay, [ 'reserved_room_id' => $to_reserved_room_id ], $formats, [ '%d' ] );
+    }
+
+    return false !== $wpdb->insert( $table, $overlay, $formats );
+}
+
+function simple_hotel_crm_delete_booking_overlay( $reserved_room_id ) {
+    global $wpdb;
+
+    $reserved_room_id = (int) $reserved_room_id;
+    if ( $reserved_room_id <= 0 ) {
+        return false;
+    }
+
+    return false !== $wpdb->delete( simple_hotel_crm_booking_overlay_table(), [ 'reserved_room_id' => $reserved_room_id ], [ '%d' ] );
+}
+
 function simple_hotel_crm_format_occupancy( $adults, $children ) {
     $adults   = max( 0, (int) $adults );
     $children = max( 0, (int) $children );

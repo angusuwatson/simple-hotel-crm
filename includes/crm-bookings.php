@@ -128,6 +128,16 @@ function simple_hotel_crm_validate_booking_form_data( $data ) {
         return new WP_Error( 'missing_guest_name', __( 'Guest name is required.', 'simple-hotel-crm' ) );
     }
 
+    $source_channel = sanitize_text_field( (string) ( $data['source_channel'] ?? 'direct' ) );
+    if ( ! array_key_exists( $source_channel, simple_hotel_crm_get_booking_channel_options() ) ) {
+        return new WP_Error( 'invalid_source_channel', __( 'Please select a valid booking channel.', 'simple-hotel-crm' ) );
+    }
+
+    $status_code = sanitize_text_field( (string) ( $data['status_code'] ?? 'confirmed' ) );
+    if ( ! array_key_exists( $status_code, simple_hotel_crm_get_booking_status_options() ) ) {
+        return new WP_Error( 'invalid_status_code', __( 'Please select a valid booking status.', 'simple-hotel-crm' ) );
+    }
+
     $check_in = (string) ( $data['check_in'] ?? '' );
     $check_out = (string) ( $data['check_out'] ?? '' );
     if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_in ) || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_out ) || $check_out <= $check_in ) {
@@ -160,6 +170,9 @@ function simple_hotel_crm_validate_booking_form_data( $data ) {
         $children = max( 0, (int) ( $line['children'] ?? 0 ) );
         $babies = max( 0, (int) ( $line['babies'] ?? 0 ) );
         $guest_count = $adults + $children + $babies;
+        if ( $guest_count <= 0 ) {
+            return new WP_Error( 'invalid_guest_count', __( 'Each room line must have at least one guest.', 'simple-hotel-crm' ) );
+        }
         $room_rate_amount = max( 0, (float) simple_hotel_crm_normalize_decimal( $line['room_rate_amount'] ?? 0 ) );
         $extras_amount = max( 0, (float) simple_hotel_crm_normalize_decimal( $line['extras_amount'] ?? 0 ) );
         $tourist_tax_total = round( $adults * 0.80 * $nights, 2 );

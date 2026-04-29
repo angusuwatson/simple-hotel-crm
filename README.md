@@ -72,6 +72,7 @@ A WordPress plugin to display MotoPress Hotel Booking data, locally synced LGF d
 - Supports theme override via `templates/booking-view.php` copied into `your-theme/simple-hotel-crm/`.
 - WordPress-native CRM tables are now the primary write path and calendar read path for the local WordPress mode.
 - Booking detail edits can regenerate booking room rows, nightly rows, and compatibility sync rows.
+- Booking-detail validation now checks status/channel values and prevents zero-guest room lines, while trying to preserve existing overlay data when room lines are edited.
 - Sync tables are still maintained as a compatibility layer for the current calendar integrations and migration path.
 - External PostgreSQL mode expects the schema from `/home/angus/.pi/projects/lgf-database`.
 - All output is escaped for security.

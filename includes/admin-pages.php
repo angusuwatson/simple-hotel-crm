@@ -234,7 +234,15 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     $import_notes = sanitize_textarea_field( (string) ( $data['import_notes'] ?? '' ) );
     $source_created_at = ( '' !== $contacted_date ? $contacted_date : current_time( 'mysql' ) );
 
-    $legacy_ids = $wpdb->get_col( $wpdb->prepare( "SELECT legacy_reserved_room_id FROM {$crm_booking_rooms_table} WHERE booking_id = %d", $booking_id ) );
+    $existing_rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.legacy_reserved_room_id, br.room_id, r.sync_room_id FROM {$crm_booking_rooms_table} br JOIN {$crm_rooms_table} r ON r.id = br.room_id WHERE br.booking_id = %d ORDER BY br.id ASC", $booking_id ), ARRAY_A );
+    $legacy_ids = wp_list_pluck( $existing_rooms, 'legacy_reserved_room_id' );
+    $overlay_map = [];
+    foreach ( $existing_rooms as $existing_room ) {
+        $sync_room_id = (int) $existing_room['sync_room_id'];
+        if ( $sync_room_id > 0 && ! isset( $overlay_map[ $sync_room_id ] ) ) {
+            $overlay_map[ $sync_room_id ] = (int) $existing_room['legacy_reserved_room_id'];
+        }
+    }
     foreach ( $room_lines as $line ) {
         $availability = simple_hotel_crm_check_wp_sync_room_availability( $line['room_sync_id'], $check_in, $check_out );
         if ( is_wp_error( $availability ) ) {
@@ -273,7 +281,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
             return new WP_Error( 'invalid_room', __( 'Please select a valid room.', 'simple-hotel-crm' ) );
         }
         $crm_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$crm_rooms_table} WHERE sync_room_id = %d LIMIT 1", $line['room_sync_id'] ) );
-        $legacy_reserved_room_id = $next_legacy_room_id++;
+        $legacy_reserved_room_id = isset( $overlay_map[ (int) $line['room_sync_id'] ] ) ? (int) $overlay_map[ (int) $line['room_sync_id'] ] : $next_legacy_room_id++;
         $inserted = $wpdb->insert(
             $crm_booking_rooms_table,
             [
@@ -294,6 +302,9 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
         if ( false === $inserted ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'booking_room_insert_failed', __( 'Could not save booking rooms.', 'simple-hotel-crm' ) );
+        }
+        if ( isset( $overlay_map[ (int) $line['room_sync_id'] ] ) && (int) $overlay_map[ (int) $line['room_sync_id'] ] !== $legacy_reserved_room_id ) {
+            simple_hotel_crm_copy_booking_overlay( (int) $overlay_map[ (int) $line['room_sync_id'] ], $legacy_reserved_room_id, $booking_id, $crm_room_id );
         }
         $crm_booking_room_id = (int) $wpdb->insert_id;
         $room_rate_nightly = simple_hotel_crm_distribute_amounts( $line['room_rate_amount'], $nights );
@@ -376,6 +387,20 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     );
 
     $wpdb->query( 'COMMIT' );
+
+    if ( ! empty( $legacy_ids ) ) {
+        $new_legacy_ids = [];
+        foreach ( $room_lines as $line ) {
+            $sync_room_id = (int) $line['room_sync_id'];
+            if ( isset( $overlay_map[ $sync_room_id ] ) ) {
+                $new_legacy_ids[] = (int) $overlay_map[ $sync_room_id ];
+            }
+        }
+        foreach ( array_diff( array_map( 'intval', array_filter( $legacy_ids ) ), array_map( 'intval', array_filter( $new_legacy_ids ) ) ) as $stale_legacy_id ) {
+            simple_hotel_crm_delete_booking_overlay( $stale_legacy_id );
+        }
+    }
+
     simple_hotel_crm_clear_calendar_cache();
     return true;
 }
