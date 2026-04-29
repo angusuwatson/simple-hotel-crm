@@ -19,7 +19,8 @@ A WordPress plugin to display MotoPress Hotel Booking data, locally synced LGF d
 
 ### Data Sources
 - MotoPress / WordPress booking source
-- Local WordPress sync tables populated from the LGF PostgreSQL project
+- WordPress-native CRM tables for guests, bookings, room lines, and nightly rows
+- Local WordPress sync/compatibility tables populated from the LGF PostgreSQL project
 - External PostgreSQL booking source using the LGF database project schema
 - Automatic MotoPress dependency checks only when that source is selected
 
@@ -64,10 +65,10 @@ A WordPress plugin to display MotoPress Hotel Booking data, locally synced LGF d
 
 ## Technical Notes
 
-- Creates `wp_simple_hotel_crm_daily_notes`, `wp_simple_hotel_crm_booking_overlays`, `wp_simple_hotel_crm_sync_rooms`, and `wp_simple_hotel_crm_sync_bookings`.
+- Creates `wp_simple_hotel_crm_daily_notes`, `wp_simple_hotel_crm_booking_overlays`, `wp_simple_hotel_crm_sync_rooms`, `wp_simple_hotel_crm_sync_bookings`, `wp_simple_hotel_crm_rooms`, `wp_simple_hotel_crm_guests`, `wp_simple_hotel_crm_bookings`, `wp_simple_hotel_crm_booking_rooms`, and `wp_simple_hotel_crm_booking_room_nights`.
 - Caches calendar data with source-aware transient keys.
 - Supports theme override via `templates/booking-view.php` copied into `your-theme/simple-hotel-crm/`.
-- Local sync mode is the recommended production path for shared hosting.
+- WordPress-native CRM tables are now the primary write path; sync tables are still maintained as a compatibility layer for the current calendar UI.
 - External PostgreSQL mode expects the schema from `/home/angus/.pi/projects/lgf-database`.
 - All output is escaped for security.
 
