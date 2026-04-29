@@ -1921,8 +1921,6 @@ function simple_hotel_crm_clear_calendar_cache() {
 
 function simple_hotel_crm_get_sync_room_options( $check_in = '', $check_out = '' ) {
     global $wpdb;
-
-    simple_hotel_crm_seed_rooms_table();
     $rooms_table = simple_hotel_crm_rooms_table();
     $bookings_table = simple_hotel_crm_bookings_table();
     $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
@@ -1935,8 +1933,7 @@ function simple_hotel_crm_get_sync_room_options( $check_in = '', $check_out = ''
                  WHERE r.active = 1
                    AND r.sync_room_id IS NOT NULL
                    AND NOT EXISTS (
-                       SELECT 1
-                       FROM {$booking_rooms_table} br
+                       SELECT 1 FROM {$booking_rooms_table} br
                        JOIN {$bookings_table} b ON b.id = br.booking_id
                        WHERE br.room_id = r.id
                          AND b.status_code IN ('pending', 'confirmed', 'checked_in')
@@ -2118,8 +2115,9 @@ function simple_hotel_crm_check_wp_sync_room_availability( $room_sync_id, $check
     $bookings_table = simple_hotel_crm_bookings_table();
     $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
     $crm_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE sync_room_id = %d LIMIT 1", $room_sync_id ) );
+
     if ( $crm_room_id <= 0 ) {
-        return new WP_Error( 'invalid_room', __( 'Please select a valid room.', 'simple-hotel-crm' ) );
+        return true;
     }
 
     $conflict_count = (int) $wpdb->get_var(
@@ -2671,10 +2669,10 @@ function simple_hotel_crm_rest_create_invoice( WP_REST_Request $request ) {
         $client_id = (string) ( $client_row['invoice_ninja_client_id'] ?? '' );
     } elseif ( 'wp_sync' === $source ) {
         global $wpdb;
-        $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
-        $client_id = (string) $wpdb->get_var( $wpdb->prepare( "SELECT invoice_ninja_client_id FROM {$sync_bookings_table} WHERE external_booking_id = %d LIMIT 1", $booking_id ) );
+        $crm_bookings_table = simple_hotel_crm_bookings_table();
+        $client_id = (string) $wpdb->get_var( $wpdb->prepare( "SELECT invoice_ninja_client_id FROM {$crm_bookings_table} WHERE id = %d LIMIT 1", $booking_id ) );
         if ( '' === $client_id ) {
-            return new WP_Error( 'booking_not_found', __( 'Booking not found in local sync data, or it has no Invoice Ninja client ID.', 'simple-hotel-crm' ), [ 'status' => 404 ] );
+            return new WP_Error( 'booking_not_found', __( 'Booking not found in WordPress CRM data, or it has no Invoice Ninja client ID.', 'simple-hotel-crm' ), [ 'status' => 404 ] );
         }
     } else {
         $booking = get_post( $booking_id );
@@ -2751,11 +2749,22 @@ function simple_hotel_crm_rest_create_invoice( WP_REST_Request $request ) {
         }
     } elseif ( 'wp_sync' === $source ) {
         global $wpdb;
+        $crm_bookings_table = simple_hotel_crm_bookings_table();
         $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
+        $wpdb->update(
+            $crm_bookings_table,
+            [
+                'invoice_ninja_invoice_id' => (string) $data['id'],
+                'invoiced_at' => current_time( 'mysql' ),
+            ],
+            [ 'id' => $booking_id ],
+            [ '%s', '%s' ],
+            [ '%d' ]
+        );
         $wpdb->update(
             $sync_bookings_table,
             [ 'invoice_ninja_invoice_id' => (string) $data['id'] ],
-            [ 'external_booking_id' => $booking_id ],
+            [ 'external_booking_room_id' => $reserved_room_id ],
             [ '%s' ],
             [ '%d' ]
         );
