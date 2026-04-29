@@ -6,10 +6,10 @@ function simple_hotel_crm_user_can_access() {
 }
 
 function simple_hotel_crm_enqueue_shared_assets( $context = 'frontend' ) {
-    wp_register_style( 'simple-hotel-crm', plugin_dir_url( __FILE__ ) . 'assets/style.css', [], SIMPLE_HOTEL_CRM_VERSION );
+    wp_register_style( 'simple-hotel-crm', plugin_dir_url( dirname( __DIR__ ) . '/simple-hotel-crm.php' ) . 'assets/style.css', [], SIMPLE_HOTEL_CRM_VERSION );
     wp_enqueue_style( 'simple-hotel-crm' );
 
-    wp_register_script( 'simple-hotel-crm', plugin_dir_url( __FILE__ ) . 'assets/calendar-navigation.js', [ 'jquery' ], SIMPLE_HOTEL_CRM_VERSION, true );
+    wp_register_script( 'simple-hotel-crm', plugin_dir_url( dirname( __DIR__ ) . '/simple-hotel-crm.php' ) . 'assets/calendar-navigation.js', [ 'jquery' ], SIMPLE_HOTEL_CRM_VERSION, true );
     wp_localize_script( 'simple-hotel-crm', 'simpleHotelCrm', [
         'restUrl'        => esc_url_raw( rest_url( 'simple-hotel-crm/v1/table' ) ),
         'dailyNotesUrl'  => esc_url_raw( rest_url( 'simple-hotel-crm/v1/daily-note' ) ),

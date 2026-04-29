@@ -791,7 +791,7 @@ function simple_hotel_crm_render_calendar( $calendar_data, $context = 'frontend'
         $template = locate_template( 'lgf-calendar-view/booking-view.php' );
     }
     if ( ! $template ) {
-        $template = plugin_dir_path( __FILE__ ) . 'templates/booking-view.php';
+        $template = dirname( __DIR__ ) . '/templates/booking-view.php';
     }
 
     $calendar_context = $context;
