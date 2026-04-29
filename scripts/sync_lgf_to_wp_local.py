@@ -10,8 +10,8 @@ WP_DB_CONTAINER = 'wp-db-dev'
 WP_DB_NAME = 'wp_booking_dev'
 WP_DB_USER = 'wp_user'
 WP_DB_PASSWORD = 'wp_password'
-ROOMS_TABLE = 'wp_lgf_calendar_sync_rooms'
-BOOKINGS_TABLE = 'wp_lgf_calendar_sync_bookings'
+ROOMS_TABLE = 'wp_simple_hotel_crm_sync_rooms'
+BOOKINGS_TABLE = 'wp_simple_hotel_crm_sync_bookings'
 
 ROOMS_SQL = r"""
 COPY (

@@ -88,13 +88,13 @@ def sql_value(value):
 
 with open(out_sql, 'w', encoding='utf-8') as out:
     out.write("SET FOREIGN_KEY_CHECKS=0;\n")
-    out.write("TRUNCATE TABLE wp_lgf_calendar_sync_bookings;\n")
-    out.write("TRUNCATE TABLE wp_lgf_calendar_sync_rooms;\n")
+    out.write("TRUNCATE TABLE wp_simple_hotel_crm_sync_bookings;\n")
+    out.write("TRUNCATE TABLE wp_simple_hotel_crm_sync_rooms;\n")
 
     with open(rooms_csv, newline='', encoding='utf-8') as fh:
         for row in csv.DictReader(fh):
             out.write(
-                "INSERT INTO wp_lgf_calendar_sync_rooms "
+                "INSERT INTO wp_simple_hotel_crm_sync_rooms "
                 "(external_room_id, room_code, room_name, sort_order, active) VALUES "
                 f"({sql_value(row['external_room_id'])}, {sql_value(row['room_code'])}, {sql_value(row['room_name'])}, {sql_value(row['sort_order'])}, {sql_value(row['active'])});\n"
             )
@@ -102,14 +102,14 @@ with open(out_sql, 'w', encoding='utf-8') as out:
     with open(bookings_csv, newline='', encoding='utf-8') as fh:
         for row in csv.DictReader(fh):
             out.write(
-                "INSERT INTO wp_lgf_calendar_sync_bookings "
+                "INSERT INTO wp_simple_hotel_crm_sync_bookings "
                 "(external_booking_id, external_booking_room_id, external_room_id, status_code, check_in, check_out, stay_date, guest_count, adults, children, babies, total_amount, room_amount, extras_amount, tourist_tax_amount, room_count, source_channel, source_booking_id, channel_label, guest_name, phone, import_notes, invoice_ninja_client_id, invoice_ninja_invoice_id, source_created_at) VALUES "
                 f"({sql_value(row['external_booking_id'])}, {sql_value(row['external_booking_room_id'])}, {sql_value(row['external_room_id'])}, {sql_value(row['status_code'])}, {sql_value(row['check_in'])}, {sql_value(row['check_out'])}, {sql_value(row['stay_date'])}, {sql_value(row['guest_count'])}, {sql_value(row['adults'])}, {sql_value(row['children'])}, {sql_value(row['babies'])}, {sql_value(row['total_amount'])}, {sql_value(row['room_amount'])}, {sql_value(row['extras_amount'])}, {sql_value(row['tourist_tax_amount'])}, {sql_value(row['room_count'])}, {sql_value(row['source_channel'])}, {sql_value(row['source_booking_id'])}, {sql_value(row['channel_label'])}, {sql_value(row['guest_name'])}, {sql_value(row['phone'])}, {sql_value(row['import_notes'])}, {sql_value(row['invoice_ninja_client_id'])}, {sql_value(row['invoice_ninja_invoice_id'])}, {sql_value(row['source_created_at'])});\n"
             )
 
-    out.write("UPDATE wp_lgf_calendar_sync_bookings b JOIN wp_lgf_calendar_sync_rooms r ON r.external_room_id = b.external_room_id SET b.room_sync_id = r.id;\n")
-    out.write("UPDATE wp_lgf_calendar_sync_rooms SET synced_at = NOW();\n")
-    out.write("UPDATE wp_lgf_calendar_sync_bookings SET synced_at = NOW();\n")
+    out.write("UPDATE wp_simple_hotel_crm_sync_bookings b JOIN wp_simple_hotel_crm_sync_rooms r ON r.external_room_id = b.external_room_id SET b.room_sync_id = r.id;\n")
+    out.write("UPDATE wp_simple_hotel_crm_sync_rooms SET synced_at = NOW();\n")
+    out.write("UPDATE wp_simple_hotel_crm_sync_bookings SET synced_at = NOW();\n")
     out.write("SET FOREIGN_KEY_CHECKS=1;\n")
 PY
 

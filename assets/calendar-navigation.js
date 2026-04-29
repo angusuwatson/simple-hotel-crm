@@ -2,14 +2,14 @@
     'use strict';
 
     $(function() {
-        var restUrl = lgfCalendar.restUrl;
-        var dailyNotesUrl = lgfCalendar.dailyNotesUrl;
-        var bookingUrl = lgfCalendar.bookingUrl;
-        var nonce = lgfCalendar.nonce;
+        var restUrl = simpleHotelCrm.restUrl;
+        var dailyNotesUrl = simpleHotelCrm.dailyNotesUrl;
+        var bookingUrl = simpleHotelCrm.bookingUrl;
+        var nonce = simpleHotelCrm.nonce;
         var saveTimers = {};
 
         function getContainer() {
-            return $('.lgf-calendar-container');
+            return $('.simple-hotel-crm-container');
         }
 
         function request(options) {
@@ -37,7 +37,7 @@
             request({
                 url: restUrl,
                 method: 'GET',
-                data: { month: month, year: year, context: lgfCalendar.context || 'frontend' },
+                data: { month: month, year: year, context: simpleHotelCrm.context || 'frontend' },
                 beforeSend: function() { $container.addClass('loading'); },
                 success: function(response) {
                     if (response && response.html) {
@@ -127,9 +127,9 @@
             });
         }
 
-        $(document).on('click', '.lgf-calendar-container .calendar-nav .button, .lgf-calendar-container .calendar-month-tab', function(e) {
+        $(document).on('click', '.simple-hotel-crm-container .calendar-nav .button, .simple-hotel-crm-container .calendar-month-tab', function(e) {
             var href = $(this).attr('href');
-            if (!href || lgfCalendar.context === 'admin') return;
+            if (!href || simpleHotelCrm.context === 'admin') return;
             e.preventDefault();
             var url = new URL(href, window.location.origin);
             var month = url.searchParams.get('month');
@@ -137,22 +137,22 @@
             if (month && year) loadMonth(month, year, true);
         });
 
-        $(document).on('input', '.lgf-calendar-container .calendar-note-input', function() {
+        $(document).on('input', '.simple-hotel-crm-container .calendar-note-input', function() {
             var $input = $(this);
             debounceSave('note:' + $input.data('note-date'), function() { saveDailyNote($input); });
         });
 
-        $(document).on('input', '.lgf-calendar-container .calendar-booking-input', function() {
+        $(document).on('input', '.simple-hotel-crm-container .calendar-booking-input', function() {
             setSavingState($(this), 'done');
         });
 
-        $(document).on('click', '.lgf-calendar-container .calendar-extras-display', function() {
+        $(document).on('click', '.simple-hotel-crm-container .calendar-extras-display', function() {
             var $editor = $(this).closest('.calendar-extras-editor');
             $editor.addClass('is-editing');
             $editor.find('.calendar-extras-input').trigger('focus').trigger('select');
         });
 
-        $(document).on('change blur', '.lgf-calendar-container .calendar-booking-input', function() {
+        $(document).on('change blur', '.simple-hotel-crm-container .calendar-booking-input', function() {
             var $input = $(this);
             var reservedRoomId = $input.data('reserved-room-id') || $input.closest('.calendar-occupancy-editor').data('reserved-room-id');
             debounceSave('booking:' + reservedRoomId, function() { saveBookingOverlay($input); });

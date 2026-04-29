@@ -34,7 +34,7 @@ $days = $calendar_data['days'];
     <tbody>
         <?php if ( empty( $rooms ) ) : ?>
             <tr>
-                <td colspan="<?php echo 1 + $days_in_month; ?>"><?php esc_html_e( 'No rooms found.', 'lgf-calendar-view' ); ?></td>
+                <td colspan="<?php echo 1 + $days_in_month; ?>"><?php esc_html_e( 'No rooms found.', 'simple-hotel-crm' ); ?></td>
             </tr>
         <?php else : ?>
             <?php foreach ( $rooms as $room ) :

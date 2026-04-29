@@ -1,4 +1,4 @@
-# LGF Calendar View Plugin
+# Simple Hotel CRM Plugin
 
 A WordPress plugin to display MotoPress Hotel Booking data, locally synced LGF database data, or direct PostgreSQL LGF data in a LibreOffice Calc-style spreadsheet layout.
 
@@ -35,7 +35,7 @@ A WordPress plugin to display MotoPress Hotel Booking data, locally synced LGF d
 
 ### Admin Integration
 - WordPress admin menu
-- Shortcode support via `[lgf_calendar_view]`
+- Shortcode support via `[simple_hotel_crm]`
 - Administrator-only access
 
 ## Requirements
@@ -47,26 +47,26 @@ A WordPress plugin to display MotoPress Hotel Booking data, locally synced LGF d
 
 ## Installation
 
-1. Upload the plugin files to the `/wp-content/plugins/lgf-calendar-view` directory, or install the plugin through the WordPress plugins screen directly.
+1. Upload the plugin files to the `/wp-content/plugins/simple-hotel-crm` directory, or install the plugin through the WordPress plugins screen directly.
 2. Activate the plugin through the 'Plugins' screen in WordPress.
 3. If using the MotoPress source, ensure MotoPress Hotel Booking is installed and active.
 4. If using the Local WordPress sync source, run `scripts/sync-lgf-db-to-wp.sh` to copy data from the LGF PostgreSQL database into the plugin's WordPress sync tables, then switch the booking source to **Local WordPress sync tables**.
-5. If using the direct LGF PostgreSQL source, open **LGF Calendar → Settings** and enter the PostgreSQL connection details for your `lgf_bookings` database, then switch the booking source to **External PostgreSQL**.
-6. Access the calendar via the **LGF Calendar** admin menu or use the shortcode `[lgf_calendar_view]` on any page or post.
-7. Optionally, pass attributes: `[lgf_calendar_view month="3" year="2026"]`
+5. If using the direct LGF PostgreSQL source, open **Simple Hotel CRM → Settings** and enter the PostgreSQL connection details for your `lgf_bookings` database, then switch the booking source to **External PostgreSQL**.
+6. Access the calendar via the **Simple Hotel CRM** admin menu or use the shortcode `[simple_hotel_crm]` on any page or post.
+7. Optionally, pass attributes: `[simple_hotel_crm month="3" year="2026"]`
 
 ### Invoice Ninja Setup
 
-1. Go to **LGF Calendar → Settings**.
+1. Go to **Simple Hotel CRM → Settings**.
 2. Enter your Invoice Ninja URL.
 3. Enter your API token.
 4. Save settings.
 
 ## Technical Notes
 
-- Creates `wp_lgf_calendar_daily_notes`, `wp_lgf_calendar_booking_overlays`, `wp_lgf_calendar_sync_rooms`, and `wp_lgf_calendar_sync_bookings`.
+- Creates `wp_simple_hotel_crm_daily_notes`, `wp_simple_hotel_crm_booking_overlays`, `wp_simple_hotel_crm_sync_rooms`, and `wp_simple_hotel_crm_sync_bookings`.
 - Caches calendar data with source-aware transient keys.
-- Supports theme override via `templates/booking-view.php` copied into `your-theme/lgf-calendar-view/`.
+- Supports theme override via `templates/booking-view.php` copied into `your-theme/simple-hotel-crm/`.
 - Local sync mode is the recommended production path for shared hosting.
 - External PostgreSQL mode expects the schema from `/home/angus/.pi/projects/lgf-database`.
 - All output is escaped for security.

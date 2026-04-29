@@ -7,18 +7,18 @@ $year = $calendar_data['year'];
 $days_in_month = $calendar_data['days_in_month'];
 $days = $calendar_data['days'];
 $daily_notes = $calendar_data['daily_notes'] ?? [];
-$summary = lgf_calendar_view_build_daily_summary( $calendar_data );
-$month_tabs = lgf_calendar_view_get_month_tabs( $month, $year );
+$summary = simple_hotel_crm_build_daily_summary( $calendar_data );
+$month_tabs = simple_hotel_crm_get_month_tabs( $month, $year );
 $calendar_base_url = $calendar_base_url ?? '';
 ?>
-<div class="lgf-calendar-container">
+<div class="simple-hotel-crm-container">
     <div class="calendar-month-tabs" role="tablist" aria-label="Calendar months">
         <?php foreach ( $month_tabs as $tab ) : ?>
             <a class="calendar-month-tab<?php echo $tab['current'] ? ' is-current' : ''; ?>" href="<?php echo esc_url( add_query_arg( [ 'month' => $tab['month'], 'year' => $tab['year'] ], $calendar_base_url ) ); ?>" data-month="<?php echo esc_attr( $tab['month'] ); ?>" data-year="<?php echo esc_attr( $tab['year'] ); ?>"><?php echo esc_html( $tab['label'] ); ?></a>
         <?php endforeach; ?>
     </div>
 
-    <div class="lgf-calendar-view">
+    <div class="simple-hotel-crm">
         <table class="wp-list-table widefat fixed striped calendar-grid">
             <thead>
                 <tr class="header-row month-row">
@@ -38,15 +38,15 @@ $calendar_base_url = $calendar_base_url ?? '';
             </thead>
             <tbody>
                 <tr class="notes-row">
-                    <td class="label sticky-col notes-label-cell"><span class="room-label-text"><?php esc_html_e( 'Notes', 'lgf-calendar-view' ); ?></span></td>
+                    <td class="label sticky-col notes-label-cell"><span class="room-label-text"><?php esc_html_e( 'Notes', 'simple-hotel-crm' ); ?></span></td>
                     <?php foreach ( $days as $day ) : $note_date = sprintf( '%04d-%02d-%02d', $year, $month, $day ); ?>
                         <td class="calendar-cell notes-cell">
-                            <input type="text" class="calendar-note-input" data-note-date="<?php echo esc_attr( $note_date ); ?>" value="<?php echo esc_attr( $daily_notes[ $note_date ] ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Note for %s', 'lgf-calendar-view' ), $note_date ) ); ?>" />
+                            <input type="text" class="calendar-note-input" data-note-date="<?php echo esc_attr( $note_date ); ?>" value="<?php echo esc_attr( $daily_notes[ $note_date ] ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Note for %s', 'simple-hotel-crm' ), $note_date ) ); ?>" />
                         </td>
                     <?php endforeach; ?>
                 </tr>
                 <?php if ( empty( $rooms ) ) : ?>
-                    <tr><td colspan="<?php echo esc_attr( 1 + $days_in_month ); ?>"><?php esc_html_e( 'No rooms found.', 'lgf-calendar-view' ); ?></td></tr>
+                    <tr><td colspan="<?php echo esc_attr( 1 + $days_in_month ); ?>"><?php esc_html_e( 'No rooms found.', 'simple-hotel-crm' ); ?></td></tr>
                 <?php else : ?>
                     <?php foreach ( $rooms as $index => $room ) :
                         $room_id = $room->id;
@@ -87,28 +87,28 @@ $calendar_base_url = $calendar_base_url ?? '';
                             ?>
                                 <td class="<?php echo esc_attr( implode( ' ', $cell_classes ) ); ?>" data-room-color="<?php echo esc_attr( $color ); ?>">
                                     <?php if ( $booking && 'room-name-row' === $row['class'] ) : ?>
-                                        <input type="text" class="calendar-booking-input calendar-booking-note-input room-header-note-input" data-field="booking_note" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( $booking->booking_note ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Booking note for room %1$s on %2$s', 'lgf-calendar-view' ), $room->title, $date_str ) ); ?>" />
+                                        <input type="text" class="calendar-booking-input calendar-booking-note-input room-header-note-input" data-field="booking_note" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( $booking->booking_note ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Booking note for room %1$s on %2$s', 'simple-hotel-crm' ), $room->title, $date_str ) ); ?>" />
                                     <?php elseif ( $booking && 'guest-row' === $row['class'] ) : ?>
-                                        <input type="text" class="calendar-booking-input" data-field="manual_guest_name" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( $booking->guest_name ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Guest name for room %1$s on %2$s', 'lgf-calendar-view' ), $room->title, $date_str ) ); ?>" />
+                                        <input type="text" class="calendar-booking-input" data-field="manual_guest_name" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( $booking->guest_name ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Guest name for room %1$s on %2$s', 'simple-hotel-crm' ), $room->title, $date_str ) ); ?>" />
                                     <?php elseif ( $booking && 'occupancy-row' === $row['class'] ) : ?>
                                         <div class="calendar-occupancy-editor" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>">
-                                            <input type="number" min="0" step="1" class="calendar-booking-input occupancy-part-input" data-field="manual_adults" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( (string) ( $booking->adults ?? '' ) ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Adults for room %1$s on %2$s', 'lgf-calendar-view' ), $room->title, $date_str ) ); ?>" />
+                                            <input type="number" min="0" step="1" class="calendar-booking-input occupancy-part-input" data-field="manual_adults" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( (string) ( $booking->adults ?? '' ) ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Adults for room %1$s on %2$s', 'simple-hotel-crm' ), $room->title, $date_str ) ); ?>" />
                                             <span class="occupancy-separator">A</span>
-                                            <input type="number" min="0" step="1" class="calendar-booking-input occupancy-part-input" data-field="manual_children" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( (string) ( $booking->children ?? '' ) ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Children for room %1$s on %2$s', 'lgf-calendar-view' ), $room->title, $date_str ) ); ?>" />
+                                            <input type="number" min="0" step="1" class="calendar-booking-input occupancy-part-input" data-field="manual_children" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( (string) ( $booking->children ?? '' ) ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Children for room %1$s on %2$s', 'simple-hotel-crm' ), $room->title, $date_str ) ); ?>" />
                                             <span class="occupancy-separator">C</span>
                                         </div>
                                     <?php elseif ( $booking && 'extras-row' === $row['class'] ) : ?>
                                         <div class="calendar-extras-editor">
                                             <span class="calendar-extras-display"><?php echo null !== $booking->extras_total && '' !== $booking->extras_total && (float) $booking->extras_total > 0 ? esc_html( number_format( (float) $booking->extras_total, 2, ',', ' ' ) . ' €' ) : ''; ?></span>
-                                            <input type="text" class="calendar-booking-input calendar-extras-input" data-field="extras_formula" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( $booking->extras_formula ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Extras formula for room %1$s on %2$s', 'lgf-calendar-view' ), $room->title, $date_str ) ); ?>" />
+                                            <input type="text" class="calendar-booking-input calendar-extras-input" data-field="extras_formula" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( $booking->extras_formula ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Extras formula for room %1$s on %2$s', 'simple-hotel-crm' ), $room->title, $date_str ) ); ?>" />
                                         </div>
                                     <?php elseif ( $booking && 'tarif-row' === $row['class'] ) : ?>
-                                        <input type="text" class="calendar-booking-input calendar-money-input" data-field="manual_tarif" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( isset( $booking->tarif ) && '' !== $booking->tarif ? number_format( (float) $booking->tarif, 2, '.', '' ) : '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Tarif for room %1$s on %2$s', 'lgf-calendar-view' ), $room->title, $date_str ) ); ?>" />
+                                        <input type="text" class="calendar-booking-input calendar-money-input" data-field="manual_tarif" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( isset( $booking->tarif ) && '' !== $booking->tarif ? number_format( (float) $booking->tarif, 2, '.', '' ) : '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Tarif for room %1$s on %2$s', 'simple-hotel-crm' ), $room->title, $date_str ) ); ?>" />
                                     <?php elseif ( $booking && 'commission-row' === $row['class'] ) : ?>
-                                        <input type="text" class="calendar-booking-input calendar-money-input" data-field="manual_commission" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( isset( $booking->commission ) && '' !== $booking->commission ? number_format( (float) $booking->commission, 2, '.', '' ) : '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Commission for room %1$s on %2$s', 'lgf-calendar-view' ), $room->title, $date_str ) ); ?>" />
+                                        <input type="text" class="calendar-booking-input calendar-money-input" data-field="manual_commission" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( isset( $booking->commission ) && '' !== $booking->commission ? number_format( (float) $booking->commission, 2, '.', '' ) : '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Commission for room %1$s on %2$s', 'simple-hotel-crm' ), $room->title, $date_str ) ); ?>" />
                                     <?php elseif ( $booking && 'invoice-row' === $row['class'] ) : ?>
                                         <button type="button" class="button button-small create-invoice-button" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>">
-                                            <?php esc_html_e( 'Create Invoice', 'lgf-calendar-view' ); ?>
+                                            <?php esc_html_e( 'Create Invoice', 'simple-hotel-crm' ); ?>
                                         </button>
                                     <?php else : ?>
                                         <?php echo esc_html( $display_value ); ?>

@@ -1,20 +1,20 @@
 <?php
 /**
- * Plugin Name: LGF Calendar View
- * Description: Displays Motopress Hotel Booking data in a LibreOffice Calc-style layout
- * Version: 1.4
+ * Plugin Name: Simple Hotel CRM
+ * Description: A simple WordPress-native hotel CRM with calendar and booking management tools
+ * Version: 1.6
  * Author: Angus Watson, Quinn (mistral/codestral) & Kylie (stepfun/step-3.5-flash:free)
- * Text Domain: lgf-calendar-view
+ * Text Domain: simple-hotel-crm
  */
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'LGF_CALENDAR_VIEW_VERSION', '1.6' );
-define( 'LGF_CALENDAR_VIEW_DB_VERSION', '4' );
+define( 'SIMPLE_HOTEL_CRM_VERSION', '1.6' );
+define( 'SIMPLE_HOTEL_CRM_DB_VERSION', '4' );
 
-add_action( 'plugins_loaded', 'lgf_calendar_view_check_dependency' );
-function lgf_calendar_view_check_dependency() {
-    if ( 'motopress' !== lgf_calendar_view_get_data_source() ) {
+add_action( 'plugins_loaded', 'simple_hotel_crm_check_dependency' );
+function simple_hotel_crm_check_dependency() {
+    if ( 'motopress' !== simple_hotel_crm_get_data_source() ) {
         return;
     }
 
@@ -22,7 +22,7 @@ function lgf_calendar_view_check_dependency() {
         add_action( 'admin_notices', function() {
             ?>
             <div class="notice notice-error">
-                <p><?php esc_html_e( 'LGF Calendar View requires MotoPress Hotel Booking when the MotoPress source is selected.', 'lgf-calendar-view' ); ?></p>
+                <p><?php esc_html_e( 'Simple Hotel CRM requires MotoPress Hotel Booking when the MotoPress source is selected.', 'simple-hotel-crm' ); ?></p>
             </div>
             <?php
         } );
@@ -30,30 +30,30 @@ function lgf_calendar_view_check_dependency() {
     }
 }
 
-register_activation_hook( __FILE__, 'lgf_calendar_view_activate' );
-add_action( 'plugins_loaded', 'lgf_calendar_view_maybe_upgrade' );
+register_activation_hook( __FILE__, 'simple_hotel_crm_activate' );
+add_action( 'plugins_loaded', 'simple_hotel_crm_maybe_upgrade' );
 
-function lgf_calendar_view_activate() {
-    lgf_calendar_view_install_tables();
+function simple_hotel_crm_activate() {
+    simple_hotel_crm_install_tables();
 }
 
-function lgf_calendar_view_maybe_upgrade() {
-    $installed_version = get_option( 'lgf_calendar_view_db_version' );
-    if ( LGF_CALENDAR_VIEW_DB_VERSION !== (string) $installed_version ) {
-        lgf_calendar_view_install_tables();
+function simple_hotel_crm_maybe_upgrade() {
+    $installed_version = get_option( 'simple_hotel_crm_db_version' );
+    if ( SIMPLE_HOTEL_CRM_DB_VERSION !== (string) $installed_version ) {
+        simple_hotel_crm_install_tables();
     }
 }
 
-function lgf_calendar_view_install_tables() {
+function simple_hotel_crm_install_tables() {
     global $wpdb;
 
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
     $charset_collate = $wpdb->get_charset_collate();
-    $daily_notes_table = lgf_calendar_view_daily_notes_table();
-    $overlay_table     = lgf_calendar_view_booking_overlay_table();
-    $sync_rooms_table  = lgf_calendar_view_sync_rooms_table();
-    $sync_bookings_table = lgf_calendar_view_sync_bookings_table();
+    $daily_notes_table = simple_hotel_crm_daily_notes_table();
+    $overlay_table     = simple_hotel_crm_booking_overlay_table();
+    $sync_rooms_table  = simple_hotel_crm_sync_rooms_table();
+    $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
 
     $sql_daily_notes = "CREATE TABLE {$daily_notes_table} (
         note_date date NOT NULL,
@@ -142,77 +142,77 @@ function lgf_calendar_view_install_tables() {
     dbDelta( $sql_sync_rooms );
     dbDelta( $sql_sync_bookings );
 
-    update_option( 'lgf_calendar_view_db_version', LGF_CALENDAR_VIEW_DB_VERSION );
+    update_option( 'simple_hotel_crm_db_version', SIMPLE_HOTEL_CRM_DB_VERSION );
 }
 
-function lgf_calendar_view_daily_notes_table() {
+function simple_hotel_crm_daily_notes_table() {
     global $wpdb;
-    return $wpdb->prefix . 'lgf_calendar_daily_notes';
+    return $wpdb->prefix . 'simple_hotel_crm_daily_notes';
 }
 
-function lgf_calendar_view_booking_overlay_table() {
+function simple_hotel_crm_booking_overlay_table() {
     global $wpdb;
-    return $wpdb->prefix . 'lgf_calendar_booking_overlays';
+    return $wpdb->prefix . 'simple_hotel_crm_booking_overlays';
 }
 
-function lgf_calendar_view_sync_rooms_table() {
+function simple_hotel_crm_sync_rooms_table() {
     global $wpdb;
-    return $wpdb->prefix . 'lgf_calendar_sync_rooms';
+    return $wpdb->prefix . 'simple_hotel_crm_sync_rooms';
 }
 
-function lgf_calendar_view_sync_bookings_table() {
+function simple_hotel_crm_sync_bookings_table() {
     global $wpdb;
-    return $wpdb->prefix . 'lgf_calendar_sync_bookings';
+    return $wpdb->prefix . 'simple_hotel_crm_sync_bookings';
 }
 
-function lgf_calendar_view_user_can_access() {
+function simple_hotel_crm_user_can_access() {
     return is_user_logged_in() && current_user_can( 'manage_options' );
 }
 
-function lgf_calendar_view_enqueue_shared_assets( $context = 'frontend' ) {
-    wp_register_style( 'lgf-calendar-view', plugin_dir_url( __FILE__ ) . 'assets/style.css', [], LGF_CALENDAR_VIEW_VERSION );
-    wp_enqueue_style( 'lgf-calendar-view' );
+function simple_hotel_crm_enqueue_shared_assets( $context = 'frontend' ) {
+    wp_register_style( 'simple-hotel-crm', plugin_dir_url( __FILE__ ) . 'assets/style.css', [], SIMPLE_HOTEL_CRM_VERSION );
+    wp_enqueue_style( 'simple-hotel-crm' );
 
-    wp_register_script( 'lgf-calendar-view', plugin_dir_url( __FILE__ ) . 'assets/calendar-navigation.js', [ 'jquery' ], LGF_CALENDAR_VIEW_VERSION, true );
-    wp_localize_script( 'lgf-calendar-view', 'lgfCalendar', [
-        'restUrl'        => esc_url_raw( rest_url( 'lgf-calendar/v1/table' ) ),
-        'dailyNotesUrl'  => esc_url_raw( rest_url( 'lgf-calendar/v1/daily-note' ) ),
-        'bookingUrl'     => esc_url_raw( rest_url( 'lgf-calendar/v1/booking-overlay' ) ),
+    wp_register_script( 'simple-hotel-crm', plugin_dir_url( __FILE__ ) . 'assets/calendar-navigation.js', [ 'jquery' ], SIMPLE_HOTEL_CRM_VERSION, true );
+    wp_localize_script( 'simple-hotel-crm', 'simpleHotelCrm', [
+        'restUrl'        => esc_url_raw( rest_url( 'simple-hotel-crm/v1/table' ) ),
+        'dailyNotesUrl'  => esc_url_raw( rest_url( 'simple-hotel-crm/v1/daily-note' ) ),
+        'bookingUrl'     => esc_url_raw( rest_url( 'simple-hotel-crm/v1/booking-overlay' ) ),
         'nonce'          => wp_create_nonce( 'wp_rest' ),
         'context'        => $context,
-        'adminPageUrl'   => admin_url( 'admin.php?page=lgf-calendar-view' ),
+        'adminPageUrl'   => admin_url( 'admin.php?page=simple-hotel-crm' ),
     ] );
-    wp_enqueue_script( 'lgf-calendar-view' );
+    wp_enqueue_script( 'simple-hotel-crm' );
 }
 
-add_action( 'wp_enqueue_scripts', 'lgf_calendar_view_enqueue_assets' );
-function lgf_calendar_view_enqueue_assets() {
-    if ( ! lgf_calendar_view_user_can_access() ) {
+add_action( 'wp_enqueue_scripts', 'simple_hotel_crm_enqueue_assets' );
+function simple_hotel_crm_enqueue_assets() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
         return;
     }
 
     $post = get_post();
-    if ( ! $post || ! has_shortcode( $post->post_content, 'lgf_calendar_view' ) ) {
+    if ( ! $post || ! has_shortcode( $post->post_content, 'simple_hotel_crm' ) ) {
         return;
     }
 
-    lgf_calendar_view_enqueue_shared_assets( 'frontend' );
+    simple_hotel_crm_enqueue_shared_assets( 'frontend' );
 }
 
-add_action( 'admin_enqueue_scripts', 'lgf_calendar_view_enqueue_admin_assets' );
-function lgf_calendar_view_enqueue_admin_assets( $hook_suffix ) {
-    if ( ! lgf_calendar_view_user_can_access() ) {
+add_action( 'admin_enqueue_scripts', 'simple_hotel_crm_enqueue_admin_assets' );
+function simple_hotel_crm_enqueue_admin_assets( $hook_suffix ) {
+    if ( ! simple_hotel_crm_user_can_access() ) {
         return;
     }
 
-    if ( 'toplevel_page_lgf-calendar-view' !== $hook_suffix ) {
+    if ( 'toplevel_page_simple-hotel-crm' !== $hook_suffix ) {
         return;
     }
 
-    lgf_calendar_view_enqueue_shared_assets( 'admin' );
+    simple_hotel_crm_enqueue_shared_assets( 'admin' );
 }
 
-function lgf_calendar_view_get_locked_booking_statuses() {
+function simple_hotel_crm_get_locked_booking_statuses() {
     if ( function_exists( 'MPHB' ) && method_exists( MPHB()->postTypes()->booking()->statuses(), 'getLockedRoomStatuses' ) ) {
         return MPHB()->postTypes()->booking()->statuses()->getLockedRoomStatuses();
     }
@@ -220,10 +220,10 @@ function lgf_calendar_view_get_locked_booking_statuses() {
     return [ 'confirmed', 'pending', 'pending-user', 'pending-payment' ];
 }
 
-function lgf_calendar_view_get_daily_notes_for_month( $year, $month ) {
+function simple_hotel_crm_get_daily_notes_for_month( $year, $month ) {
     global $wpdb;
 
-    $table = lgf_calendar_view_daily_notes_table();
+    $table = simple_hotel_crm_daily_notes_table();
     $start = sprintf( '%04d-%02d-01', $year, $month );
     $end   = gmdate( 'Y-m-t', strtotime( $start ) );
 
@@ -244,7 +244,7 @@ function lgf_calendar_view_get_daily_notes_for_month( $year, $month ) {
     return $notes;
 }
 
-function lgf_calendar_view_get_booking_overlay( $reserved_room_id ) {
+function simple_hotel_crm_get_booking_overlay( $reserved_room_id ) {
     static $cache = [];
 
     $reserved_room_id = (int) $reserved_room_id;
@@ -257,7 +257,7 @@ function lgf_calendar_view_get_booking_overlay( $reserved_room_id ) {
     }
 
     global $wpdb;
-    $table = lgf_calendar_view_booking_overlay_table();
+    $table = simple_hotel_crm_booking_overlay_table();
     $row   = $wpdb->get_row(
         $wpdb->prepare( "SELECT * FROM {$table} WHERE reserved_room_id = %d LIMIT 1", $reserved_room_id ),
         ARRAY_A
@@ -267,7 +267,7 @@ function lgf_calendar_view_get_booking_overlay( $reserved_room_id ) {
     return $cache[ $reserved_room_id ];
 }
 
-function lgf_calendar_view_format_occupancy( $adults, $children ) {
+function simple_hotel_crm_format_occupancy( $adults, $children ) {
     $adults   = max( 0, (int) $adults );
     $children = max( 0, (int) $children );
     $parts    = [];
@@ -285,7 +285,7 @@ function lgf_calendar_view_format_occupancy( $adults, $children ) {
     return implode( ' ', $parts );
 }
 
-function lgf_calendar_view_normalize_decimal( $value ) {
+function simple_hotel_crm_normalize_decimal( $value ) {
     if ( '' === $value || null === $value ) {
         return null;
     }
@@ -296,7 +296,7 @@ function lgf_calendar_view_normalize_decimal( $value ) {
     return is_numeric( $value ) ? round( (float) $value, 2 ) : null;
 }
 
-function lgf_calendar_view_evaluate_extras_formula( $formula ) {
+function simple_hotel_crm_evaluate_extras_formula( $formula ) {
     $formula = trim( (string) $formula );
     if ( '' === $formula ) {
         return [ 'formula' => '', 'total' => null, 'valid' => true ];
@@ -328,7 +328,7 @@ function lgf_calendar_view_evaluate_extras_formula( $formula ) {
     ];
 }
 
-function lgf_calendar_view_extract_tarif_from_room_breakdown( $room_breakdown ) {
+function simple_hotel_crm_extract_tarif_from_room_breakdown( $room_breakdown ) {
     if ( ! is_array( $room_breakdown ) ) {
         return '';
     }
@@ -349,18 +349,18 @@ function lgf_calendar_view_extract_tarif_from_room_breakdown( $room_breakdown ) 
     return '';
 }
 
-function lgf_calendar_view_extract_tarif( $booking, $reserved_room ) {
+function simple_hotel_crm_extract_tarif( $booking, $reserved_room ) {
     $tarif = '';
 
     if ( $reserved_room && method_exists( $reserved_room, 'getLastRoomPriceBreakdown' ) ) {
-        $tarif = lgf_calendar_view_extract_tarif_from_room_breakdown( $reserved_room->getLastRoomPriceBreakdown() );
+        $tarif = simple_hotel_crm_extract_tarif_from_room_breakdown( $reserved_room->getLastRoomPriceBreakdown() );
         if ( '' !== $tarif ) {
             return $tarif;
         }
     }
 
     if ( class_exists( '\MPHB\Utils\PriceBreakdownHelper' ) && method_exists( '\MPHB\Utils\PriceBreakdownHelper', 'getLastRoomPriceBreakdown' ) ) {
-        $tarif = lgf_calendar_view_extract_tarif_from_room_breakdown( \MPHB\Utils\PriceBreakdownHelper::getLastRoomPriceBreakdown( $reserved_room ) );
+        $tarif = simple_hotel_crm_extract_tarif_from_room_breakdown( \MPHB\Utils\PriceBreakdownHelper::getLastRoomPriceBreakdown( $reserved_room ) );
         if ( '' !== $tarif ) {
             return $tarif;
         }
@@ -409,7 +409,7 @@ function lgf_calendar_view_extract_tarif( $booking, $reserved_room ) {
 
         foreach ( $breakdown['rooms'] as $room_line ) {
             if ( isset( $room_line['reserved_room_id'] ) && (int) $room_line['reserved_room_id'] === $reserved_room_id ) {
-                $tarif = lgf_calendar_view_extract_tarif_from_room_breakdown( $room_line );
+                $tarif = simple_hotel_crm_extract_tarif_from_room_breakdown( $room_line );
                 if ( '' !== $tarif ) {
                     return $tarif;
                 }
@@ -418,7 +418,7 @@ function lgf_calendar_view_extract_tarif( $booking, $reserved_room ) {
 
         foreach ( $breakdown['rooms'] as $room_line ) {
             if ( isset( $room_line['room_id'] ) && (int) $room_line['room_id'] === $room_id ) {
-                $tarif = lgf_calendar_view_extract_tarif_from_room_breakdown( $room_line );
+                $tarif = simple_hotel_crm_extract_tarif_from_room_breakdown( $room_line );
                 if ( '' !== $tarif ) {
                     return $tarif;
                 }
@@ -427,7 +427,7 @@ function lgf_calendar_view_extract_tarif( $booking, $reserved_room ) {
 
         if ( 1 === count( $breakdown['rooms'] ) ) {
             $room_line = reset( $breakdown['rooms'] );
-            $tarif = lgf_calendar_view_extract_tarif_from_room_breakdown( $room_line );
+            $tarif = simple_hotel_crm_extract_tarif_from_room_breakdown( $room_line );
             if ( '' !== $tarif ) {
                 return $tarif;
             }
@@ -444,7 +444,7 @@ function lgf_calendar_view_extract_tarif( $booking, $reserved_room ) {
     return '';
 }
 
-function lgf_calendar_view_build_booking_payload( $booking, $reserved_room ) {
+function simple_hotel_crm_build_booking_payload( $booking, $reserved_room ) {
     $customer = method_exists( $booking, 'getCustomer' ) ? $booking->getCustomer() : null;
 
     $guest_name = '';
@@ -465,11 +465,11 @@ function lgf_calendar_view_build_booking_payload( $booking, $reserved_room ) {
 
     $tarif = '';
     if ( ! $is_imported ) {
-        $tarif = lgf_calendar_view_extract_tarif( $booking, $reserved_room );
+        $tarif = simple_hotel_crm_extract_tarif( $booking, $reserved_room );
     }
 
     $reserved_room_id = $reserved_room && method_exists( $reserved_room, 'getId' ) ? (int) $reserved_room->getId() : 0;
-    $overlay          = lgf_calendar_view_get_booking_overlay( $reserved_room_id );
+    $overlay          = simple_hotel_crm_get_booking_overlay( $reserved_room_id );
     $overlay_adults   = isset( $overlay['manual_adults'] ) && '' !== $overlay['manual_adults'] ? (int) $overlay['manual_adults'] : null;
     $overlay_children = isset( $overlay['manual_children'] ) && '' !== $overlay['manual_children'] ? (int) $overlay['manual_children'] : null;
     $effective_adults = null !== $overlay_adults ? $overlay_adults : $adults;
@@ -503,7 +503,7 @@ function lgf_calendar_view_build_booking_payload( $booking, $reserved_room ) {
         'phone'             => $customer && method_exists( $customer, 'getPhone' ) ? (string) $customer->getPhone() : '',
         'adults'            => $effective_adults,
         'children'          => $effective_children,
-        'occupancy_str'     => lgf_calendar_view_format_occupancy( $effective_adults, $effective_children ),
+        'occupancy_str'     => simple_hotel_crm_format_occupancy( $effective_adults, $effective_children ),
         'channel'           => trim( ( $is_imported ? 'I' : 'W' ) . ( $created_date ? ' ' . $created_date : '' ) ),
         'channel_label'     => $is_imported ? 'Imported' : 'Website',
         'created_date'      => $created_date,
@@ -516,23 +516,23 @@ function lgf_calendar_view_build_booking_payload( $booking, $reserved_room ) {
     ];
 }
 
-function lgf_calendar_view_get_data_source() {
-    $source = get_option( 'lgf_calendar_booking_source', 'motopress' );
+function simple_hotel_crm_get_data_source() {
+    $source = get_option( 'simple_hotel_crm_booking_source', 'motopress' );
     return in_array( $source, [ 'motopress', 'wp_sync', 'external_pg' ], true ) ? $source : 'motopress';
 }
 
-function lgf_calendar_view_get_external_db_settings() {
+function simple_hotel_crm_get_external_db_settings() {
     return [
-        'host'     => (string) get_option( 'lgf_calendar_external_pg_host', '' ),
-        'port'     => (string) get_option( 'lgf_calendar_external_pg_port', '5432' ),
-        'dbname'   => (string) get_option( 'lgf_calendar_external_pg_dbname', '' ),
-        'user'     => (string) get_option( 'lgf_calendar_external_pg_user', '' ),
-        'password' => (string) get_option( 'lgf_calendar_external_pg_password', '' ),
-        'sslmode'  => (string) get_option( 'lgf_calendar_external_pg_sslmode', 'disable' ),
+        'host'     => (string) get_option( 'simple_hotel_crm_external_pg_host', '' ),
+        'port'     => (string) get_option( 'simple_hotel_crm_external_pg_port', '5432' ),
+        'dbname'   => (string) get_option( 'simple_hotel_crm_external_pg_dbname', '' ),
+        'user'     => (string) get_option( 'simple_hotel_crm_external_pg_user', '' ),
+        'password' => (string) get_option( 'simple_hotel_crm_external_pg_password', '' ),
+        'sslmode'  => (string) get_option( 'simple_hotel_crm_external_pg_sslmode', 'disable' ),
     ];
 }
 
-function lgf_calendar_view_get_external_pg_connection() {
+function simple_hotel_crm_get_external_pg_connection() {
     static $connection = null;
     static $attempted = false;
 
@@ -543,14 +543,14 @@ function lgf_calendar_view_get_external_pg_connection() {
     $attempted = true;
 
     if ( ! function_exists( 'pg_connect' ) ) {
-        $connection = new WP_Error( 'missing_pgsql_extension', __( 'The pgsql PHP extension is not available on this WordPress server.', 'lgf-calendar-view' ) );
+        $connection = new WP_Error( 'missing_pgsql_extension', __( 'The pgsql PHP extension is not available on this WordPress server.', 'simple-hotel-crm' ) );
         return $connection;
     }
 
-    $settings = lgf_calendar_view_get_external_db_settings();
+    $settings = simple_hotel_crm_get_external_db_settings();
     foreach ( [ 'host', 'port', 'dbname', 'user' ] as $required_key ) {
         if ( '' === $settings[ $required_key ] ) {
-            $connection = new WP_Error( 'missing_pg_settings', __( 'External PostgreSQL settings are incomplete.', 'lgf-calendar-view' ) );
+            $connection = new WP_Error( 'missing_pg_settings', __( 'External PostgreSQL settings are incomplete.', 'simple-hotel-crm' ) );
             return $connection;
         }
     }
@@ -567,13 +567,13 @@ function lgf_calendar_view_get_external_pg_connection() {
 
     $connection = @pg_connect( $connection_string );
     if ( ! $connection ) {
-        $connection = new WP_Error( 'pg_connect_failed', __( 'Could not connect to the external PostgreSQL database.', 'lgf-calendar-view' ) );
+        $connection = new WP_Error( 'pg_connect_failed', __( 'Could not connect to the external PostgreSQL database.', 'simple-hotel-crm' ) );
     }
 
     return $connection;
 }
 
-function lgf_calendar_view_get_room_colors() {
+function simple_hotel_crm_get_room_colors() {
     return [
         'ANE' => '#cc99ff',
         'DEL' => '#b4c7e7',
@@ -584,7 +584,7 @@ function lgf_calendar_view_get_room_colors() {
     ];
 }
 
-function lgf_calendar_view_get_room_sort_order( $room_code, $room_name ) {
+function simple_hotel_crm_get_room_sort_order( $room_code, $room_name ) {
     $room_code = strtoupper( (string) $room_code );
     $map = [ 'ANE' => 1, 'DEL' => 2, 'LYS' => 3, 'TOU' => 4, 'TUL' => 5, 'COQ' => 6 ];
 
@@ -597,7 +597,7 @@ function lgf_calendar_view_get_room_sort_order( $room_code, $room_name ) {
     return $name_map[ $room_name ] ?? 999;
 }
 
-function lgf_calendar_view_format_channel_code( $source_channel, $created_date = '' ) {
+function simple_hotel_crm_format_channel_code( $source_channel, $created_date = '' ) {
     $source_channel = (string) $source_channel;
     $created_date   = (string) $created_date;
 
@@ -619,7 +619,7 @@ function lgf_calendar_view_format_channel_code( $source_channel, $created_date =
     return trim( $prefix . ( $created_date ? ' ' . $created_date : '' ) );
 }
 
-function lgf_calendar_view_get_empty_calendar_result( $month, $year, $days_in_month = 0 ) {
+function simple_hotel_crm_get_empty_calendar_result( $month, $year, $days_in_month = 0 ) {
     return [
         'rooms'         => [],
         'matrix'        => [],
@@ -627,11 +627,11 @@ function lgf_calendar_view_get_empty_calendar_result( $month, $year, $days_in_mo
         'year'          => $year,
         'days_in_month' => $days_in_month,
         'days'          => $days_in_month > 0 ? range( 1, $days_in_month ) : [],
-        'daily_notes'   => $days_in_month > 0 ? lgf_calendar_view_get_daily_notes_for_month( $year, $month ) : [],
+        'daily_notes'   => $days_in_month > 0 ? simple_hotel_crm_get_daily_notes_for_month( $year, $month ) : [],
     ];
 }
 
-function lgf_calendar_view_get_wp_sync_calendar_data( $month, $year ) {
+function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
     global $wpdb;
 
     $first_day = new DateTime( sprintf( '%04d-%02d-01', $year, $month ) );
@@ -642,14 +642,14 @@ function lgf_calendar_view_get_wp_sync_calendar_data( $month, $year ) {
     $first_day_str = $first_day->format( 'Y-m-d' );
     $month_after_last_day_str = $last_day->modify( '+1 day' )->format( 'Y-m-d' );
 
-    $rooms_table = lgf_calendar_view_sync_rooms_table();
-    $bookings_table = lgf_calendar_view_sync_bookings_table();
+    $rooms_table = simple_hotel_crm_sync_rooms_table();
+    $bookings_table = simple_hotel_crm_sync_bookings_table();
 
     $rooms_rows = $wpdb->get_results( "SELECT id, external_room_id, room_code, room_name, sort_order FROM {$rooms_table} WHERE active = 1 ORDER BY sort_order ASC, room_name ASC", ARRAY_A );
 
     $rooms = [];
     $matrix = [];
-    $room_colors = lgf_calendar_view_get_room_colors();
+    $room_colors = simple_hotel_crm_get_room_colors();
     foreach ( $rooms_rows as $index => $room_row ) {
         $room_code = (string) $room_row['room_code'];
         $room = (object) [
@@ -664,7 +664,7 @@ function lgf_calendar_view_get_wp_sync_calendar_data( $month, $year ) {
     }
 
     if ( empty( $rooms ) ) {
-        return lgf_calendar_view_get_empty_calendar_result( $month, $year, $days_in_month );
+        return simple_hotel_crm_get_empty_calendar_result( $month, $year, $days_in_month );
     }
 
     $booking_rows = $wpdb->get_results(
@@ -683,7 +683,7 @@ function lgf_calendar_view_get_wp_sync_calendar_data( $month, $year ) {
         }
 
         $reserved_room_id = (int) $row['external_booking_room_id'];
-        $overlay = lgf_calendar_view_get_booking_overlay( $reserved_room_id );
+        $overlay = simple_hotel_crm_get_booking_overlay( $reserved_room_id );
         $adults = isset( $overlay['manual_adults'] ) && '' !== $overlay['manual_adults'] ? (int) $overlay['manual_adults'] : (int) $row['adults'];
         $children = isset( $overlay['manual_children'] ) && '' !== $overlay['manual_children'] ? (int) $overlay['manual_children'] : (int) $row['children'];
         $guest_name = isset( $overlay['manual_guest_name'] ) && '' !== trim( (string) $overlay['manual_guest_name'] ) ? trim( (string) $overlay['manual_guest_name'] ) : (string) $row['guest_name'];
@@ -709,8 +709,8 @@ function lgf_calendar_view_get_wp_sync_calendar_data( $month, $year ) {
             'babies' => isset( $row['babies'] ) ? (int) $row['babies'] : 0,
             'adults' => $adults,
             'children' => $children,
-            'occupancy_str' => lgf_calendar_view_format_occupancy( $adults, $children ),
-            'channel' => lgf_calendar_view_format_channel_code( (string) $row['source_channel'], ! empty( $row['source_created_at'] ) ? substr( (string) $row['source_created_at'], 0, 10 ) : '' ),
+            'occupancy_str' => simple_hotel_crm_format_occupancy( $adults, $children ),
+            'channel' => simple_hotel_crm_format_channel_code( (string) $row['source_channel'], ! empty( $row['source_created_at'] ) ? substr( (string) $row['source_created_at'], 0, 10 ) : '' ),
             'channel_label' => (string) ( $row['channel_label'] ?: $row['source_channel'] ),
             'created_date' => ! empty( $row['source_created_at'] ) ? substr( (string) $row['source_created_at'], 0, 10 ) : '',
             'is_imported' => 'motopress' !== (string) $row['source_channel'],
@@ -749,11 +749,11 @@ function lgf_calendar_view_get_wp_sync_calendar_data( $month, $year ) {
         'year' => $year,
         'days_in_month' => $days_in_month,
         'days' => range( 1, $days_in_month ),
-        'daily_notes' => lgf_calendar_view_get_daily_notes_for_month( $year, $month ),
+        'daily_notes' => simple_hotel_crm_get_daily_notes_for_month( $year, $month ),
     ];
 }
 
-function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
+function simple_hotel_crm_get_external_calendar_data( $month, $year ) {
     $first_day = new DateTime( sprintf( '%04d-%02d-01', $year, $month ) );
     $days_in_month = (int) $first_day->format( 't' );
     $last_day = clone $first_day;
@@ -762,21 +762,21 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
     $first_day_str = $first_day->format( 'Y-m-d' );
     $month_after_last_day_str = $last_day->modify( '+1 day' )->format( 'Y-m-d' );
 
-    $connection = lgf_calendar_view_get_external_pg_connection();
+    $connection = simple_hotel_crm_get_external_pg_connection();
     if ( is_wp_error( $connection ) ) {
         add_action( 'admin_notices', function() use ( $connection ) {
             echo '<div class="notice notice-error"><p>' . esc_html( $connection->get_error_message() ) . '</p></div>';
         } );
-        return lgf_calendar_view_get_empty_calendar_result( $month, $year, $days_in_month );
+        return simple_hotel_crm_get_empty_calendar_result( $month, $year, $days_in_month );
     }
 
     $rooms_result = pg_query( $connection, "SELECT id, code, name FROM rooms WHERE active = true ORDER BY code" );
     if ( ! $rooms_result ) {
-        return lgf_calendar_view_get_empty_calendar_result( $month, $year, $days_in_month );
+        return simple_hotel_crm_get_empty_calendar_result( $month, $year, $days_in_month );
     }
 
     $rooms = [];
-    $room_colors = lgf_calendar_view_get_room_colors();
+    $room_colors = simple_hotel_crm_get_room_colors();
     $matrix = [];
 
     while ( $room_row = pg_fetch_assoc( $rooms_result ) ) {
@@ -785,7 +785,7 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
             'id'    => (int) $room_row['id'],
             'title' => (string) $room_row['name'],
             'code'  => $room_code,
-            'sort_order' => lgf_calendar_view_get_room_sort_order( $room_code, $room_row['name'] ),
+            'sort_order' => simple_hotel_crm_get_room_sort_order( $room_code, $room_row['name'] ),
             'color' => $room_colors[ strtoupper( $room_code ) ] ?? '#cccccc',
         ];
         $rooms[] = $room;
@@ -797,7 +797,7 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
     } );
 
     if ( empty( $rooms ) ) {
-        return lgf_calendar_view_get_empty_calendar_result( $month, $year, $days_in_month );
+        return simple_hotel_crm_get_empty_calendar_result( $month, $year, $days_in_month );
     }
 
     $bookings_sql = "
@@ -858,7 +858,7 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
 
     $bookings_result = pg_query_params( $connection, $bookings_sql, [ $first_day_str, $month_after_last_day_str ] );
     if ( ! $bookings_result ) {
-        return lgf_calendar_view_get_empty_calendar_result( $month, $year, $days_in_month );
+        return simple_hotel_crm_get_empty_calendar_result( $month, $year, $days_in_month );
     }
 
     while ( $row = pg_fetch_assoc( $bookings_result ) ) {
@@ -868,7 +868,7 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
         }
 
         $reserved_room_id = (int) $row['booking_room_id'];
-        $overlay = lgf_calendar_view_get_booking_overlay( $reserved_room_id );
+        $overlay = simple_hotel_crm_get_booking_overlay( $reserved_room_id );
         $adults = isset( $overlay['manual_adults'] ) && '' !== $overlay['manual_adults'] ? (int) $overlay['manual_adults'] : (int) $row['night_adults'];
         $children = isset( $overlay['manual_children'] ) && '' !== $overlay['manual_children'] ? (int) $overlay['manual_children'] : (int) $row['night_children'];
         $guest_name = trim( (string) $row['first_name'] . ' ' . (string) $row['last_name'] );
@@ -898,8 +898,8 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
             'babies'                  => isset( $row['night_babies'] ) ? (int) $row['night_babies'] : 0,
             'adults'                  => $adults,
             'children'                => $children,
-            'occupancy_str'           => lgf_calendar_view_format_occupancy( $adults, $children ),
-            'channel'                 => lgf_calendar_view_format_channel_code( (string) $row['source_channel'], substr( (string) $row['created_at'], 0, 10 ) ),
+            'occupancy_str'           => simple_hotel_crm_format_occupancy( $adults, $children ),
+            'channel'                 => simple_hotel_crm_format_channel_code( (string) $row['source_channel'], substr( (string) $row['created_at'], 0, 10 ) ),
             'channel_label'           => (string) ( $row['channel_label'] ?: $row['source_channel'] ),
             'created_date'            => substr( (string) $row['created_at'], 0, 10 ),
             'is_imported'             => 'motopress' !== (string) $row['source_channel'],
@@ -941,13 +941,13 @@ function lgf_calendar_view_get_external_calendar_data( $month, $year ) {
         'year'          => $year,
         'days_in_month' => $days_in_month,
         'days'          => range( 1, $days_in_month ),
-        'daily_notes'   => lgf_calendar_view_get_daily_notes_for_month( $year, $month ),
+        'daily_notes'   => simple_hotel_crm_get_daily_notes_for_month( $year, $month ),
     ];
 }
 
-function lgf_calendar_view_get_motopress_calendar_data( $month, $year ) {
+function simple_hotel_crm_get_motopress_calendar_data( $month, $year ) {
     if ( ! function_exists( 'MPHB' ) || ! function_exists( 'mphb_rooms_facade' ) ) {
-        return lgf_calendar_view_get_empty_calendar_result( $month, $year );
+        return simple_hotel_crm_get_empty_calendar_result( $month, $year );
     }
 
     $first_day = new DateTime( sprintf( '%04d-%02d-01', $year, $month ) );
@@ -996,7 +996,7 @@ function lgf_calendar_view_get_motopress_calendar_data( $month, $year ) {
         return (object) [ 'id' => (int) $room_id, 'title' => $title ];
     }, $room_ids );
 
-    $room_colors = lgf_calendar_view_get_room_colors();
+    $room_colors = simple_hotel_crm_get_room_colors();
     foreach ( $rooms as $idx => $room ) {
         $room_code = '';
         if ( isset( $room->code ) ) {
@@ -1005,7 +1005,7 @@ function lgf_calendar_view_get_motopress_calendar_data( $month, $year ) {
             $title_map = [ 'Anémone' => 'ANE', 'Delphinium' => 'DEL', 'Lys' => 'LYS', 'Tournesol' => 'TOU', 'Tulipe' => 'TUL', 'Coquelicot' => 'COQ' ];
             $room_code = $title_map[ $room->title ] ?? '';
         }
-        $rooms[ $idx ]->sort_order = lgf_calendar_view_get_room_sort_order( $room_code, $room->title );
+        $rooms[ $idx ]->sort_order = simple_hotel_crm_get_room_sort_order( $room_code, $room->title );
         $rooms[ $idx ]->color = $room_colors[ strtoupper( $room_code ) ] ?? '#cccccc';
     }
 
@@ -1014,7 +1014,7 @@ function lgf_calendar_view_get_motopress_calendar_data( $month, $year ) {
     } );
 
     if ( empty( $rooms ) ) {
-        return lgf_calendar_view_get_empty_calendar_result( $month, $year, $days_in_month );
+        return simple_hotel_crm_get_empty_calendar_result( $month, $year, $days_in_month );
     }
 
     $matrix = [];
@@ -1027,7 +1027,7 @@ function lgf_calendar_view_get_motopress_calendar_data( $month, $year ) {
         $last_day_str,
         [
             'room_locked' => true,
-            'post_status' => lgf_calendar_view_get_locked_booking_statuses(),
+            'post_status' => simple_hotel_crm_get_locked_booking_statuses(),
             'orderby'     => 'date',
             'order'       => 'ASC',
         ]
@@ -1056,7 +1056,7 @@ function lgf_calendar_view_get_motopress_calendar_data( $month, $year ) {
                 continue;
             }
 
-            $booking_payload = lgf_calendar_view_build_booking_payload( $booking, $reserved_room );
+            $booking_payload = simple_hotel_crm_build_booking_payload( $booking, $reserved_room );
 
             for ( $date = clone $check_in; $date < $check_out; $date->modify( '+1 day' ) ) {
                 $date_str = $date->format( 'Y-m-d' );
@@ -1092,34 +1092,34 @@ function lgf_calendar_view_get_motopress_calendar_data( $month, $year ) {
         'year'          => $year,
         'days_in_month' => $days_in_month,
         'days'          => range( 1, $days_in_month ),
-        'daily_notes'   => lgf_calendar_view_get_daily_notes_for_month( $year, $month ),
+        'daily_notes'   => simple_hotel_crm_get_daily_notes_for_month( $year, $month ),
     ];
 }
 
-function lgf_calendar_view_get_calendar_data( $month = null, $year = null ) {
+function simple_hotel_crm_get_calendar_data( $month = null, $year = null ) {
     $month = $month ?: date( 'n' );
     $year  = $year ?: date( 'Y' );
 
-    $transient_key = 'lgf_calendar_' . lgf_calendar_view_get_data_source() . '_' . $year . '_' . $month;
+    $transient_key = 'simple_hotel_crm_' . simple_hotel_crm_get_data_source() . '_' . $year . '_' . $month;
     $cached = get_transient( $transient_key );
     if ( false !== $cached ) {
         return $cached;
     }
 
-    $source = lgf_calendar_view_get_data_source();
+    $source = simple_hotel_crm_get_data_source();
     if ( 'external_pg' === $source ) {
-        $result = lgf_calendar_view_get_external_calendar_data( $month, $year );
+        $result = simple_hotel_crm_get_external_calendar_data( $month, $year );
     } elseif ( 'wp_sync' === $source ) {
-        $result = lgf_calendar_view_get_wp_sync_calendar_data( $month, $year );
+        $result = simple_hotel_crm_get_wp_sync_calendar_data( $month, $year );
     } else {
-        $result = lgf_calendar_view_get_motopress_calendar_data( $month, $year );
+        $result = simple_hotel_crm_get_motopress_calendar_data( $month, $year );
     }
 
     set_transient( $transient_key, $result, 30 * MINUTE_IN_SECONDS );
     return $result;
 }
 
-function lgf_calendar_view_get_month_tabs( $month, $year ) {
+function simple_hotel_crm_get_month_tabs( $month, $year ) {
     $tabs = [];
     for ( $month_index = 1; $month_index <= 12; $month_index++ ) {
         $date = new DateTime( sprintf( '%04d-%02d-01', $year, $month_index ) );
@@ -1133,7 +1133,7 @@ function lgf_calendar_view_get_month_tabs( $month, $year ) {
     return $tabs;
 }
 
-function lgf_calendar_view_build_daily_summary( $calendar_data ) {
+function simple_hotel_crm_build_daily_summary( $calendar_data ) {
     $summary = [];
 
     foreach ( $calendar_data['days'] as $day ) {
@@ -1186,37 +1186,37 @@ function lgf_calendar_view_build_daily_summary( $calendar_data ) {
     return $summary;
 }
 
-add_action( 'admin_menu', 'lgf_calendar_view_register_admin_menu' );
-function lgf_calendar_view_register_admin_menu() {
-    if ( ! lgf_calendar_view_user_can_access() ) {
+add_action( 'admin_menu', 'simple_hotel_crm_register_admin_menu' );
+function simple_hotel_crm_register_admin_menu() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
         return;
     }
 
-    add_menu_page( __( 'LGF Calendar View', 'lgf-calendar-view' ), __( 'LGF Calendar', 'lgf-calendar-view' ), 'manage_options', 'lgf-calendar-view', 'lgf_calendar_view_render_admin_page', 'dashicons-calendar-alt', 58 );
-    add_submenu_page( 'lgf-calendar-view', __( 'Add Booking', 'lgf-calendar-view' ), __( 'Add Booking', 'lgf-calendar-view' ), 'manage_options', 'lgf-calendar-add-booking', 'lgf_calendar_view_render_add_booking_page' );
-    add_submenu_page( 'lgf-calendar-view', __( 'Invoice Ninja Settings', 'lgf-calendar-view' ), __( 'Settings', 'lgf-calendar-view' ), 'manage_options', 'lgf-calendar-settings', 'lgf_calendar_view_render_settings_page' );
+    add_menu_page( __( 'Simple Hotel CRM', 'simple-hotel-crm' ), __( 'Simple Hotel CRM', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm', 'simple_hotel_crm_render_admin_page', 'dashicons-calendar-alt', 58 );
+    add_submenu_page( 'simple-hotel-crm', __( 'Add Booking', 'simple-hotel-crm' ), __( 'Add Booking', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-add-booking', 'simple_hotel_crm_render_add_booking_page' );
+    add_submenu_page( 'simple-hotel-crm', __( 'Invoice Ninja Settings', 'simple-hotel-crm' ), __( 'Settings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-settings', 'simple_hotel_crm_render_settings_page' );
 }
 
-function lgf_calendar_view_render_admin_page() {
-    if ( ! lgf_calendar_view_user_can_access() ) {
-        wp_die( esc_html__( 'You do not have permission to access this page.', 'lgf-calendar-view' ) );
+function simple_hotel_crm_render_admin_page() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
 
     $month = isset( $_GET['month'] ) ? intval( $_GET['month'] ) : intval( date( 'n' ) );
     $year  = isset( $_GET['year'] ) ? intval( $_GET['year'] ) : intval( date( 'Y' ) );
-    $calendar_data = lgf_calendar_view_get_calendar_data( $month, $year );
+    $calendar_data = simple_hotel_crm_get_calendar_data( $month, $year );
 
     echo '<div class="wrap">';
     if ( isset( $_GET['created_booking'] ) ) {
-        echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Booking %d created.', 'lgf-calendar-view' ), absint( $_GET['created_booking'] ) ) ) . '</p></div>';
+        echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Booking %d created.', 'simple-hotel-crm' ), absint( $_GET['created_booking'] ) ) ) . '</p></div>';
     }
-    echo lgf_calendar_view_render_calendar( $calendar_data, 'admin' );
+    echo simple_hotel_crm_render_calendar( $calendar_data, 'admin' );
     echo '</div>';
 }
 
-function lgf_calendar_view_render_add_booking_page() {
-    if ( ! lgf_calendar_view_user_can_access() ) {
-        wp_die( esc_html__( 'You do not have permission to access this page.', 'lgf-calendar-view' ) );
+function simple_hotel_crm_render_add_booking_page() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
 
     $error_message = '';
@@ -1234,15 +1234,15 @@ function lgf_calendar_view_render_add_booking_page() {
     $form_data = array_merge( $defaults, wp_unslash( $_POST ) );
 
     if ( isset( $_POST['lgf_add_booking_submit'] ) ) {
-        check_admin_referer( 'lgf_calendar_add_booking', 'lgf_calendar_add_booking_nonce' );
-        $result = lgf_calendar_view_create_booking( $form_data );
+        check_admin_referer( 'simple_hotel_crm_add_booking', 'simple_hotel_crm_add_booking_nonce' );
+        $result = simple_hotel_crm_create_booking( $form_data );
         if ( is_wp_error( $result ) ) {
             $error_message = $result->get_error_message();
         } else {
             $check_in_ts = strtotime( (string) $form_data['check_in'] );
             $redirect_url = add_query_arg(
                 [
-                    'page' => 'lgf-calendar-view',
+                    'page' => 'simple-hotel-crm',
                     'month' => $check_in_ts ? (int) gmdate( 'n', $check_in_ts ) : (int) gmdate( 'n' ),
                     'year' => $check_in_ts ? (int) gmdate( 'Y', $check_in_ts ) : (int) gmdate( 'Y' ),
                     'created_booking' => (int) $result['booking_id'],
@@ -1250,7 +1250,7 @@ function lgf_calendar_view_render_add_booking_page() {
                 admin_url( 'admin.php' )
             );
             echo '<script>window.location.href=' . wp_json_encode( $redirect_url ) . ';</script>';
-            echo '<p><a href="' . esc_url( $redirect_url ) . '">' . esc_html__( 'Continue to calendar', 'lgf-calendar-view' ) . '</a></p>';
+            echo '<p><a href="' . esc_url( $redirect_url ) . '">' . esc_html__( 'Continue to calendar', 'simple-hotel-crm' ) . '</a></p>';
             return;
         }
     }
@@ -1262,17 +1262,17 @@ function lgf_calendar_view_render_add_booking_page() {
         $form_data['check_out'] = $check_out_value;
     }
 
-    $rooms = lgf_calendar_view_get_room_options( $check_in_value, $check_out_value );
+    $rooms = simple_hotel_crm_get_room_options( $check_in_value, $check_out_value );
     if ( is_wp_error( $rooms ) ) {
         $error_message = $rooms->get_error_message();
         $rooms = [];
     }
-    $channels = lgf_calendar_view_get_booking_channel_options();
-    $statuses = lgf_calendar_view_get_booking_status_options();
+    $channels = simple_hotel_crm_get_booking_channel_options();
+    $statuses = simple_hotel_crm_get_booking_status_options();
     $dates_ready = preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_in_value ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_out_value ) && $check_out_value > $check_in_value;
 
     echo '<div class="wrap">';
-    echo '<h1>' . esc_html__( 'Add Booking', 'lgf-calendar-view' ) . '</h1>';
+    echo '<h1>' . esc_html__( 'Add Booking', 'simple-hotel-crm' ) . '</h1>';
     if ( $error_message ) {
         echo '<div class="notice notice-error"><p>' . esc_html( $error_message ) . '</p></div>';
     }
@@ -1280,22 +1280,22 @@ function lgf_calendar_view_render_add_booking_page() {
         $form_data['room_lines'][] = [ 'room_sync_id' => '', 'adults' => 2, 'children' => 0, 'babies' => 0, 'room_rate_amount' => '0.00', 'extras_amount' => '0.00' ];
     }
 
-    echo '<p>' . esc_html__( 'Choose dates first, then add one or more available rooms for the same booking.', 'lgf-calendar-view' ) . '</p>';
+    echo '<p>' . esc_html__( 'Choose dates first, then add one or more available rooms for the same booking.', 'simple-hotel-crm' ) . '</p>';
     echo '<form method="post">';
-    wp_nonce_field( 'lgf_calendar_add_booking', 'lgf_calendar_add_booking_nonce' );
+    wp_nonce_field( 'simple_hotel_crm_add_booking', 'simple_hotel_crm_add_booking_nonce' );
     echo '<table class="form-table">';
-    echo '<tr><th><label for="guest_name">' . esc_html__( 'Guest name', 'lgf-calendar-view' ) . '</label></th><td><input required type="text" name="guest_name" id="guest_name" class="regular-text" value="' . esc_attr( (string) $form_data['guest_name'] ) . '" /></td></tr>';
-    echo '<tr><th><label for="phone">' . esc_html__( 'Phone', 'lgf-calendar-view' ) . '</label></th><td><input type="text" name="phone" id="phone" class="regular-text" value="' . esc_attr( (string) $form_data['phone'] ) . '" /></td></tr>';
-    echo '<tr><th><label for="check_in">' . esc_html__( 'Check-in', 'lgf-calendar-view' ) . '</label></th><td><input required type="date" name="check_in" id="check_in" value="' . esc_attr( $check_in_value ) . '" onchange="var o=document.getElementById(\'check_out\');if(this.value&&o&&(!o.value||o.value<=this.value)){var d=new Date(this.value+\'T00:00:00\');d.setDate(d.getDate()+1);o.value=d.toISOString().slice(0,10);} this.form.submit();" /></td></tr>';
-    echo '<tr><th><label for="check_out">' . esc_html__( 'Check-out', 'lgf-calendar-view' ) . '</label></th><td><input required type="date" name="check_out" id="check_out" value="' . esc_attr( $check_out_value ) . '" onchange="this.form.submit();" /></td></tr>';
-    echo '<tr><th scope="row">' . esc_html__( 'Rooms', 'lgf-calendar-view' ) . '</th><td>';
+    echo '<tr><th><label for="guest_name">' . esc_html__( 'Guest name', 'simple-hotel-crm' ) . '</label></th><td><input required type="text" name="guest_name" id="guest_name" class="regular-text" value="' . esc_attr( (string) $form_data['guest_name'] ) . '" /></td></tr>';
+    echo '<tr><th><label for="phone">' . esc_html__( 'Phone', 'simple-hotel-crm' ) . '</label></th><td><input type="text" name="phone" id="phone" class="regular-text" value="' . esc_attr( (string) $form_data['phone'] ) . '" /></td></tr>';
+    echo '<tr><th><label for="check_in">' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</label></th><td><input required type="date" name="check_in" id="check_in" value="' . esc_attr( $check_in_value ) . '" onchange="var o=document.getElementById(\'check_out\');if(this.value&&o&&(!o.value||o.value<=this.value)){var d=new Date(this.value+\'T00:00:00\');d.setDate(d.getDate()+1);o.value=d.toISOString().slice(0,10);} this.form.submit();" /></td></tr>';
+    echo '<tr><th><label for="check_out">' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</label></th><td><input required type="date" name="check_out" id="check_out" value="' . esc_attr( $check_out_value ) . '" onchange="this.form.submit();" /></td></tr>';
+    echo '<tr><th scope="row">' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</th><td>';
     $room_numbers = [ 'ANE' => 1, 'DEL' => 2, 'LYS' => 3, 'TOU' => 4, 'TUL' => 5, 'COQ' => 0 ];
     $selected_room_ids = [];
     foreach ( (array) $form_data['room_lines'] as $line_index => $line ) {
         echo '<fieldset style="margin:0 0 16px 0;padding:12px;border:1px solid #ccd0d4;">';
-        echo '<legend><strong>' . esc_html( sprintf( __( 'Room %d', 'lgf-calendar-view' ), $line_index + 1 ) ) . '</strong></legend>';
-        echo '<p><label>' . esc_html__( 'Room', 'lgf-calendar-view' ) . ' <select name="room_lines[' . esc_attr( $line_index ) . '][room_sync_id]" ' . ( $dates_ready ? '' : 'disabled' ) . ' required>';
-        echo '<option value="">' . esc_html__( $dates_ready ? 'Select an available room' : 'Choose dates first', 'lgf-calendar-view' ) . '</option>';
+        echo '<legend><strong>' . esc_html( sprintf( __( 'Room %d', 'simple-hotel-crm' ), $line_index + 1 ) ) . '</strong></legend>';
+        echo '<p><label>' . esc_html__( 'Room', 'simple-hotel-crm' ) . ' <select name="room_lines[' . esc_attr( $line_index ) . '][room_sync_id]" ' . ( $dates_ready ? '' : 'disabled' ) . ' required>';
+        echo '<option value="">' . esc_html__( $dates_ready ? 'Select an available room' : 'Choose dates first', 'simple-hotel-crm' ) . '</option>';
         foreach ( $rooms as $room ) {
             $room_id_value = (string) $room['id'];
             $is_selected_elsewhere = in_array( $room_id_value, $selected_room_ids, true );
@@ -1309,32 +1309,32 @@ function lgf_calendar_view_render_add_booking_page() {
         }
         echo '</select></label></p>';
         $selected_room_ids[] = (string) ( $line['room_sync_id'] ?? '' );
-        echo '<p><label>' . esc_html__( 'Adults', 'lgf-calendar-view' ) . ' <input type="number" min="0" name="room_lines[' . esc_attr( $line_index ) . '][adults]" value="' . esc_attr( (string) ( $line['adults'] ?? 0 ) ) . '" /></label> ';
-        echo '<label>' . esc_html__( 'Children', 'lgf-calendar-view' ) . ' <input type="number" min="0" name="room_lines[' . esc_attr( $line_index ) . '][children]" value="' . esc_attr( (string) ( $line['children'] ?? 0 ) ) . '" /></label> ';
-        echo '<label>' . esc_html__( 'Babies', 'lgf-calendar-view' ) . ' <input type="number" min="0" name="room_lines[' . esc_attr( $line_index ) . '][babies]" value="' . esc_attr( (string) ( $line['babies'] ?? 0 ) ) . '" /></label></p>';
-        echo '<p><label>' . esc_html__( 'Room rate total', 'lgf-calendar-view' ) . ' <input type="text" name="room_lines[' . esc_attr( $line_index ) . '][room_rate_amount]" value="' . esc_attr( (string) ( $line['room_rate_amount'] ?? '0.00' ) ) . '" /></label> ';
-        echo '<label>' . esc_html__( 'Extras total', 'lgf-calendar-view' ) . ' <input type="text" name="room_lines[' . esc_attr( $line_index ) . '][extras_amount]" value="' . esc_attr( (string) ( $line['extras_amount'] ?? '0.00' ) ) . '" /></label></p>';
+        echo '<p><label>' . esc_html__( 'Adults', 'simple-hotel-crm' ) . ' <input type="number" min="0" name="room_lines[' . esc_attr( $line_index ) . '][adults]" value="' . esc_attr( (string) ( $line['adults'] ?? 0 ) ) . '" /></label> ';
+        echo '<label>' . esc_html__( 'Children', 'simple-hotel-crm' ) . ' <input type="number" min="0" name="room_lines[' . esc_attr( $line_index ) . '][children]" value="' . esc_attr( (string) ( $line['children'] ?? 0 ) ) . '" /></label> ';
+        echo '<label>' . esc_html__( 'Babies', 'simple-hotel-crm' ) . ' <input type="number" min="0" name="room_lines[' . esc_attr( $line_index ) . '][babies]" value="' . esc_attr( (string) ( $line['babies'] ?? 0 ) ) . '" /></label></p>';
+        echo '<p><label>' . esc_html__( 'Room rate total', 'simple-hotel-crm' ) . ' <input type="text" name="room_lines[' . esc_attr( $line_index ) . '][room_rate_amount]" value="' . esc_attr( (string) ( $line['room_rate_amount'] ?? '0.00' ) ) . '" /></label> ';
+        echo '<label>' . esc_html__( 'Extras total', 'simple-hotel-crm' ) . ' <input type="text" name="room_lines[' . esc_attr( $line_index ) . '][extras_amount]" value="' . esc_attr( (string) ( $line['extras_amount'] ?? '0.00' ) ) . '" /></label></p>';
         echo '</fieldset>';
     }
     if ( $dates_ready && empty( $rooms ) ) {
-        echo '<p class="description">' . esc_html__( 'No rooms are available for those dates.', 'lgf-calendar-view' ) . '</p>';
+        echo '<p class="description">' . esc_html__( 'No rooms are available for those dates.', 'simple-hotel-crm' ) . '</p>';
     }
-    submit_button( __( 'Add another room', 'lgf-calendar-view' ), 'secondary', 'lgf_add_room_line', false );
+    submit_button( __( 'Add another room', 'simple-hotel-crm' ), 'secondary', 'lgf_add_room_line', false );
     echo '</td></tr>';
-    echo '<tr><th><label for="source_channel">' . esc_html__( 'Channel', 'lgf-calendar-view' ) . '</label></th><td><select name="source_channel" id="source_channel">';
+    echo '<tr><th><label for="source_channel">' . esc_html__( 'Channel', 'simple-hotel-crm' ) . '</label></th><td><select name="source_channel" id="source_channel">';
     foreach ( $channels as $code => $label ) {
         echo '<option value="' . esc_attr( $code ) . '"' . selected( (string) $form_data['source_channel'], $code, false ) . '>' . esc_html( $label ) . '</option>';
     }
     echo '</select></td></tr>';
-    echo '<tr><th><label for="status_code">' . esc_html__( 'Status', 'lgf-calendar-view' ) . '</label></th><td><select name="status_code" id="status_code">';
+    echo '<tr><th><label for="status_code">' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</label></th><td><select name="status_code" id="status_code">';
     foreach ( $statuses as $code => $label ) {
         echo '<option value="' . esc_attr( $code ) . '"' . selected( (string) $form_data['status_code'], $code, false ) . '>' . esc_html( $label ) . '</option>';
     }
     echo '</select></td></tr>';
-    echo '<tr><th><label for="contacted_date">' . esc_html__( 'Contacted date', 'lgf-calendar-view' ) . '</label></th><td><input type="date" name="contacted_date" id="contacted_date" value="' . esc_attr( (string) $form_data['contacted_date'] ) . '" /></td></tr>';
-    echo '<tr><th><label for="import_notes">' . esc_html__( 'Import / internal notes', 'lgf-calendar-view' ) . '</label></th><td><textarea name="import_notes" id="import_notes" rows="4" class="large-text">' . esc_textarea( (string) $form_data['import_notes'] ) . '</textarea></td></tr>';
+    echo '<tr><th><label for="contacted_date">' . esc_html__( 'Contacted date', 'simple-hotel-crm' ) . '</label></th><td><input type="date" name="contacted_date" id="contacted_date" value="' . esc_attr( (string) $form_data['contacted_date'] ) . '" /></td></tr>';
+    echo '<tr><th><label for="import_notes">' . esc_html__( 'Import / internal notes', 'simple-hotel-crm' ) . '</label></th><td><textarea name="import_notes" id="import_notes" rows="4" class="large-text">' . esc_textarea( (string) $form_data['import_notes'] ) . '</textarea></td></tr>';
     echo '</table>';
-    submit_button( __( 'Create Booking', 'lgf-calendar-view' ), 'primary', 'lgf_add_booking_submit' );
+    submit_button( __( 'Create Booking', 'simple-hotel-crm' ), 'primary', 'lgf_add_booking_submit' );
     echo '</form>';
     echo '</div>';
 }
@@ -1342,118 +1342,122 @@ function lgf_calendar_view_render_add_booking_page() {
 /**
  * Render Invoice Ninja settings page.
  */
-function lgf_calendar_view_render_settings_page() {
-    if ( ! lgf_calendar_view_user_can_access() ) {
-        wp_die( esc_html__( 'You do not have permission to access this page.', 'lgf-calendar-view' ) );
+function simple_hotel_crm_render_settings_page() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
 
-    if ( isset( $_POST['lgf_calendar_submit'] ) ) {
-        check_admin_referer( 'lgf_calendar_settings', 'lgf_calendar_settings_nonce' );
+    if ( isset( $_POST['simple_hotel_crm_submit'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
 
-        $api_url = isset( $_POST['lgf_calendar_invoice_ninja_url'] ) ? esc_url_raw( trim( wp_unslash( $_POST['lgf_calendar_invoice_ninja_url'] ) ) ) : '';
-        $api_token = isset( $_POST['lgf_calendar_invoice_ninja_token'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['lgf_calendar_invoice_ninja_token'] ) ) ) : '';
-        $booking_source = isset( $_POST['lgf_calendar_booking_source'] ) ? sanitize_text_field( wp_unslash( $_POST['lgf_calendar_booking_source'] ) ) : 'motopress';
+        $api_url = isset( $_POST['simple_hotel_crm_invoice_ninja_url'] ) ? esc_url_raw( trim( wp_unslash( $_POST['simple_hotel_crm_invoice_ninja_url'] ) ) ) : '';
+        $api_token = isset( $_POST['simple_hotel_crm_invoice_ninja_token'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_invoice_ninja_token'] ) ) ) : '';
+        $booking_source = isset( $_POST['simple_hotel_crm_booking_source'] ) ? sanitize_text_field( wp_unslash( $_POST['simple_hotel_crm_booking_source'] ) ) : 'motopress';
         $booking_source = in_array( $booking_source, [ 'motopress', 'wp_sync', 'external_pg' ], true ) ? $booking_source : 'motopress';
 
-        update_option( 'lgf_calendar_invoice_ninja_url', $api_url );
-        update_option( 'lgf_calendar_invoice_ninja_token', $api_token );
-        update_option( 'lgf_calendar_booking_source', $booking_source );
-        update_option( 'lgf_calendar_external_pg_host', isset( $_POST['lgf_calendar_external_pg_host'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['lgf_calendar_external_pg_host'] ) ) ) : '' );
-        update_option( 'lgf_calendar_external_pg_port', isset( $_POST['lgf_calendar_external_pg_port'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['lgf_calendar_external_pg_port'] ) ) ) : '5432' );
-        update_option( 'lgf_calendar_external_pg_dbname', isset( $_POST['lgf_calendar_external_pg_dbname'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['lgf_calendar_external_pg_dbname'] ) ) ) : '' );
-        update_option( 'lgf_calendar_external_pg_user', isset( $_POST['lgf_calendar_external_pg_user'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['lgf_calendar_external_pg_user'] ) ) ) : '' );
-        update_option( 'lgf_calendar_external_pg_password', isset( $_POST['lgf_calendar_external_pg_password'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['lgf_calendar_external_pg_password'] ) ) ) : '' );
-        update_option( 'lgf_calendar_external_pg_sslmode', isset( $_POST['lgf_calendar_external_pg_sslmode'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['lgf_calendar_external_pg_sslmode'] ) ) ) : 'disable' );
+        update_option( 'simple_hotel_crm_invoice_ninja_url', $api_url );
+        update_option( 'simple_hotel_crm_invoice_ninja_token', $api_token );
+        update_option( 'simple_hotel_crm_booking_source', $booking_source );
+        update_option( 'simple_hotel_crm_external_pg_host', isset( $_POST['simple_hotel_crm_external_pg_host'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_external_pg_host'] ) ) ) : '' );
+        update_option( 'simple_hotel_crm_external_pg_port', isset( $_POST['simple_hotel_crm_external_pg_port'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_external_pg_port'] ) ) ) : '5432' );
+        update_option( 'simple_hotel_crm_external_pg_dbname', isset( $_POST['simple_hotel_crm_external_pg_dbname'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_external_pg_dbname'] ) ) ) : '' );
+        update_option( 'simple_hotel_crm_external_pg_user', isset( $_POST['simple_hotel_crm_external_pg_user'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_external_pg_user'] ) ) ) : '' );
+        update_option( 'simple_hotel_crm_external_pg_password', isset( $_POST['simple_hotel_crm_external_pg_password'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_external_pg_password'] ) ) ) : '' );
+        update_option( 'simple_hotel_crm_external_pg_sslmode', isset( $_POST['simple_hotel_crm_external_pg_sslmode'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_external_pg_sslmode'] ) ) ) : 'disable' );
 
-        lgf_calendar_view_clear_calendar_cache();
-        echo '<div class="notice notice-success"><p>' . esc_html__( 'Settings saved.', 'lgf-calendar-view' ) . '</p></div>';
+        simple_hotel_crm_clear_calendar_cache();
+        echo '<div class="notice notice-success"><p>' . esc_html__( 'Settings saved.', 'simple-hotel-crm' ) . '</p></div>';
     }
 
-    $api_url = get_option( 'lgf_calendar_invoice_ninja_url', '' );
-    $api_token = get_option( 'lgf_calendar_invoice_ninja_token', '' );
-    $booking_source = lgf_calendar_view_get_data_source();
-    $external_db = lgf_calendar_view_get_external_db_settings();
+    $api_url = get_option( 'simple_hotel_crm_invoice_ninja_url', '' );
+    $api_token = get_option( 'simple_hotel_crm_invoice_ninja_token', '' );
+    $booking_source = simple_hotel_crm_get_data_source();
+    $external_db = simple_hotel_crm_get_external_db_settings();
 
     echo '<div class="wrap">';
-    echo '<h1>' . esc_html__( 'LGF Calendar Settings', 'lgf-calendar-view' ) . '</h1>';
+    echo '<h1>' . esc_html__( 'Simple Hotel CRM Settings', 'simple-hotel-crm' ) . '</h1>';
     echo '<form method="post">';
-    wp_nonce_field( 'lgf_calendar_settings', 'lgf_calendar_settings_nonce' );
-    echo '<h2>' . esc_html__( 'Booking Source', 'lgf-calendar-view' ) . '</h2>';
+    wp_nonce_field( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
+    echo '<h2>' . esc_html__( 'Booking Source', 'simple-hotel-crm' ) . '</h2>';
     echo '<table class="form-table">';
-    echo '<tr><th scope="row"><label for="lgf_calendar_booking_source">' . esc_html__( 'Booking data source', 'lgf-calendar-view' ) . '</label></th>';
-    echo '<td><select id="lgf_calendar_booking_source" name="lgf_calendar_booking_source">';
-    echo '<option value="motopress"' . selected( $booking_source, 'motopress', false ) . '>' . esc_html__( 'MotoPress / WordPress', 'lgf-calendar-view' ) . '</option>';
-    echo '<option value="wp_sync"' . selected( $booking_source, 'wp_sync', false ) . '>' . esc_html__( 'Local WordPress sync tables', 'lgf-calendar-view' ) . '</option>';
-    echo '<option value="external_pg"' . selected( $booking_source, 'external_pg', false ) . '>' . esc_html__( 'External PostgreSQL (LGF database)', 'lgf-calendar-view' ) . '</option>';
-    echo '</select><p class="description">' . esc_html__( 'Use local WordPress sync tables for production-friendly hosting, or external PostgreSQL for direct local development/testing.', 'lgf-calendar-view' ) . '</p></td></tr>';
+    echo '<tr><th scope="row"><label for="simple_hotel_crm_booking_source">' . esc_html__( 'Booking data source', 'simple-hotel-crm' ) . '</label></th>';
+    echo '<td><select id="simple_hotel_crm_booking_source" name="simple_hotel_crm_booking_source">';
+    echo '<option value="motopress"' . selected( $booking_source, 'motopress', false ) . '>' . esc_html__( 'MotoPress / WordPress', 'simple-hotel-crm' ) . '</option>';
+    echo '<option value="wp_sync"' . selected( $booking_source, 'wp_sync', false ) . '>' . esc_html__( 'Local WordPress sync tables', 'simple-hotel-crm' ) . '</option>';
+    echo '<option value="external_pg"' . selected( $booking_source, 'external_pg', false ) . '>' . esc_html__( 'External PostgreSQL (LGF database)', 'simple-hotel-crm' ) . '</option>';
+    echo '</select><p class="description">' . esc_html__( 'Use local WordPress sync tables for production-friendly hosting, or external PostgreSQL for direct local development/testing.', 'simple-hotel-crm' ) . '</p></td></tr>';
     echo '</table>';
 
-    echo '<h2>' . esc_html__( 'Local Sync', 'lgf-calendar-view' ) . '</h2>';
-    echo '<p>' . esc_html__( 'To use Local WordPress sync tables, run the sync script from this project to copy rooms and bookings from the LGF PostgreSQL database into WordPress MySQL. Then select "Local WordPress sync tables" above.', 'lgf-calendar-view' ) . '</p>';
+    echo '<h2>' . esc_html__( 'Local Sync', 'simple-hotel-crm' ) . '</h2>';
+    echo '<p>' . esc_html__( 'To use Local WordPress sync tables, run the sync script from this project to copy rooms and bookings from the LGF PostgreSQL database into WordPress MySQL. Then select "Local WordPress sync tables" above.', 'simple-hotel-crm' ) . '</p>';
 
-    echo '<h2>' . esc_html__( 'External PostgreSQL', 'lgf-calendar-view' ) . '</h2>';
+    echo '<h2>' . esc_html__( 'External PostgreSQL', 'simple-hotel-crm' ) . '</h2>';
     echo '<table class="form-table">';
-    echo '<tr><th scope="row"><label for="lgf_calendar_external_pg_host">' . esc_html__( 'Host', 'lgf-calendar-view' ) . '</label></th><td><input type="text" id="lgf_calendar_external_pg_host" name="lgf_calendar_external_pg_host" value="' . esc_attr( $external_db['host'] ) . '" class="regular-text" placeholder="127.0.0.1 or postgres" /></td></tr>';
-    echo '<tr><th scope="row"><label for="lgf_calendar_external_pg_port">' . esc_html__( 'Port', 'lgf-calendar-view' ) . '</label></th><td><input type="text" id="lgf_calendar_external_pg_port" name="lgf_calendar_external_pg_port" value="' . esc_attr( $external_db['port'] ) . '" class="small-text" placeholder="5432" /></td></tr>';
-    echo '<tr><th scope="row"><label for="lgf_calendar_external_pg_dbname">' . esc_html__( 'Database name', 'lgf-calendar-view' ) . '</label></th><td><input type="text" id="lgf_calendar_external_pg_dbname" name="lgf_calendar_external_pg_dbname" value="' . esc_attr( $external_db['dbname'] ) . '" class="regular-text" placeholder="lgf_bookings" /></td></tr>';
-    echo '<tr><th scope="row"><label for="lgf_calendar_external_pg_user">' . esc_html__( 'User', 'lgf-calendar-view' ) . '</label></th><td><input type="text" id="lgf_calendar_external_pg_user" name="lgf_calendar_external_pg_user" value="' . esc_attr( $external_db['user'] ) . '" class="regular-text" placeholder="lgf" /></td></tr>';
-    echo '<tr><th scope="row"><label for="lgf_calendar_external_pg_password">' . esc_html__( 'Password', 'lgf-calendar-view' ) . '</label></th><td><input type="password" id="lgf_calendar_external_pg_password" name="lgf_calendar_external_pg_password" value="' . esc_attr( $external_db['password'] ) . '" class="regular-text" /></td></tr>';
-    echo '<tr><th scope="row"><label for="lgf_calendar_external_pg_sslmode">' . esc_html__( 'SSL mode', 'lgf-calendar-view' ) . '</label></th><td><select id="lgf_calendar_external_pg_sslmode" name="lgf_calendar_external_pg_sslmode">';
+    echo '<tr><th scope="row"><label for="simple_hotel_crm_external_pg_host">' . esc_html__( 'Host', 'simple-hotel-crm' ) . '</label></th><td><input type="text" id="simple_hotel_crm_external_pg_host" name="simple_hotel_crm_external_pg_host" value="' . esc_attr( $external_db['host'] ) . '" class="regular-text" placeholder="127.0.0.1 or postgres" /></td></tr>';
+    echo '<tr><th scope="row"><label for="simple_hotel_crm_external_pg_port">' . esc_html__( 'Port', 'simple-hotel-crm' ) . '</label></th><td><input type="text" id="simple_hotel_crm_external_pg_port" name="simple_hotel_crm_external_pg_port" value="' . esc_attr( $external_db['port'] ) . '" class="small-text" placeholder="5432" /></td></tr>';
+    echo '<tr><th scope="row"><label for="simple_hotel_crm_external_pg_dbname">' . esc_html__( 'Database name', 'simple-hotel-crm' ) . '</label></th><td><input type="text" id="simple_hotel_crm_external_pg_dbname" name="simple_hotel_crm_external_pg_dbname" value="' . esc_attr( $external_db['dbname'] ) . '" class="regular-text" placeholder="lgf_bookings" /></td></tr>';
+    echo '<tr><th scope="row"><label for="simple_hotel_crm_external_pg_user">' . esc_html__( 'User', 'simple-hotel-crm' ) . '</label></th><td><input type="text" id="simple_hotel_crm_external_pg_user" name="simple_hotel_crm_external_pg_user" value="' . esc_attr( $external_db['user'] ) . '" class="regular-text" placeholder="lgf" /></td></tr>';
+    echo '<tr><th scope="row"><label for="simple_hotel_crm_external_pg_password">' . esc_html__( 'Password', 'simple-hotel-crm' ) . '</label></th><td><input type="password" id="simple_hotel_crm_external_pg_password" name="simple_hotel_crm_external_pg_password" value="' . esc_attr( $external_db['password'] ) . '" class="regular-text" /></td></tr>';
+    echo '<tr><th scope="row"><label for="simple_hotel_crm_external_pg_sslmode">' . esc_html__( 'SSL mode', 'simple-hotel-crm' ) . '</label></th><td><select id="simple_hotel_crm_external_pg_sslmode" name="simple_hotel_crm_external_pg_sslmode">';
     foreach ( [ 'disable', 'prefer', 'require' ] as $sslmode ) {
         echo '<option value="' . esc_attr( $sslmode ) . '"' . selected( $external_db['sslmode'], $sslmode, false ) . '>' . esc_html( $sslmode ) . '</option>';
     }
     echo '</select></td></tr>';
     echo '</table>';
 
-    echo '<h2>' . esc_html__( 'Invoice Ninja', 'lgf-calendar-view' ) . '</h2>';
+    echo '<h2>' . esc_html__( 'Invoice Ninja', 'simple-hotel-crm' ) . '</h2>';
     echo '<table class="form-table">';
-    echo '<tr><th scope="row"><label for="lgf_calendar_invoice_ninja_url">' . esc_html__( 'Invoice Ninja URL', 'lgf-calendar-view' ) . '</label></th>';
-    echo '<td><input type="url" id="lgf_calendar_invoice_ninja_url" name="lgf_calendar_invoice_ninja_url" value="' . esc_attr( $api_url ) . '" class="regular-text" placeholder="https://your-invoice-ninja.com" /></td></tr>';
-    echo '<tr><th scope="row"><label for="lgf_calendar_invoice_ninja_token">' . esc_html__( 'API Token', 'lgf-calendar-view' ) . '</label></th>';
-    echo '<td><input type="password" id="lgf_calendar_invoice_ninja_token" name="lgf_calendar_invoice_ninja_token" value="' . esc_attr( $api_token ) . '" class="regular-text" /></td></tr>';
+    echo '<tr><th scope="row"><label for="simple_hotel_crm_invoice_ninja_url">' . esc_html__( 'Invoice Ninja URL', 'simple-hotel-crm' ) . '</label></th>';
+    echo '<td><input type="url" id="simple_hotel_crm_invoice_ninja_url" name="simple_hotel_crm_invoice_ninja_url" value="' . esc_attr( $api_url ) . '" class="regular-text" placeholder="https://your-invoice-ninja.com" /></td></tr>';
+    echo '<tr><th scope="row"><label for="simple_hotel_crm_invoice_ninja_token">' . esc_html__( 'API Token', 'simple-hotel-crm' ) . '</label></th>';
+    echo '<td><input type="password" id="simple_hotel_crm_invoice_ninja_token" name="simple_hotel_crm_invoice_ninja_token" value="' . esc_attr( $api_token ) . '" class="regular-text" /></td></tr>';
     echo '</table>';
-    submit_button( __( 'Save Settings', 'lgf-calendar-view' ), 'primary', 'lgf_calendar_submit' );
+    submit_button( __( 'Save Settings', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_submit' );
     echo '</form>';
     echo '</div>';
 }
 
-add_shortcode( 'lgf_calendar_view', 'lgf_calendar_view_shortcode' );
-function lgf_calendar_view_render_calendar( $calendar_data, $context = 'frontend' ) {
-    $template = locate_template( 'lgf-calendar-view/booking-view.php' );
+add_shortcode( 'simple_hotel_crm', 'simple_hotel_crm_shortcode' );
+add_shortcode( 'lgf_calendar_view', 'simple_hotel_crm_shortcode' );
+function simple_hotel_crm_render_calendar( $calendar_data, $context = 'frontend' ) {
+    $template = locate_template( 'simple-hotel-crm/booking-view.php' );
+    if ( ! $template ) {
+        $template = locate_template( 'lgf-calendar-view/booking-view.php' );
+    }
     if ( ! $template ) {
         $template = plugin_dir_path( __FILE__ ) . 'templates/booking-view.php';
     }
 
     $calendar_context = $context;
-    $calendar_base_url = 'admin' === $context ? admin_url( 'admin.php?page=lgf-calendar-view' ) : get_permalink();
+    $calendar_base_url = 'admin' === $context ? admin_url( 'admin.php?page=simple-hotel-crm' ) : get_permalink();
 
     ob_start();
     include $template;
     return ob_get_clean();
 }
 
-function lgf_calendar_view_shortcode( $atts ) {
-    if ( ! lgf_calendar_view_user_can_access() ) {
+function simple_hotel_crm_shortcode( $atts ) {
+    if ( ! simple_hotel_crm_user_can_access() ) {
         return '';
     }
 
-    $atts = shortcode_atts( [ 'month' => date( 'n' ), 'year' => date( 'Y' ) ], $atts, 'lgf_calendar_view' );
+    $atts = shortcode_atts( [ 'month' => date( 'n' ), 'year' => date( 'Y' ) ], $atts, 'simple_hotel_crm' );
     $month = intval( $atts['month'] );
     $year  = intval( $atts['year'] );
-    $calendar_data = lgf_calendar_view_get_calendar_data( $month, $year );
+    $calendar_data = simple_hotel_crm_get_calendar_data( $month, $year );
 
-    return lgf_calendar_view_render_calendar( $calendar_data, 'frontend' );
+    return simple_hotel_crm_render_calendar( $calendar_data, 'frontend' );
 }
 
-function lgf_calendar_view_clear_calendar_cache() {
+function simple_hotel_crm_clear_calendar_cache() {
     global $wpdb;
-    $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_lgf_calendar_%' OR option_name LIKE '_transient_timeout_lgf_calendar_%'" );
+    $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_simple_hotel_crm_%' OR option_name LIKE '_transient_timeout_simple_hotel_crm_%'" );
 }
 
-function lgf_calendar_view_get_sync_room_options( $check_in = '', $check_out = '' ) {
+function simple_hotel_crm_get_sync_room_options( $check_in = '', $check_out = '' ) {
     global $wpdb;
-    $rooms_table = lgf_calendar_view_sync_rooms_table();
-    $bookings_table = lgf_calendar_view_sync_bookings_table();
+    $rooms_table = simple_hotel_crm_sync_rooms_table();
+    $bookings_table = simple_hotel_crm_sync_bookings_table();
 
     if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_in ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_out ) && $check_out > $check_in ) {
         return $wpdb->get_results(
@@ -1479,8 +1483,8 @@ function lgf_calendar_view_get_sync_room_options( $check_in = '', $check_out = '
     return $wpdb->get_results( "SELECT id, external_room_id, room_code, room_name FROM {$rooms_table} WHERE active = 1 ORDER BY sort_order ASC, room_name ASC", ARRAY_A );
 }
 
-function lgf_calendar_view_get_external_room_options( $check_in = '', $check_out = '' ) {
-    $connection = lgf_calendar_view_get_external_pg_connection();
+function simple_hotel_crm_get_external_room_options( $check_in = '', $check_out = '' ) {
+    $connection = simple_hotel_crm_get_external_pg_connection();
     if ( is_wp_error( $connection ) ) {
         return $connection;
     }
@@ -1523,19 +1527,19 @@ function lgf_calendar_view_get_external_room_options( $check_in = '', $check_out
     }
 
     usort( $rooms, function( $a, $b ) {
-        return ( lgf_calendar_view_get_room_sort_order( $a['room_code'], $a['room_name'] ) <=> lgf_calendar_view_get_room_sort_order( $b['room_code'], $b['room_name'] ) ) ?: strcasecmp( $a['room_name'], $b['room_name'] );
+        return ( simple_hotel_crm_get_room_sort_order( $a['room_code'], $a['room_name'] ) <=> simple_hotel_crm_get_room_sort_order( $b['room_code'], $b['room_name'] ) ) ?: strcasecmp( $a['room_name'], $b['room_name'] );
     } );
 
     return $rooms;
 }
 
-function lgf_calendar_view_get_room_options( $check_in = '', $check_out = '' ) {
-    return 'external_pg' === lgf_calendar_view_get_data_source()
-        ? lgf_calendar_view_get_external_room_options( $check_in, $check_out )
-        : lgf_calendar_view_get_sync_room_options( $check_in, $check_out );
+function simple_hotel_crm_get_room_options( $check_in = '', $check_out = '' ) {
+    return 'external_pg' === simple_hotel_crm_get_data_source()
+        ? simple_hotel_crm_get_external_room_options( $check_in, $check_out )
+        : simple_hotel_crm_get_sync_room_options( $check_in, $check_out );
 }
 
-function lgf_calendar_view_get_booking_status_options() {
+function simple_hotel_crm_get_booking_status_options() {
     return [
         'pending' => 'Pending',
         'confirmed' => 'Confirmed',
@@ -1546,7 +1550,7 @@ function lgf_calendar_view_get_booking_status_options() {
     ];
 }
 
-function lgf_calendar_view_get_booking_channel_options() {
+function simple_hotel_crm_get_booking_channel_options() {
     return [
         'direct' => 'Website',
         'booking_com' => 'Booking.com',
@@ -1556,7 +1560,7 @@ function lgf_calendar_view_get_booking_channel_options() {
     ];
 }
 
-function lgf_calendar_view_distribute_amounts( $total, $count ) {
+function simple_hotel_crm_distribute_amounts( $total, $count ) {
     $count = max( 1, (int) $count );
     $total_cents = (int) round( (float) $total * 100 );
     $base = intdiv( $total_cents, $count );
@@ -1568,27 +1572,27 @@ function lgf_calendar_view_distribute_amounts( $total, $count ) {
     return $values;
 }
 
-function lgf_calendar_view_validate_booking_form_data( $data ) {
+function simple_hotel_crm_validate_booking_form_data( $data ) {
     $guest_name = trim( (string) ( $data['guest_name'] ?? '' ) );
     if ( '' === $guest_name ) {
-        return new WP_Error( 'missing_guest_name', __( 'Guest name is required.', 'lgf-calendar-view' ) );
+        return new WP_Error( 'missing_guest_name', __( 'Guest name is required.', 'simple-hotel-crm' ) );
     }
 
     $check_in = (string) ( $data['check_in'] ?? '' );
     $check_out = (string) ( $data['check_out'] ?? '' );
     if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_in ) || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_out ) || $check_out <= $check_in ) {
-        return new WP_Error( 'invalid_dates', __( 'Check-in and check-out dates are invalid.', 'lgf-calendar-view' ) );
+        return new WP_Error( 'invalid_dates', __( 'Check-in and check-out dates are invalid.', 'simple-hotel-crm' ) );
     }
 
     $nights = max( 1, (int) round( ( strtotime( $check_out ) - strtotime( $check_in ) ) / DAY_IN_SECONDS ) );
     $contacted_date = isset( $data['contacted_date'] ) ? (string) $data['contacted_date'] : '';
     if ( '' !== $contacted_date && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $contacted_date ) ) {
-        return new WP_Error( 'invalid_contacted_date', __( 'Contacted date is invalid.', 'lgf-calendar-view' ) );
+        return new WP_Error( 'invalid_contacted_date', __( 'Contacted date is invalid.', 'simple-hotel-crm' ) );
     }
 
     $room_lines = isset( $data['room_lines'] ) && is_array( $data['room_lines'] ) ? $data['room_lines'] : [];
     if ( empty( $room_lines ) ) {
-        return new WP_Error( 'missing_rooms', __( 'Add at least one room.', 'lgf-calendar-view' ) );
+        return new WP_Error( 'missing_rooms', __( 'Add at least one room.', 'simple-hotel-crm' ) );
     }
 
     $validated_lines = [];
@@ -1599,15 +1603,15 @@ function lgf_calendar_view_validate_booking_form_data( $data ) {
             continue;
         }
         if ( in_array( $room_sync_id, $selected_rooms, true ) ) {
-            return new WP_Error( 'duplicate_room', __( 'The same room cannot be selected twice in one booking.', 'lgf-calendar-view' ) );
+            return new WP_Error( 'duplicate_room', __( 'The same room cannot be selected twice in one booking.', 'simple-hotel-crm' ) );
         }
         $selected_rooms[] = $room_sync_id;
         $adults = max( 0, (int) ( $line['adults'] ?? 0 ) );
         $children = max( 0, (int) ( $line['children'] ?? 0 ) );
         $babies = max( 0, (int) ( $line['babies'] ?? 0 ) );
         $guest_count = $adults + $children + $babies;
-        $room_rate_amount = max( 0, (float) lgf_calendar_view_normalize_decimal( $line['room_rate_amount'] ?? 0 ) );
-        $extras_amount = max( 0, (float) lgf_calendar_view_normalize_decimal( $line['extras_amount'] ?? 0 ) );
+        $room_rate_amount = max( 0, (float) simple_hotel_crm_normalize_decimal( $line['room_rate_amount'] ?? 0 ) );
+        $extras_amount = max( 0, (float) simple_hotel_crm_normalize_decimal( $line['extras_amount'] ?? 0 ) );
         $tourist_tax_total = round( $adults * 0.80 * $nights, 2 );
         $total_amount = round( $room_rate_amount + $extras_amount + $tourist_tax_total, 2 );
         $validated_lines[] = [
@@ -1623,7 +1627,7 @@ function lgf_calendar_view_validate_booking_form_data( $data ) {
         ];
     }
     if ( empty( $validated_lines ) ) {
-        return new WP_Error( 'missing_rooms', __( 'Select at least one room.', 'lgf-calendar-view' ) );
+        return new WP_Error( 'missing_rooms', __( 'Select at least one room.', 'simple-hotel-crm' ) );
     }
 
     return [
@@ -1636,10 +1640,10 @@ function lgf_calendar_view_validate_booking_form_data( $data ) {
     ];
 }
 
-function lgf_calendar_view_check_wp_sync_room_availability( $room_sync_id, $check_in, $check_out ) {
+function simple_hotel_crm_check_wp_sync_room_availability( $room_sync_id, $check_in, $check_out ) {
     global $wpdb;
 
-    $bookings_table = lgf_calendar_view_sync_bookings_table();
+    $bookings_table = simple_hotel_crm_sync_bookings_table();
     $conflict_count = (int) $wpdb->get_var(
         $wpdb->prepare(
             "SELECT COUNT(*) FROM {$bookings_table} WHERE room_sync_id = %d AND status_code IN ('pending', 'confirmed', 'checked_in') AND check_in < %s AND check_out > %s",
@@ -1650,14 +1654,14 @@ function lgf_calendar_view_check_wp_sync_room_availability( $room_sync_id, $chec
     );
 
     if ( $conflict_count > 0 ) {
-        return new WP_Error( 'room_unavailable', __( 'That room already has an overlapping booking for the selected dates.', 'lgf-calendar-view' ) );
+        return new WP_Error( 'room_unavailable', __( 'That room already has an overlapping booking for the selected dates.', 'simple-hotel-crm' ) );
     }
 
     return true;
 }
 
-function lgf_calendar_view_check_external_pg_room_availability( $room_id, $check_in, $check_out ) {
-    $connection = lgf_calendar_view_get_external_pg_connection();
+function simple_hotel_crm_check_external_pg_room_availability( $room_id, $check_in, $check_out ) {
+    $connection = simple_hotel_crm_get_external_pg_connection();
     if ( is_wp_error( $connection ) ) {
         return $connection;
     }
@@ -1675,23 +1679,23 @@ function lgf_calendar_view_check_external_pg_room_availability( $room_id, $check
         [ $room_id, $check_out, $check_in ]
     );
     if ( ! $result ) {
-        return new WP_Error( 'pg_availability_failed', __( 'Could not check room availability in the external PostgreSQL database.', 'lgf-calendar-view' ) );
+        return new WP_Error( 'pg_availability_failed', __( 'Could not check room availability in the external PostgreSQL database.', 'simple-hotel-crm' ) );
     }
 
     if ( (int) pg_fetch_result( $result, 0, 0 ) > 0 ) {
-        return new WP_Error( 'room_unavailable', __( 'That room already has an overlapping booking for the selected dates.', 'lgf-calendar-view' ) );
+        return new WP_Error( 'room_unavailable', __( 'That room already has an overlapping booking for the selected dates.', 'simple-hotel-crm' ) );
     }
 
     return true;
 }
 
-function lgf_calendar_view_create_wp_sync_booking( $data ) {
+function simple_hotel_crm_create_wp_sync_booking( $data ) {
     global $wpdb;
 
-    $rooms_table = lgf_calendar_view_sync_rooms_table();
-    $bookings_table = lgf_calendar_view_sync_bookings_table();
+    $rooms_table = simple_hotel_crm_sync_rooms_table();
+    $bookings_table = simple_hotel_crm_sync_bookings_table();
 
-    $validated = lgf_calendar_view_validate_booking_form_data( $data );
+    $validated = simple_hotel_crm_validate_booking_form_data( $data );
     if ( is_wp_error( $validated ) ) {
         return $validated;
     }
@@ -1708,7 +1712,7 @@ function lgf_calendar_view_create_wp_sync_booking( $data ) {
     $next_booking_room_id = (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_room_id), 0) + 1 FROM {$bookings_table}" );
 
     foreach ( $room_lines as $line ) {
-        $availability = lgf_calendar_view_check_wp_sync_room_availability( $line['room_sync_id'], $check_in, $check_out );
+        $availability = simple_hotel_crm_check_wp_sync_room_availability( $line['room_sync_id'], $check_in, $check_out );
         if ( is_wp_error( $availability ) ) {
             return $availability;
         }
@@ -1717,13 +1721,13 @@ function lgf_calendar_view_create_wp_sync_booking( $data ) {
     foreach ( $room_lines as $line ) {
         $room = $wpdb->get_row( $wpdb->prepare( "SELECT id, external_room_id, room_code, room_name FROM {$rooms_table} WHERE id = %d LIMIT 1", $line['room_sync_id'] ), ARRAY_A );
         if ( ! $room ) {
-            return new WP_Error( 'invalid_room', __( 'Please select a valid room.', 'lgf-calendar-view' ) );
+            return new WP_Error( 'invalid_room', __( 'Please select a valid room.', 'simple-hotel-crm' ) );
         }
 
         $external_booking_room_id = $next_booking_room_id++;
-        $room_rate_nightly = lgf_calendar_view_distribute_amounts( $line['room_rate_amount'], $nights );
-        $extras_nightly = lgf_calendar_view_distribute_amounts( $line['extras_amount'], $nights );
-        $tax_nightly = lgf_calendar_view_distribute_amounts( $line['tourist_tax_total'], $nights );
+        $room_rate_nightly = simple_hotel_crm_distribute_amounts( $line['room_rate_amount'], $nights );
+        $extras_nightly = simple_hotel_crm_distribute_amounts( $line['extras_amount'], $nights );
+        $tax_nightly = simple_hotel_crm_distribute_amounts( $line['tourist_tax_total'], $nights );
 
         for ( $i = 0; $i < $nights; $i++ ) {
             $stay_date = gmdate( 'Y-m-d', strtotime( $check_in . ' +' . $i . ' day' ) );
@@ -1750,7 +1754,7 @@ function lgf_calendar_view_create_wp_sync_booking( $data ) {
                     'room_count' => count( $room_lines ),
                     'source_channel' => $source_channel,
                     'source_booking_id' => '',
-                    'channel_label' => lgf_calendar_view_get_booking_channel_options()[ $source_channel ] ?? $source_channel,
+                    'channel_label' => simple_hotel_crm_get_booking_channel_options()[ $source_channel ] ?? $source_channel,
                     'guest_name' => $guest_name,
                     'phone' => $phone,
                     'import_notes' => $import_notes,
@@ -1763,11 +1767,11 @@ function lgf_calendar_view_create_wp_sync_booking( $data ) {
         }
     }
 
-    lgf_calendar_view_clear_calendar_cache();
+    simple_hotel_crm_clear_calendar_cache();
     return [ 'booking_id' => $external_booking_id, 'booking_room_id' => $next_booking_room_id - 1 ];
 }
 
-function lgf_calendar_view_split_guest_name( $guest_name ) {
+function simple_hotel_crm_split_guest_name( $guest_name ) {
     $guest_name = trim( (string) $guest_name );
     if ( '' === $guest_name ) {
         return [ '', '' ];
@@ -1778,13 +1782,13 @@ function lgf_calendar_view_split_guest_name( $guest_name ) {
     return [ '' !== $first_name ? $first_name : $last_name, '' !== $first_name ? $last_name : '' ];
 }
 
-function lgf_calendar_view_create_external_pg_booking( $data ) {
-    $connection = lgf_calendar_view_get_external_pg_connection();
+function simple_hotel_crm_create_external_pg_booking( $data ) {
+    $connection = simple_hotel_crm_get_external_pg_connection();
     if ( is_wp_error( $connection ) ) {
         return $connection;
     }
 
-    $validated = lgf_calendar_view_validate_booking_form_data( $data );
+    $validated = simple_hotel_crm_validate_booking_form_data( $data );
     if ( is_wp_error( $validated ) ) {
         return $validated;
     }
@@ -1797,10 +1801,10 @@ function lgf_calendar_view_create_external_pg_booking( $data ) {
     $status_code = sanitize_text_field( (string) ( $data['status_code'] ?? 'confirmed' ) );
     $phone = sanitize_text_field( (string) ( $data['phone'] ?? '' ) );
     $import_notes = sanitize_textarea_field( (string) ( $data['import_notes'] ?? '' ) );
-    list( $first_name, $last_name ) = lgf_calendar_view_split_guest_name( $guest_name );
+    list( $first_name, $last_name ) = simple_hotel_crm_split_guest_name( $guest_name );
 
     foreach ( $room_lines as $line ) {
-        $availability = lgf_calendar_view_check_external_pg_room_availability( $line['room_sync_id'], $check_in, $check_out );
+        $availability = simple_hotel_crm_check_external_pg_room_availability( $line['room_sync_id'], $check_in, $check_out );
         if ( is_wp_error( $availability ) ) {
             return $availability;
         }
@@ -1815,13 +1819,13 @@ function lgf_calendar_view_create_external_pg_booking( $data ) {
     $booking_total = array_sum( array_column( $room_lines, 'total_amount' ) );
 
     if ( ! pg_query( $connection, 'BEGIN' ) ) {
-        return new WP_Error( 'pg_transaction_failed', __( 'Could not start the external PostgreSQL booking transaction.', 'lgf-calendar-view' ) );
+        return new WP_Error( 'pg_transaction_failed', __( 'Could not start the external PostgreSQL booking transaction.', 'simple-hotel-crm' ) );
     }
 
     $guest_result = pg_query_params( $connection, 'INSERT INTO guests (first_name, last_name, phone) VALUES ($1, $2, $3) RETURNING id', [ $first_name, $last_name, $phone ?: null ] );
     if ( ! $guest_result ) {
         pg_query( $connection, 'ROLLBACK' );
-        return new WP_Error( 'pg_guest_insert_failed', __( 'Could not create the guest in the external PostgreSQL database.', 'lgf-calendar-view' ) );
+        return new WP_Error( 'pg_guest_insert_failed', __( 'Could not create the guest in the external PostgreSQL database.', 'simple-hotel-crm' ) );
     }
     $guest_id = (int) pg_fetch_result( $guest_result, 0, 0 );
 
@@ -1832,7 +1836,7 @@ function lgf_calendar_view_create_external_pg_booking( $data ) {
     );
     if ( ! $booking_result ) {
         pg_query( $connection, 'ROLLBACK' );
-        return new WP_Error( 'pg_booking_insert_failed', __( 'Could not create the booking in the external PostgreSQL database.', 'lgf-calendar-view' ) );
+        return new WP_Error( 'pg_booking_insert_failed', __( 'Could not create the booking in the external PostgreSQL database.', 'simple-hotel-crm' ) );
     }
     $booking_id = (int) pg_fetch_result( $booking_result, 0, 0 );
 
@@ -1845,14 +1849,14 @@ function lgf_calendar_view_create_external_pg_booking( $data ) {
         );
         if ( ! $room_result ) {
             pg_query( $connection, 'ROLLBACK' );
-            return new WP_Error( 'pg_booking_room_insert_failed', __( 'Could not create a booking room in the external PostgreSQL database.', 'lgf-calendar-view' ) );
+            return new WP_Error( 'pg_booking_room_insert_failed', __( 'Could not create a booking room in the external PostgreSQL database.', 'simple-hotel-crm' ) );
         }
 
         $booking_room_id = (int) pg_fetch_result( $room_result, 0, 0 );
         $last_booking_room_id = $booking_room_id;
-        $room_rate_nightly = lgf_calendar_view_distribute_amounts( $line['room_rate_amount'], $nights );
-        $extras_nightly = lgf_calendar_view_distribute_amounts( $line['extras_amount'], $nights );
-        $tax_nightly = lgf_calendar_view_distribute_amounts( $line['tourist_tax_total'], $nights );
+        $room_rate_nightly = simple_hotel_crm_distribute_amounts( $line['room_rate_amount'], $nights );
+        $extras_nightly = simple_hotel_crm_distribute_amounts( $line['extras_amount'], $nights );
+        $tax_nightly = simple_hotel_crm_distribute_amounts( $line['tourist_tax_total'], $nights );
 
         for ( $i = 0; $i < $nights; $i++ ) {
             $stay_date = gmdate( 'Y-m-d', strtotime( $check_in . ' +' . $i . ' day' ) );
@@ -1864,53 +1868,53 @@ function lgf_calendar_view_create_external_pg_booking( $data ) {
             );
             if ( ! $night_result ) {
                 pg_query( $connection, 'ROLLBACK' );
-                return new WP_Error( 'pg_booking_night_insert_failed', __( 'Could not create booking nights in the external PostgreSQL database.', 'lgf-calendar-view' ) );
+                return new WP_Error( 'pg_booking_night_insert_failed', __( 'Could not create booking nights in the external PostgreSQL database.', 'simple-hotel-crm' ) );
             }
         }
     }
 
     if ( ! pg_query( $connection, 'COMMIT' ) ) {
         pg_query( $connection, 'ROLLBACK' );
-        return new WP_Error( 'pg_commit_failed', __( 'Could not commit the external PostgreSQL booking transaction.', 'lgf-calendar-view' ) );
+        return new WP_Error( 'pg_commit_failed', __( 'Could not commit the external PostgreSQL booking transaction.', 'simple-hotel-crm' ) );
     }
 
-    lgf_calendar_view_clear_calendar_cache();
+    simple_hotel_crm_clear_calendar_cache();
     return [ 'booking_id' => $booking_id, 'booking_room_id' => $last_booking_room_id ];
 }
 
-function lgf_calendar_view_create_booking( $data ) {
-    return 'external_pg' === lgf_calendar_view_get_data_source()
-        ? lgf_calendar_view_create_external_pg_booking( $data )
-        : lgf_calendar_view_create_wp_sync_booking( $data );
+function simple_hotel_crm_create_booking( $data ) {
+    return 'external_pg' === simple_hotel_crm_get_data_source()
+        ? simple_hotel_crm_create_external_pg_booking( $data )
+        : simple_hotel_crm_create_wp_sync_booking( $data );
 }
 
 add_action( 'rest_api_init', function() {
-    register_rest_route( 'lgf-calendar/v1', '/table', [
+    register_rest_route( 'simple-hotel-crm/v1', '/table', [
         'methods'  => 'GET',
-        'callback' => 'lgf_calendar_rest_table',
+        'callback' => 'simple_hotel_crm_rest_table',
         'args'     => [
             'month' => [ 'validate_callback' => function( $param ) { return is_numeric( $param ) && $param >= 1 && $param <= 12; }, 'required' => true ],
             'year'  => [ 'validate_callback' => function( $param ) { return is_numeric( $param ) && $param >= 2000 && $param <= 2100; }, 'required' => true ],
         ],
-        'permission_callback' => function() { return lgf_calendar_view_user_can_access(); },
+        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
     ] );
 
-    register_rest_route( 'lgf-calendar/v1', '/daily-note', [
+    register_rest_route( 'simple-hotel-crm/v1', '/daily-note', [
         'methods'  => 'POST',
-        'callback' => 'lgf_calendar_rest_save_daily_note',
-        'permission_callback' => function() { return lgf_calendar_view_user_can_access(); },
+        'callback' => 'simple_hotel_crm_rest_save_daily_note',
+        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
     ] );
 
-    register_rest_route( 'lgf-calendar/v1', '/booking-overlay', [
+    register_rest_route( 'simple-hotel-crm/v1', '/booking-overlay', [
         'methods'  => 'POST',
-        'callback' => 'lgf_calendar_rest_save_booking_overlay',
-        'permission_callback' => function() { return lgf_calendar_view_user_can_access(); },
+        'callback' => 'simple_hotel_crm_rest_save_booking_overlay',
+        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
     ] );
 
-    register_rest_route( 'lgf-calendar/v1', '/create-invoice', [
+    register_rest_route( 'simple-hotel-crm/v1', '/create-invoice', [
         'methods'  => 'POST',
-        'callback' => 'lgf_calendar_rest_create_invoice',
-        'permission_callback' => function() { return lgf_calendar_view_user_can_access(); },
+        'callback' => 'simple_hotel_crm_rest_create_invoice',
+        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
         'args'     => [
             'booking_id' => [
                 'validate_callback' => function( $param ) {
@@ -1928,24 +1932,24 @@ add_action( 'rest_api_init', function() {
     ] );
 } );
 
-function lgf_calendar_rest_table( WP_REST_Request $request ) {
+function simple_hotel_crm_rest_table( WP_REST_Request $request ) {
     $month = intval( $request->get_param( 'month' ) );
     $year  = intval( $request->get_param( 'year' ) );
     $context = 'admin' === $request->get_param( 'context' ) ? 'admin' : 'frontend';
 
-    return rest_ensure_response( [ 'html' => lgf_calendar_view_render_calendar( lgf_calendar_view_get_calendar_data( $month, $year ), $context ) ] );
+    return rest_ensure_response( [ 'html' => simple_hotel_crm_render_calendar( simple_hotel_crm_get_calendar_data( $month, $year ), $context ) ] );
 }
 
-function lgf_calendar_rest_save_daily_note( WP_REST_Request $request ) {
+function simple_hotel_crm_rest_save_daily_note( WP_REST_Request $request ) {
     global $wpdb;
 
     $date = sanitize_text_field( (string) $request->get_param( 'date' ) );
     if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) ) {
-        return new WP_Error( 'invalid_date', __( 'Invalid note date.', 'lgf-calendar-view' ), [ 'status' => 400 ] );
+        return new WP_Error( 'invalid_date', __( 'Invalid note date.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
     }
 
     $note = sanitize_textarea_field( (string) $request->get_param( 'note' ) );
-    $table = lgf_calendar_view_daily_notes_table();
+    $table = simple_hotel_crm_daily_notes_table();
 
     if ( '' === trim( $note ) ) {
         $wpdb->delete( $table, [ 'note_date' => $date ], [ '%s' ] );
@@ -1953,12 +1957,12 @@ function lgf_calendar_rest_save_daily_note( WP_REST_Request $request ) {
         $wpdb->replace( $table, [ 'note_date' => $date, 'note_text' => $note ], [ '%s', '%s' ] );
     }
 
-    lgf_calendar_view_clear_calendar_cache();
+    simple_hotel_crm_clear_calendar_cache();
 
     return rest_ensure_response( [ 'success' => true, 'date' => $date, 'note' => $note ] );
 }
 
-function lgf_calendar_rest_save_booking_overlay( WP_REST_Request $request ) {
+function simple_hotel_crm_rest_save_booking_overlay( WP_REST_Request $request ) {
     global $wpdb;
 
     $reserved_room_id = absint( $request->get_param( 'reserved_room_id' ) );
@@ -1966,12 +1970,12 @@ function lgf_calendar_rest_save_booking_overlay( WP_REST_Request $request ) {
     $room_id          = absint( $request->get_param( 'room_id' ) );
 
     if ( $reserved_room_id <= 0 ) {
-        return new WP_Error( 'missing_reserved_room', __( 'Missing reserved room ID.', 'lgf-calendar-view' ), [ 'status' => 400 ] );
+        return new WP_Error( 'missing_reserved_room', __( 'Missing reserved room ID.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
     }
 
-    $extras = lgf_calendar_view_evaluate_extras_formula( $request->get_param( 'extras_formula' ) );
+    $extras = simple_hotel_crm_evaluate_extras_formula( $request->get_param( 'extras_formula' ) );
     if ( ! $extras['valid'] ) {
-        return new WP_Error( 'invalid_extras_formula', __( 'Extras formula only supports numbers joined with +.', 'lgf-calendar-view' ), [ 'status' => 400 ] );
+        return new WP_Error( 'invalid_extras_formula', __( 'Extras formula only supports numbers joined with +.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
     }
 
     $payload = [
@@ -1984,11 +1988,11 @@ function lgf_calendar_rest_save_booking_overlay( WP_REST_Request $request ) {
         'manual_guest_name'  => sanitize_text_field( (string) $request->get_param( 'manual_guest_name' ) ),
         'manual_adults'      => '' === (string) $request->get_param( 'manual_adults' ) ? null : max( 0, intval( $request->get_param( 'manual_adults' ) ) ),
         'manual_children'    => '' === (string) $request->get_param( 'manual_children' ) ? null : max( 0, intval( $request->get_param( 'manual_children' ) ) ),
-        'manual_tarif'       => lgf_calendar_view_normalize_decimal( $request->get_param( 'manual_tarif' ) ),
-        'manual_commission'  => lgf_calendar_view_normalize_decimal( $request->get_param( 'manual_commission' ) ),
+        'manual_tarif'       => simple_hotel_crm_normalize_decimal( $request->get_param( 'manual_tarif' ) ),
+        'manual_commission'  => simple_hotel_crm_normalize_decimal( $request->get_param( 'manual_commission' ) ),
     ];
 
-    $table = lgf_calendar_view_booking_overlay_table();
+    $table = simple_hotel_crm_booking_overlay_table();
     $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE reserved_room_id = %d", $reserved_room_id ) );
 
     $formats = [ '%d', '%d', '%d', '%s', '%s', '%f', '%s', '%d', '%d', '%f', '%f' ];
@@ -1998,72 +2002,72 @@ function lgf_calendar_rest_save_booking_overlay( WP_REST_Request $request ) {
         $wpdb->insert( $table, $payload, $formats );
     }
 
-    lgf_calendar_view_clear_calendar_cache();
+    simple_hotel_crm_clear_calendar_cache();
 
     return rest_ensure_response( [
         'success'           => true,
         'reserved_room_id'  => $reserved_room_id,
         'extras_formula'    => $extras['formula'],
         'extras_total'      => $extras['total'],
-        'occupancy_str'     => lgf_calendar_view_format_occupancy( $payload['manual_adults'] ?? 0, $payload['manual_children'] ?? 0 ),
+        'occupancy_str'     => simple_hotel_crm_format_occupancy( $payload['manual_adults'] ?? 0, $payload['manual_children'] ?? 0 ),
     ] );
 }
 
 /**
  * Create invoice in Invoice Ninja via REST API.
  */
-function lgf_calendar_rest_create_invoice( WP_REST_Request $request ) {
+function simple_hotel_crm_rest_create_invoice( WP_REST_Request $request ) {
     $booking_id = absint( $request->get_param( 'booking_id' ) );
     $reserved_room_id = absint( $request->get_param( 'reserved_room_id' ) );
     if ( $booking_id <= 0 || $reserved_room_id <= 0 ) {
-        return new WP_Error( 'invalid_booking', __( 'Invalid booking or room reference.', 'lgf-calendar-view' ), [ 'status' => 400 ] );
+        return new WP_Error( 'invalid_booking', __( 'Invalid booking or room reference.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
     }
 
-    $api_url = get_option( 'lgf_calendar_invoice_ninja_url', '' );
-    $api_token = get_option( 'lgf_calendar_invoice_ninja_token', '' );
+    $api_url = get_option( 'simple_hotel_crm_invoice_ninja_url', '' );
+    $api_token = get_option( 'simple_hotel_crm_invoice_ninja_token', '' );
 
     if ( empty( $api_url ) || empty( $api_token ) ) {
-        return new WP_Error( 'invoice_ninja_not_configured', __( 'Invoice Ninja API not configured. Please set URL and token in settings.', 'lgf-calendar-view' ), [ 'status' => 500 ] );
+        return new WP_Error( 'invoice_ninja_not_configured', __( 'Invoice Ninja API not configured. Please set URL and token in settings.', 'simple-hotel-crm' ), [ 'status' => 500 ] );
     }
 
-    $overlay = lgf_calendar_view_get_booking_overlay( $reserved_room_id );
+    $overlay = simple_hotel_crm_get_booking_overlay( $reserved_room_id );
     if ( empty( $overlay ) ) {
-        return new WP_Error( 'no_overlay_data', __( 'No overlay data for this room booking yet. Save the tariff/commission/extras first.', 'lgf-calendar-view' ), [ 'status' => 404 ] );
+        return new WP_Error( 'no_overlay_data', __( 'No overlay data for this room booking yet. Save the tariff/commission/extras first.', 'simple-hotel-crm' ), [ 'status' => 404 ] );
     }
 
     $client_id = '';
-    $source = lgf_calendar_view_get_data_source();
+    $source = simple_hotel_crm_get_data_source();
     if ( 'external_pg' === $source ) {
-        $connection = lgf_calendar_view_get_external_pg_connection();
+        $connection = simple_hotel_crm_get_external_pg_connection();
         if ( is_wp_error( $connection ) ) {
             return $connection;
         }
 
         $client_result = pg_query_params( $connection, 'SELECT invoice_ninja_client_id FROM bookings WHERE id = $1 LIMIT 1', [ $booking_id ] );
         if ( ! $client_result || 0 === pg_num_rows( $client_result ) ) {
-            return new WP_Error( 'booking_not_found', __( 'Booking not found in the external database.', 'lgf-calendar-view' ), [ 'status' => 404 ] );
+            return new WP_Error( 'booking_not_found', __( 'Booking not found in the external database.', 'simple-hotel-crm' ), [ 'status' => 404 ] );
         }
 
         $client_row = pg_fetch_assoc( $client_result );
         $client_id = (string) ( $client_row['invoice_ninja_client_id'] ?? '' );
     } elseif ( 'wp_sync' === $source ) {
         global $wpdb;
-        $sync_bookings_table = lgf_calendar_view_sync_bookings_table();
+        $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
         $client_id = (string) $wpdb->get_var( $wpdb->prepare( "SELECT invoice_ninja_client_id FROM {$sync_bookings_table} WHERE external_booking_id = %d LIMIT 1", $booking_id ) );
         if ( '' === $client_id ) {
-            return new WP_Error( 'booking_not_found', __( 'Booking not found in local sync data, or it has no Invoice Ninja client ID.', 'lgf-calendar-view' ), [ 'status' => 404 ] );
+            return new WP_Error( 'booking_not_found', __( 'Booking not found in local sync data, or it has no Invoice Ninja client ID.', 'simple-hotel-crm' ), [ 'status' => 404 ] );
         }
     } else {
         $booking = get_post( $booking_id );
         if ( ! $booking || 'mphb_booking' !== $booking->post_type ) {
-            return new WP_Error( 'booking_not_found', __( 'Booking not found.', 'lgf-calendar-view' ), [ 'status' => 404 ] );
+            return new WP_Error( 'booking_not_found', __( 'Booking not found.', 'simple-hotel-crm' ), [ 'status' => 404 ] );
         }
 
         $client_id = (string) get_post_meta( $booking_id, '_mphb_customer_id', true );
     }
 
     if ( '' === $client_id ) {
-        return new WP_Error( 'no_customer', __( 'This booking has no linked Invoice Ninja client ID.', 'lgf-calendar-view' ), [ 'status' => 400 ] );
+        return new WP_Error( 'no_customer', __( 'This booking has no linked Invoice Ninja client ID.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
     }
 
     $invoice_lines = [];
@@ -2088,7 +2092,7 @@ function lgf_calendar_rest_create_invoice( WP_REST_Request $request ) {
     }
 
     if ( empty( $invoice_lines ) ) {
-        return new WP_Error( 'empty_invoice', __( 'No invoiceable lines were found in the saved overlay data.', 'lgf-calendar-view' ), [ 'status' => 400 ] );
+        return new WP_Error( 'empty_invoice', __( 'No invoiceable lines were found in the saved overlay data.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
     }
 
     $payload = [
@@ -2118,17 +2122,17 @@ function lgf_calendar_rest_create_invoice( WP_REST_Request $request ) {
     $data = json_decode( $body, true );
 
     if ( 201 !== $code || empty( $data['id'] ) ) {
-        return new WP_Error( 'invoice_ninja_invalid_response', __( 'Failed to create invoice. Response:', 'lgf-calendar-view' ) . ' ' . $code . ' - ' . $body, [ 'status' => $code >= 500 ? 502 : 500 ] );
+        return new WP_Error( 'invoice_ninja_invalid_response', __( 'Failed to create invoice. Response:', 'simple-hotel-crm' ) . ' ' . $code . ' - ' . $body, [ 'status' => $code >= 500 ? 502 : 500 ] );
     }
 
     if ( 'external_pg' === $source ) {
-        $connection = lgf_calendar_view_get_external_pg_connection();
+        $connection = simple_hotel_crm_get_external_pg_connection();
         if ( ! is_wp_error( $connection ) ) {
             pg_query_params( $connection, 'UPDATE bookings SET invoice_ninja_invoice_id = $1, invoiced_at = NOW() WHERE id = $2', [ (string) $data['id'], $booking_id ] );
         }
     } elseif ( 'wp_sync' === $source ) {
         global $wpdb;
-        $sync_bookings_table = lgf_calendar_view_sync_bookings_table();
+        $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
         $wpdb->update(
             $sync_bookings_table,
             [ 'invoice_ninja_invoice_id' => (string) $data['id'] ],
@@ -2137,7 +2141,7 @@ function lgf_calendar_rest_create_invoice( WP_REST_Request $request ) {
             [ '%d' ]
         );
     } else {
-        update_post_meta( $booking_id, '_lgf_calendar_invoice_ninja_id', $data['id'] );
+        update_post_meta( $booking_id, '_simple_hotel_crm_invoice_ninja_id', $data['id'] );
     }
 
     return rest_ensure_response( [
