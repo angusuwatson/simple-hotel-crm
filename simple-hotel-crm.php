@@ -1927,8 +1927,15 @@ function simple_hotel_crm_render_booking_detail_page() {
     $rooms_table = simple_hotel_crm_rooms_table();
 
     $booking = $wpdb->get_row( $wpdb->prepare( "SELECT b.*, g.first_name, g.last_name, g.phone, g.email, g.id AS guest_id FROM {$bookings_table} b JOIN {$guests_table} g ON g.id = b.guest_id WHERE b.id = %d LIMIT 1", $booking_id ), ARRAY_A );
-     if ( isset( $_POST['simple_hotel_crm_save_booking'] ) && $booking ) {
+    $posted_room_lines = wp_unslash( $_POST['room_lines'] ?? [] );
+    if ( isset( $_POST['simple_hotel_crm_add_booking_room'] ) ) {
+        $posted_room_lines[] = [ 'room_sync_id' => '', 'adults' => 2, 'children' => 0, 'babies' => 0, 'room_rate_amount' => '0.00', 'extras_amount' => '0.00' ];
+    }
+    if ( isset( $_POST['simple_hotel_crm_save_booking'] ) && $booking ) {
         check_admin_referer( 'simple_hotel_crm_save_booking_' . $booking_id );
+        $posted_room_lines = array_values( array_filter( $posted_room_lines, function( $line ) {
+            return empty( $line['remove'] );
+        } ) );
         $booking_form_data = [
             'guest_name' => trim( (string) $booking['first_name'] . ' ' . (string) $booking['last_name'] ),
             'phone' => (string) $booking['phone'],
@@ -1938,7 +1945,7 @@ function simple_hotel_crm_render_booking_detail_page() {
             'status_code' => sanitize_text_field( wp_unslash( $_POST['status_code'] ?? '' ) ),
             'contacted_date' => sanitize_text_field( wp_unslash( $_POST['contacted_date'] ?? '' ) ),
             'import_notes' => sanitize_textarea_field( wp_unslash( $_POST['internal_notes'] ?? '' ) ),
-            'room_lines' => wp_unslash( $_POST['room_lines'] ?? [] ),
+            'room_lines' => $posted_room_lines,
         ];
         $result = simple_hotel_crm_replace_booking_room_data( $booking_id, $booking_form_data, $booking );
         if ( is_wp_error( $result ) ) {
@@ -1953,6 +1960,16 @@ function simple_hotel_crm_render_booking_detail_page() {
     }
 
     $rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.*, r.room_name, r.room_code, r.sync_room_id FROM {$booking_rooms_table} br JOIN {$rooms_table} r ON r.id = br.room_id WHERE br.booking_id = %d ORDER BY r.sort_order ASC, r.room_name ASC", $booking_id ), ARRAY_A );
+    if ( ! empty( $posted_room_lines ) ) {
+        foreach ( $posted_room_lines as $index => $posted_room_line ) {
+            if ( isset( $rooms[ $index ] ) ) {
+                $rooms[ $index ] = array_merge( $rooms[ $index ], $posted_room_line );
+            } else {
+                $rooms[] = array_merge( [ 'id' => '', 'room_name' => '', 'sync_room_id' => '' ], $posted_room_line );
+            }
+        }
+    }
+    $available_rooms = $wpdb->get_results( "SELECT sync_room_id, room_name, room_code FROM {$rooms_table} WHERE active = 1 AND sync_room_id IS NOT NULL ORDER BY sort_order ASC, room_name ASC", ARRAY_A );
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( 'Booking Detail', 'simple-hotel-crm' ) . ' #' . esc_html( (string) $booking_id ) . '</h1>';
     echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings' ) ) . '">← ' . esc_html__( 'Back to Bookings', 'simple-hotel-crm' ) . '</a></p>';
@@ -1970,21 +1987,30 @@ function simple_hotel_crm_render_booking_detail_page() {
     submit_button( __( 'Save Booking', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_save_booking' );
     echo '</form>';
     echo '<h2>' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</h2>';
-    echo '<table class="widefat striped"><thead><tr><th>ID</th><th>' . esc_html__( 'Room', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Adults', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Children', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Babies', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Rate', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Extras', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Tax', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Total', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
+    echo '<table class="widefat striped"><thead><tr><th>ID</th><th>' . esc_html__( 'Room', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Adults', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Children', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Babies', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Rate', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Extras', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Tax', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Total', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Remove', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
     foreach ( $rooms as $index => $room ) {
         echo '<tr>';
-        echo '<td>' . esc_html( (string) $room['id'] ) . '<input type="hidden" name="room_lines[' . esc_attr( $index ) . '][room_sync_id]" value="' . esc_attr( (string) $room['sync_room_id'] ) . '" /></td>';
-        echo '<td>' . esc_html( (string) $room['room_name'] ) . '</td>';
-        echo '<td><input type="number" min="0" name="room_lines[' . esc_attr( $index ) . '][adults]" value="' . esc_attr( (string) $room['adults'] ) . '" /></td>';
-        echo '<td><input type="number" min="0" name="room_lines[' . esc_attr( $index ) . '][children]" value="' . esc_attr( (string) $room['children'] ) . '" /></td>';
-        echo '<td><input type="number" min="0" name="room_lines[' . esc_attr( $index ) . '][babies]" value="' . esc_attr( (string) $room['babies'] ) . '" /></td>';
-        echo '<td><input type="text" name="room_lines[' . esc_attr( $index ) . '][room_rate_amount]" value="' . esc_attr( number_format( (float) $room['room_rate_amount'], 2, '.', '' ) ) . '" /></td>';
-        echo '<td><input type="text" name="room_lines[' . esc_attr( $index ) . '][extras_amount]" value="' . esc_attr( number_format( (float) $room['extras_amount'], 2, '.', '' ) ) . '" /></td>';
-        echo '<td>' . esc_html( number_format( (float) $room['tourist_tax_amount'], 2, '.', '' ) ) . '</td>';
-        echo '<td>' . esc_html( number_format( (float) $room['total_amount'], 2, '.', '' ) ) . '</td>';
+        echo '<td>' . esc_html( (string) $room['id'] ) . '</td>';
+        echo '<td><select name="room_lines[' . esc_attr( $index ) . '][room_sync_id]">';
+        echo '<option value="">' . esc_html__( 'Select room', 'simple-hotel-crm' ) . '</option>';
+        foreach ( $available_rooms as $available_room ) {
+            $label = (string) $available_room['room_code'] . ' - ' . (string) $available_room['room_name'];
+            echo '<option value="' . esc_attr( (string) $available_room['sync_room_id'] ) . '"' . selected( (string) ( $room['sync_room_id'] ?? $room['room_sync_id'] ?? '' ), (string) $available_room['sync_room_id'], false ) . '>' . esc_html( $label ) . '</option>';
+        }
+        echo '</select></td>';
+        echo '<td><input type="number" min="0" name="room_lines[' . esc_attr( $index ) . '][adults]" value="' . esc_attr( (string) ( $room['adults'] ?? 0 ) ) . '" /></td>';
+        echo '<td><input type="number" min="0" name="room_lines[' . esc_attr( $index ) . '][children]" value="' . esc_attr( (string) ( $room['children'] ?? 0 ) ) . '" /></td>';
+        echo '<td><input type="number" min="0" name="room_lines[' . esc_attr( $index ) . '][babies]" value="' . esc_attr( (string) ( $room['babies'] ?? 0 ) ) . '" /></td>';
+        echo '<td><input type="text" name="room_lines[' . esc_attr( $index ) . '][room_rate_amount]" value="' . esc_attr( isset( $room['room_rate_amount'] ) ? number_format( (float) $room['room_rate_amount'], 2, '.', '' ) : '0.00' ) . '" /></td>';
+        echo '<td><input type="text" name="room_lines[' . esc_attr( $index ) . '][extras_amount]" value="' . esc_attr( isset( $room['extras_amount'] ) ? number_format( (float) $room['extras_amount'], 2, '.', '' ) : '0.00' ) . '" /></td>';
+        echo '<td>' . esc_html( isset( $room['tourist_tax_amount'] ) ? number_format( (float) $room['tourist_tax_amount'], 2, '.', '' ) : '' ) . '</td>';
+        echo '<td>' . esc_html( isset( $room['total_amount'] ) ? number_format( (float) $room['total_amount'], 2, '.', '' ) : '' ) . '</td>';
+        echo '<td><label><input type="checkbox" name="room_lines[' . esc_attr( $index ) . '][remove]" value="1" /> ' . esc_html__( 'Remove', 'simple-hotel-crm' ) . '</label></td>';
         echo '</tr>';
     }
-    echo '</tbody></table></div>';
+    echo '</tbody></table>';
+    submit_button( __( 'Add room line', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_add_booking_room', false );
+    echo '</div>';
 }
 
 function simple_hotel_crm_render_guest_detail_page() {
@@ -2004,18 +2030,23 @@ function simple_hotel_crm_render_guest_detail_page() {
             'last_name' => sanitize_text_field( wp_unslash( $_POST['last_name'] ?? '' ) ),
             'email' => sanitize_email( wp_unslash( $_POST['email'] ?? '' ) ),
             'phone' => sanitize_text_field( wp_unslash( $_POST['phone'] ?? '' ) ),
+            'address_line_1' => sanitize_text_field( wp_unslash( $_POST['address_line_1'] ?? '' ) ),
+            'address_line_2' => sanitize_text_field( wp_unslash( $_POST['address_line_2'] ?? '' ) ),
+            'city' => sanitize_text_field( wp_unslash( $_POST['city'] ?? '' ) ),
+            'postcode' => sanitize_text_field( wp_unslash( $_POST['postcode'] ?? '' ) ),
+            'country' => sanitize_text_field( wp_unslash( $_POST['country'] ?? '' ) ),
             'notes' => sanitize_textarea_field( wp_unslash( $_POST['notes'] ?? '' ) ),
         ];
         if ( $guest_id > 0 ) {
-            $wpdb->update( $guests_table, $payload, [ 'id' => $guest_id ], [ '%s', '%s', '%s', '%s', '%s' ], [ '%d' ] );
+            $wpdb->update( $guests_table, $payload, [ 'id' => $guest_id ], [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ], [ '%d' ] );
         } else {
-            $wpdb->insert( $guests_table, $payload, [ '%s', '%s', '%s', '%s', '%s' ] );
+            $wpdb->insert( $guests_table, $payload, [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ] );
             $guest_id = (int) $wpdb->insert_id;
         }
         echo '<div class="notice notice-success"><p>' . esc_html__( 'Guest saved.', 'simple-hotel-crm' ) . '</p></div>';
     }
 
-    $guest = $guest_id > 0 ? $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$guests_table} WHERE id = %d LIMIT 1", $guest_id ), ARRAY_A ) : [ 'first_name' => '', 'last_name' => '', 'email' => '', 'phone' => '', 'notes' => '' ];
+    $guest = $guest_id > 0 ? $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$guests_table} WHERE id = %d LIMIT 1", $guest_id ), ARRAY_A ) : [ 'first_name' => '', 'last_name' => '', 'email' => '', 'phone' => '', 'address_line_1' => '', 'address_line_2' => '', 'city' => '', 'postcode' => '', 'country' => '', 'notes' => '' ];
     $bookings = $guest_id > 0 ? $wpdb->get_results( $wpdb->prepare( "SELECT id, check_in_date, check_out_date, status_code, total_amount FROM {$bookings_table} WHERE guest_id = %d ORDER BY check_in_date DESC", $guest_id ), ARRAY_A ) : [];
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( $guest_id > 0 ? 'Guest Detail' : 'Add Guest', 'simple-hotel-crm' ) . '</h1>';
@@ -2027,6 +2058,11 @@ function simple_hotel_crm_render_guest_detail_page() {
     echo '<tr><th>' . esc_html__( 'Last name', 'simple-hotel-crm' ) . '</th><td><input type="text" name="last_name" value="' . esc_attr( (string) $guest['last_name'] ) . '" class="regular-text" /></td></tr>';
     echo '<tr><th>' . esc_html__( 'Email', 'simple-hotel-crm' ) . '</th><td><input type="email" name="email" value="' . esc_attr( (string) $guest['email'] ) . '" class="regular-text" /></td></tr>';
     echo '<tr><th>' . esc_html__( 'Phone', 'simple-hotel-crm' ) . '</th><td><input type="text" name="phone" value="' . esc_attr( (string) $guest['phone'] ) . '" class="regular-text" /></td></tr>';
+    echo '<tr><th>' . esc_html__( 'Address line 1', 'simple-hotel-crm' ) . '</th><td><input type="text" name="address_line_1" value="' . esc_attr( (string) $guest['address_line_1'] ) . '" class="regular-text" /></td></tr>';
+    echo '<tr><th>' . esc_html__( 'Address line 2', 'simple-hotel-crm' ) . '</th><td><input type="text" name="address_line_2" value="' . esc_attr( (string) $guest['address_line_2'] ) . '" class="regular-text" /></td></tr>';
+    echo '<tr><th>' . esc_html__( 'City', 'simple-hotel-crm' ) . '</th><td><input type="text" name="city" value="' . esc_attr( (string) $guest['city'] ) . '" class="regular-text" /></td></tr>';
+    echo '<tr><th>' . esc_html__( 'Postcode', 'simple-hotel-crm' ) . '</th><td><input type="text" name="postcode" value="' . esc_attr( (string) $guest['postcode'] ) . '" class="regular-text" /></td></tr>';
+    echo '<tr><th>' . esc_html__( 'Country', 'simple-hotel-crm' ) . '</th><td><input type="text" name="country" value="' . esc_attr( (string) $guest['country'] ) . '" class="regular-text" /></td></tr>';
     echo '<tr><th>' . esc_html__( 'Notes', 'simple-hotel-crm' ) . '</th><td><textarea name="notes" rows="5" class="large-text">' . esc_textarea( (string) $guest['notes'] ) . '</textarea></td></tr>';
     echo '</table>';
     submit_button( __( 'Save Guest', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_save_guest' );
