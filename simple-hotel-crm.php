@@ -948,8 +948,6 @@ function simple_hotel_crm_get_empty_calendar_result( $month, $year, $days_in_mon
 function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
     global $wpdb;
 
-    simple_hotel_crm_seed_rooms_table();
-
     $first_day = new DateTime( sprintf( '%04d-%02d-01', $year, $month ) );
     $days_in_month = (int) $first_day->format( 't' );
     $last_day = clone $first_day;
@@ -959,10 +957,10 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
     $month_after_last_day_str = $last_day->modify( '+1 day' )->format( 'Y-m-d' );
 
     $rooms_table = simple_hotel_crm_rooms_table();
+    $guests_table = simple_hotel_crm_guests_table();
     $bookings_table = simple_hotel_crm_bookings_table();
     $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
     $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
-    $guests_table = simple_hotel_crm_guests_table();
 
     $rooms_rows = $wpdb->get_results( "SELECT id, external_room_id, room_code, room_name, sort_order, color FROM {$rooms_table} WHERE active = 1 ORDER BY sort_order ASC, room_name ASC", ARRAY_A );
 
@@ -998,7 +996,6 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
                 b.invoice_ninja_client_id,
                 b.invoice_ninja_invoice_id,
                 b.created_at,
-                b.contacted_date,
                 br.id AS booking_room_id,
                 br.legacy_reserved_room_id,
                 br.room_id,
@@ -1012,15 +1009,19 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
                 brn.extras_amount,
                 brn.tourist_tax_amount,
                 brn.total_amount,
-                r.room_name,
                 g.first_name,
                 g.last_name,
-                g.phone
+                g.phone,
+                room_counts.room_count
              FROM {$bookings_table} b
              JOIN {$booking_rooms_table} br ON br.booking_id = b.id
              JOIN {$booking_nights_table} brn ON brn.booking_room_id = br.id
-             JOIN {$rooms_table} r ON r.id = br.room_id
              JOIN {$guests_table} g ON g.id = b.guest_id
+             JOIN (
+                SELECT booking_id, COUNT(*) AS room_count
+                FROM {$booking_rooms_table}
+                GROUP BY booking_id
+             ) room_counts ON room_counts.booking_id = b.id
              WHERE b.status_code IN ('pending', 'confirmed', 'checked_in')
                AND brn.stay_date >= %s
                AND brn.stay_date < %s
@@ -1037,7 +1038,7 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
             continue;
         }
 
-        $reserved_room_id = (int) ( $row['legacy_reserved_room_id'] ?: $row['booking_room_id'] );
+        $reserved_room_id = ! empty( $row['legacy_reserved_room_id'] ) ? (int) $row['legacy_reserved_room_id'] : (int) $row['booking_room_id'];
         $overlay = simple_hotel_crm_get_booking_overlay( $reserved_room_id );
         $adults = isset( $overlay['manual_adults'] ) && '' !== $overlay['manual_adults'] ? (int) $overlay['manual_adults'] : (int) $row['adults'];
         $children = isset( $overlay['manual_children'] ) && '' !== $overlay['manual_children'] ? (int) $overlay['manual_children'] : (int) $row['children'];
@@ -1063,8 +1064,8 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
             'reserved_room_id' => $reserved_room_id,
             'guest_name' => $guest_name,
             'phone' => (string) $row['phone'],
-            'guest_count' => isset( $row['guest_count'] ) ? (int) $row['guest_count'] : 0,
-            'babies' => isset( $row['babies'] ) ? (int) $row['babies'] : 0,
+            'guest_count' => (int) $row['guest_count'],
+            'babies' => (int) $row['babies'],
             'adults' => $adults,
             'children' => $children,
             'occupancy_str' => simple_hotel_crm_format_occupancy( $adults, $children ),
@@ -1078,7 +1079,7 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
             'extras_total' => null !== $extras_total ? $extras_total : ( (float) $row['extras_amount'] > 0 ? (float) $row['extras_amount'] : null ),
             'booking_note' => isset( $overlay['booking_note'] ) ? (string) $overlay['booking_note'] : '',
             'import_notes' => (string) ( $row['internal_notes'] ?? '' ),
-            'tourist_tax_amount' => isset( $row['tourist_tax_amount'] ) ? (float) $row['tourist_tax_amount'] : 0.0,
+            'tourist_tax_amount' => (float) $row['tourist_tax_amount'],
             'reservation_total_amount' => (float) $row['booking_total_amount'],
             'room_stay_total_amount' => (float) $row['room_stay_total_amount'],
             'invoice_ninja_client_id' => (string) $row['invoice_ninja_client_id'],
