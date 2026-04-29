@@ -36,6 +36,7 @@ A WordPress plugin to display MotoPress Hotel Booking data, locally synced LGF d
 
 ### Admin Integration
 - WordPress admin menu
+- Calendar, Bookings, Guests, Add Booking, and Settings pages
 - Shortcode support via `[simple_hotel_crm]`
 - Administrator-only access
 
@@ -51,10 +52,11 @@ A WordPress plugin to display MotoPress Hotel Booking data, locally synced LGF d
 1. Upload the plugin files to the `/wp-content/plugins/simple-hotel-crm` directory, or install the plugin through the WordPress plugins screen directly.
 2. Activate the plugin through the 'Plugins' screen in WordPress.
 3. If using the MotoPress source, ensure MotoPress Hotel Booking is installed and active.
-4. If using the Local WordPress sync source, run `scripts/sync-lgf-db-to-wp.sh` to copy data from the LGF PostgreSQL database into the plugin's WordPress sync tables, then switch the booking source to **Local WordPress sync tables**.
-5. If using the direct LGF PostgreSQL source, open **Simple Hotel CRM → Settings** and enter the PostgreSQL connection details for your `lgf_bookings` database, then switch the booking source to **External PostgreSQL**.
-6. Access the calendar via the **Simple Hotel CRM** admin menu or use the shortcode `[simple_hotel_crm]` on any page or post.
-7. Optionally, pass attributes: `[simple_hotel_crm month="3" year="2026"]`
+4. If you want to seed local room/sync data from the older LGF PostgreSQL project, run `scripts/sync-lgf-db-to-wp.sh` to copy data into the plugin's compatibility sync tables.
+5. Open **Simple Hotel CRM → Settings** and use **WordPress CRM tables** as the primary booking source for local operation.
+6. If using the direct LGF PostgreSQL source, enter the PostgreSQL connection details for your `lgf_bookings` database and switch the booking source to **External PostgreSQL**.
+7. Access the calendar via the **Simple Hotel CRM** admin menu or use the shortcode `[simple_hotel_crm]` on any page or post.
+8. Optionally, pass attributes: `[simple_hotel_crm month="3" year="2026"]`
 
 ### Invoice Ninja Setup
 
@@ -68,7 +70,8 @@ A WordPress plugin to display MotoPress Hotel Booking data, locally synced LGF d
 - Creates `wp_simple_hotel_crm_daily_notes`, `wp_simple_hotel_crm_booking_overlays`, `wp_simple_hotel_crm_sync_rooms`, `wp_simple_hotel_crm_sync_bookings`, `wp_simple_hotel_crm_rooms`, `wp_simple_hotel_crm_guests`, `wp_simple_hotel_crm_bookings`, `wp_simple_hotel_crm_booking_rooms`, and `wp_simple_hotel_crm_booking_room_nights`.
 - Caches calendar data with source-aware transient keys.
 - Supports theme override via `templates/booking-view.php` copied into `your-theme/simple-hotel-crm/`.
-- WordPress-native CRM tables are now the primary write path; sync tables are still maintained as a compatibility layer for the current calendar UI.
+- WordPress-native CRM tables are now the primary write path and calendar read path for the local WordPress mode.
+- Sync tables are still maintained as a compatibility layer for the current calendar integrations and migration path.
 - External PostgreSQL mode expects the schema from `/home/angus/.pi/projects/lgf-database`.
 - All output is escaped for security.
 
