@@ -1591,8 +1591,12 @@ function simple_hotel_crm_render_bookings_page() {
 
     if ( isset( $_GET['delete_booking'] ) ) {
         check_admin_referer( 'simple_hotel_crm_delete_booking_' . absint( $_GET['delete_booking'] ) );
-        simple_hotel_crm_delete_booking( absint( $_GET['delete_booking'] ) );
-        echo '<div class="notice notice-success"><p>' . esc_html__( 'Booking deleted.', 'simple-hotel-crm' ) . '</p></div>';
+        $deleted = simple_hotel_crm_delete_booking( absint( $_GET['delete_booking'] ) );
+        if ( $deleted ) {
+            echo '<div class="notice notice-success"><p>' . esc_html__( 'Booking deleted.', 'simple-hotel-crm' ) . '</p></div>';
+        } else {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'Booking could not be deleted.', 'simple-hotel-crm' ) . '</p></div>';
+        }
     }
 
     $rows = $wpdb->get_results(
@@ -1656,8 +1660,14 @@ function simple_hotel_crm_render_guests_page() {
 
     if ( isset( $_GET['delete_guest'] ) ) {
         check_admin_referer( 'simple_hotel_crm_delete_guest_' . absint( $_GET['delete_guest'] ) );
-        simple_hotel_crm_delete_guest( absint( $_GET['delete_guest'] ) );
-        echo '<div class="notice notice-success"><p>' . esc_html__( 'Guest deleted.', 'simple-hotel-crm' ) . '</p></div>';
+        $deleted = simple_hotel_crm_delete_guest( absint( $_GET['delete_guest'] ) );
+        if ( is_wp_error( $deleted ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html( $deleted->get_error_message() ) . '</p></div>';
+        } elseif ( $deleted ) {
+            echo '<div class="notice notice-success"><p>' . esc_html__( 'Guest deleted.', 'simple-hotel-crm' ) . '</p></div>';
+        } else {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'Guest could not be deleted.', 'simple-hotel-crm' ) . '</p></div>';
+        }
     }
 
     $rows = $wpdb->get_results(
@@ -1706,7 +1716,7 @@ function simple_hotel_crm_delete_booking( $booking_id ) {
 
     $booking_id = absint( $booking_id );
     if ( $booking_id <= 0 ) {
-        return;
+        return false;
     }
 
     $bookings_table = simple_hotel_crm_bookings_table();
@@ -1723,23 +1733,24 @@ function simple_hotel_crm_delete_booking( $booking_id ) {
         $wpdb->query( "DELETE FROM {$sync_bookings_table} WHERE external_booking_room_id IN (" . implode( ',', array_map( 'intval', array_filter( $legacy_ids ) ) ) . ")" );
     }
     $wpdb->delete( $booking_rooms_table, [ 'booking_id' => $booking_id ], [ '%d' ] );
-    $wpdb->delete( $bookings_table, [ 'id' => $booking_id ], [ '%d' ] );
+    $deleted = false !== $wpdb->delete( $bookings_table, [ 'id' => $booking_id ], [ '%d' ] );
     simple_hotel_crm_clear_calendar_cache();
+    return $deleted;
 }
 
 function simple_hotel_crm_delete_guest( $guest_id ) {
     global $wpdb;
     $guest_id = absint( $guest_id );
     if ( $guest_id <= 0 ) {
-        return;
+        return false;
     }
     $bookings_table = simple_hotel_crm_bookings_table();
     $guests_table = simple_hotel_crm_guests_table();
     $booking_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$bookings_table} WHERE guest_id = %d", $guest_id ) );
     if ( $booking_count > 0 ) {
-        return;
+        return new WP_Error( 'guest_has_bookings', __( 'This guest cannot be deleted because bookings are still linked to them.', 'simple-hotel-crm' ) );
     }
-    $wpdb->delete( $guests_table, [ 'id' => $guest_id ], [ '%d' ] );
+    return false !== $wpdb->delete( $guests_table, [ 'id' => $guest_id ], [ '%d' ] );
 }
 
 function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existing_booking = null ) {
@@ -1977,8 +1988,16 @@ function simple_hotel_crm_render_booking_detail_page() {
     wp_nonce_field( 'simple_hotel_crm_save_booking_' . $booking_id );
     echo '<table class="form-table">';
     echo '<tr><th>' . esc_html__( 'Guest', 'simple-hotel-crm' ) . '</th><td><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guest-detail&guest_id=' . absint( $booking['guest_id'] ) ) ) . '">' . esc_html( trim( (string) $booking['first_name'] . ' ' . (string) $booking['last_name'] ) ) . '</a></td></tr>';
-    echo '<tr><th>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</th><td><input type="text" name="status_code" value="' . esc_attr( (string) $booking['status_code'] ) . '" /></td></tr>';
-    echo '<tr><th>' . esc_html__( 'Channel', 'simple-hotel-crm' ) . '</th><td><input type="text" name="source_channel" value="' . esc_attr( (string) $booking['source_channel'] ) . '" /></td></tr>';
+    echo '<tr><th>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</th><td><select name="status_code">';
+    foreach ( simple_hotel_crm_get_booking_status_options() as $code => $label ) {
+        echo '<option value="' . esc_attr( $code ) . '"' . selected( (string) $booking['status_code'], $code, false ) . '>' . esc_html( $label ) . '</option>';
+    }
+    echo '</select></td></tr>';
+    echo '<tr><th>' . esc_html__( 'Channel', 'simple-hotel-crm' ) . '</th><td><select name="source_channel">';
+    foreach ( simple_hotel_crm_get_booking_channel_options() as $code => $label ) {
+        echo '<option value="' . esc_attr( $code ) . '"' . selected( (string) $booking['source_channel'], $code, false ) . '>' . esc_html( $label ) . '</option>';
+    }
+    echo '</select></td></tr>';
     echo '<tr><th>' . esc_html__( 'Contacted date', 'simple-hotel-crm' ) . '</th><td><input type="date" name="contacted_date" value="' . esc_attr( (string) $booking['contacted_date'] ) . '" /></td></tr>';
     echo '<tr><th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th><td><input type="date" name="check_in_date" value="' . esc_attr( (string) $booking['check_in_date'] ) . '" /></td></tr>';
     echo '<tr><th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th><td><input type="date" name="check_out_date" value="' . esc_attr( (string) $booking['check_out_date'] ) . '" /></td></tr>';
