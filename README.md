@@ -78,7 +78,7 @@ A WordPress plugin to display MotoPress Hotel Booking data, locally synced LGF d
 
 ## Development
 
-- Admin page logic is now split into `includes/admin-pages.php` to start breaking up the original monolithic plugin file.
+- The original monolithic plugin file is now being split into focused includes, including `includes/admin-pages.php`, `includes/calendar-data.php`, and `includes/crm-bookings.php`.
 
 This plugin was co-developed by:
 - Angus Watson
