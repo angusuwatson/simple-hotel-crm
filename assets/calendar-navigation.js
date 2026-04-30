@@ -111,6 +111,8 @@
                     $form.find('[name="guest_name"]').val(response.guest_name || '');
                     $form.find('[name="phone"]').val(response.phone || '');
                     $form.find('[name="contacted_date"]').val(response.contacted_date || '');
+                    $form.find('[name="booking_note"]').val(response.booking_note || '');
+                    $form.find('[name="booking_note"]').val(response.booking_note || '');
                     $form.find('[name="internal_notes"]').val(response.internal_notes || '');
                     var $status = $form.find('[name="status_code"]').empty();
                     $.each(response.status_options || {}, function(value, label) {

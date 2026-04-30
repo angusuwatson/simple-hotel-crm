@@ -158,6 +158,8 @@ $calendar_base_url = $calendar_base_url ?? '';
                 <p><label><?php esc_html_e( 'Status', 'simple-hotel-crm' ); ?><br><select name="status_code"></select></label></p>
                 <p><label><?php esc_html_e( 'Channel', 'simple-hotel-crm' ); ?><br><select name="source_channel"></select></label></p>
                 <p><label><?php esc_html_e( 'Contacted date', 'simple-hotel-crm' ); ?><br><input type="date" name="contacted_date" /></label></p>
+                <p><label><?php esc_html_e( 'Booking note', 'simple-hotel-crm' ); ?><br><textarea name="booking_note" rows="3" class="large-text"></textarea></label></p>
+                <p><label><?php esc_html_e( 'Booking note', 'simple-hotel-crm' ); ?><br><textarea name="booking_note" rows="3" class="large-text"></textarea></label></p>
                 <p><label><?php esc_html_e( 'Internal notes', 'simple-hotel-crm' ); ?><br><textarea name="internal_notes" rows="5" class="large-text"></textarea></label></p>
                 <p class="simple-hotel-crm-quick-booking-actions">
                     <a href="#" class="button simple-hotel-crm-open-full-booking"><?php esc_html_e( 'Open full booking', 'simple-hotel-crm' ); ?></a>

@@ -329,6 +329,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     extract( $validated, EXTR_SKIP );
     $status_code = sanitize_text_field( (string) ( $data['status_code'] ?? 'confirmed' ) );
     $source_channel = sanitize_text_field( (string) ( $data['source_channel'] ?? 'direct' ) );
+    $booking_note = sanitize_textarea_field( (string) ( $data['booking_note'] ?? '' ) );
     $import_notes = sanitize_textarea_field( (string) ( $data['import_notes'] ?? '' ) );
     $source_created_at = ( '' !== $contacted_date ? $contacted_date : current_time( 'mysql' ) );
 
@@ -477,10 +478,11 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
             'extras_amount' => $booking_extras,
             'tourist_tax_amount' => $booking_tax,
             'total_amount' => $booking_total,
+            'booking_note' => $booking_note,
             'internal_notes' => $import_notes,
         ],
         [ 'id' => $booking_id ],
-        [ '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%s' ],
+        [ '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%s', '%s' ],
         [ '%d' ]
     );
 
@@ -533,6 +535,7 @@ function simple_hotel_crm_render_booking_detail_page() {
             'source_channel' => sanitize_text_field( wp_unslash( $_POST['source_channel'] ?? '' ) ),
             'status_code' => sanitize_text_field( wp_unslash( $_POST['status_code'] ?? '' ) ),
             'contacted_date' => sanitize_text_field( wp_unslash( $_POST['contacted_date'] ?? '' ) ),
+            'booking_note' => sanitize_textarea_field( wp_unslash( $_POST['booking_note'] ?? '' ) ),
             'import_notes' => sanitize_textarea_field( wp_unslash( $_POST['internal_notes'] ?? '' ) ),
             'room_lines' => $posted_room_lines,
         ];
@@ -577,6 +580,7 @@ function simple_hotel_crm_render_booking_detail_page() {
     }
     echo '</select></td></tr>';
     echo '<tr><th>' . esc_html__( 'Contacted date', 'simple-hotel-crm' ) . '</th><td><input type="date" name="contacted_date" value="' . esc_attr( (string) $booking['contacted_date'] ) . '" /></td></tr>';
+    echo '<tr><th>' . esc_html__( 'Booking note', 'simple-hotel-crm' ) . '</th><td><textarea name="booking_note" rows="3" class="large-text">' . esc_textarea( (string) $booking['booking_note'] ) . '</textarea></td></tr>';
     echo '<tr><th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th><td><input type="date" name="check_in_date" value="' . esc_attr( (string) $booking['check_in_date'] ) . '" /></td></tr>';
     echo '<tr><th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th><td><input type="date" name="check_out_date" value="' . esc_attr( (string) $booking['check_out_date'] ) . '" /></td></tr>';
     echo '<tr><th>' . esc_html__( 'Internal notes', 'simple-hotel-crm' ) . '</th><td><textarea name="internal_notes" rows="5" class="large-text">' . esc_textarea( (string) $booking['internal_notes'] ) . '</textarea></td></tr>';
@@ -692,6 +696,7 @@ function simple_hotel_crm_render_add_booking_page() {
         'source_channel' => 'direct',
         'status_code' => 'confirmed',
         'contacted_date' => gmdate( 'Y-m-d' ),
+        'booking_note' => '',
         'import_notes' => '',
         'room_lines' => [ [ 'room_sync_id' => '', 'adults' => 2, 'children' => 0, 'babies' => 0, 'room_rate_amount' => '0.00', 'extras_amount' => '0.00' ] ],
     ];
@@ -796,6 +801,7 @@ function simple_hotel_crm_render_add_booking_page() {
     }
     echo '</select></td></tr>';
     echo '<tr><th><label for="contacted_date">' . esc_html__( 'Contacted date', 'simple-hotel-crm' ) . '</label></th><td><input type="date" name="contacted_date" id="contacted_date" value="' . esc_attr( (string) $form_data['contacted_date'] ) . '" /></td></tr>';
+    echo '<tr><th><label for="booking_note">' . esc_html__( 'Booking note', 'simple-hotel-crm' ) . '</label></th><td><textarea name="booking_note" id="booking_note" rows="3" class="large-text">' . esc_textarea( (string) $form_data['booking_note'] ) . '</textarea></td></tr>';
     echo '<tr><th><label for="import_notes">' . esc_html__( 'Import / internal notes', 'simple-hotel-crm' ) . '</label></th><td><textarea name="import_notes" id="import_notes" rows="4" class="large-text">' . esc_textarea( (string) $form_data['import_notes'] ) . '</textarea></td></tr>';
     echo '</table>';
     submit_button( __( 'Create Booking', 'simple-hotel-crm' ), 'primary', 'lgf_add_booking_submit' );

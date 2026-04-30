@@ -290,6 +290,7 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
     $source_channel = sanitize_text_field( (string) ( $data['source_channel'] ?? 'direct' ) );
     $status_code = sanitize_text_field( (string) ( $data['status_code'] ?? 'confirmed' ) );
     $phone = sanitize_text_field( (string) ( $data['phone'] ?? '' ) );
+    $booking_note = sanitize_textarea_field( (string) ( $data['booking_note'] ?? '' ) );
     $import_notes = sanitize_textarea_field( (string) ( $data['import_notes'] ?? '' ) );
     $source_created_at = ( '' !== $contacted_date ? $contacted_date : current_time( 'mysql' ) );
 
@@ -347,11 +348,12 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
             'tourist_tax_amount' => $booking_tax,
             'total_amount' => $booking_total,
             'currency' => 'EUR',
+            'booking_note' => $booking_note,
             'internal_notes' => $import_notes,
             'invoice_ninja_client_id' => '',
             'invoice_ninja_invoice_id' => '',
         ],
-        [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%s', '%s', '%s', '%s' ]
+        [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%s', '%s', '%s', '%s', '%s' ]
     );
     if ( false === $booking_inserted ) {
         $wpdb->query( 'ROLLBACK' );

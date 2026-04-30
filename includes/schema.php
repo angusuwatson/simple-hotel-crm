@@ -156,6 +156,7 @@ function simple_hotel_crm_install_tables() {
         tourist_tax_amount decimal(10,2) NOT NULL DEFAULT 0.00,
         total_amount decimal(10,2) NOT NULL DEFAULT 0.00,
         currency varchar(10) NOT NULL DEFAULT 'EUR',
+        booking_note longtext NULL,
         special_requests longtext NULL,
         internal_notes longtext NULL,
         invoice_ninja_client_id varchar(191) NULL,
@@ -222,6 +223,7 @@ function simple_hotel_crm_install_tables() {
     simple_hotel_crm_seed_rooms_table();
     simple_hotel_crm_maybe_migrate_sync_data_to_crm();
     simple_hotel_crm_repair_booking_room_links();
+    simple_hotel_crm_migrate_overlay_notes_to_booking_notes();
 
     update_option( 'simple_hotel_crm_db_version', SIMPLE_HOTEL_CRM_DB_VERSION );
 }
@@ -315,6 +317,27 @@ function simple_hotel_crm_repair_booking_room_links() {
     );
 }
 
+function simple_hotel_crm_migrate_overlay_notes_to_booking_notes() {
+    global $wpdb;
+
+    $crm_bookings_table = simple_hotel_crm_bookings_table();
+    $crm_booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $overlay_table = simple_hotel_crm_booking_overlay_table();
+
+    $wpdb->query(
+        "UPDATE {$crm_bookings_table} b
+         JOIN (
+            SELECT br.booking_id, MIN(o.booking_note) AS booking_note
+            FROM {$crm_booking_rooms_table} br
+            JOIN {$overlay_table} o ON o.reserved_room_id = br.legacy_reserved_room_id
+            WHERE o.booking_note IS NOT NULL AND o.booking_note <> ''
+            GROUP BY br.booking_id
+         ) notes ON notes.booking_id = b.id
+         SET b.booking_note = notes.booking_note
+         WHERE (b.booking_note IS NULL OR b.booking_note = '')"
+    );
+}
+
 function simple_hotel_crm_maybe_migrate_sync_data_to_crm() {
     global $wpdb;
 
@@ -387,11 +410,12 @@ function simple_hotel_crm_maybe_migrate_sync_data_to_crm() {
                 'tourist_tax_amount' => $booking_tax,
                 'total_amount' => $booking_total,
                 'currency' => 'EUR',
+                'booking_note' => '',
                 'internal_notes' => (string) $booking_group['import_notes'],
                 'invoice_ninja_client_id' => (string) $booking_group['invoice_ninja_client_id'],
                 'invoice_ninja_invoice_id' => (string) $booking_group['invoice_ninja_invoice_id'],
             ],
-            [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%s', '%s', '%s', '%s' ]
+            [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%s', '%s', '%s', '%s', '%s' ]
         );
         if ( false === $booking_inserted ) {
             continue;

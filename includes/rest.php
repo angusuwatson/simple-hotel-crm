@@ -112,7 +112,7 @@ function simple_hotel_crm_rest_get_quick_booking( WP_REST_Request $request ) {
 
     $booking = $wpdb->get_row(
         $wpdb->prepare(
-            "SELECT b.id, b.guest_id, b.status_code, b.source_channel, b.contacted_date, b.internal_notes, g.first_name, g.last_name, g.phone
+            "SELECT b.id, b.guest_id, b.status_code, b.source_channel, b.contacted_date, b.booking_note, b.internal_notes, g.first_name, g.last_name, g.phone
              FROM {$bookings_table} b
              JOIN {$guests_table} g ON g.id = b.guest_id
              WHERE b.id = %d AND b.is_deleted = 0
@@ -133,6 +133,7 @@ function simple_hotel_crm_rest_get_quick_booking( WP_REST_Request $request ) {
         'status_code' => (string) $booking['status_code'],
         'source_channel' => (string) $booking['source_channel'],
         'contacted_date' => (string) $booking['contacted_date'],
+        'booking_note' => (string) $booking['booking_note'],
         'internal_notes' => (string) $booking['internal_notes'],
         'status_options' => simple_hotel_crm_get_booking_status_options(),
         'channel_options' => simple_hotel_crm_get_booking_channel_options(),
@@ -149,6 +150,7 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
     $status_code = sanitize_text_field( (string) $request->get_param( 'status_code' ) );
     $source_channel = sanitize_text_field( (string) $request->get_param( 'source_channel' ) );
     $contacted_date = sanitize_text_field( (string) $request->get_param( 'contacted_date' ) );
+    $booking_note = sanitize_textarea_field( (string) $request->get_param( 'booking_note' ) );
     $internal_notes = sanitize_textarea_field( (string) $request->get_param( 'internal_notes' ) );
 
     if ( '' === $guest_name ) {
@@ -184,8 +186,9 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
         'status_code' => $status_code,
         'source_channel' => $source_channel,
         'contacted_date' => $contacted_date ?: null,
+        'booking_note' => $booking_note,
         'internal_notes' => $internal_notes,
-    ], [ 'id' => $booking_id ], [ '%s', '%s', '%s', '%s' ], [ '%d' ] );
+    ], [ 'id' => $booking_id ], [ '%s', '%s', '%s', '%s', '%s' ], [ '%d' ] );
 
     $wpdb->update( $sync_bookings_table, [
         'status_code' => $status_code,
