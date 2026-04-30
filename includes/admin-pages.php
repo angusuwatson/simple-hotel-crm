@@ -174,20 +174,32 @@ function simple_hotel_crm_render_guests_page() {
 
     if ( isset( $_GET['delete_guest'] ) ) {
         check_admin_referer( 'simple_hotel_crm_delete_guest_' . absint( $_GET['delete_guest'] ) );
-        $deleted = false !== $wpdb->update( $guests_table, [ 'is_deleted' => 1, 'deleted_at' => current_time( 'mysql' ) ], [ 'id' => absint( $_GET['delete_guest'] ) ], [ '%d', '%s' ], [ '%d' ] );
-        echo '<div class="notice ' . esc_attr( $deleted ? 'notice-success' : 'notice-error' ) . '"><p>' . esc_html( $deleted ? __( 'Guest moved to trash.', 'simple-hotel-crm' ) : __( 'Guest could not be deleted.', 'simple-hotel-crm' ) ) . '</p></div>';
+        $booking_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$bookings_table} WHERE guest_id = %d AND is_deleted = 0", absint( $_GET['delete_guest'] ) ) );
+        if ( $booking_count > 0 ) {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'This guest cannot be deleted because bookings are still linked to them.', 'simple-hotel-crm' ) . '</p></div>';
+        } else {
+            $deleted = false !== $wpdb->update( $guests_table, [ 'is_deleted' => 1, 'deleted_at' => current_time( 'mysql' ) ], [ 'id' => absint( $_GET['delete_guest'] ) ], [ '%d', '%s' ], [ '%d' ] );
+            echo '<div class="notice ' . esc_attr( $deleted ? 'notice-success' : 'notice-error' ) . '"><p>' . esc_html( $deleted ? __( 'Guest moved to trash.', 'simple-hotel-crm' ) : __( 'Guest could not be deleted.', 'simple-hotel-crm' ) ) . '</p></div>';
+        }
     }
 
     if ( isset( $_POST['simple_hotel_crm_bulk_apply_guests'] ) && ! empty( $_POST['guest_ids'] ) && is_array( $_POST['guest_ids'] ) ) {
         check_admin_referer( 'simple_hotel_crm_bulk_guests' );
-        $guest_ids = array_map( 'absint', (array) $_POST['guest_ids'] );
+        $guest_ids = array_filter( array_map( 'absint', (array) $_POST['guest_ids'] ) );
         $action = sanitize_text_field( wp_unslash( $_POST['bulk_action'] ?? '' ) );
-        if ( 'delete' === $action ) {
-            $wpdb->query( "UPDATE {$guests_table} SET is_deleted = 1, deleted_at = NOW() WHERE id IN (" . implode( ',', $guest_ids ) . ")" );
-            echo '<div class="notice notice-success"><p>' . esc_html__( 'Selected guests moved to trash.', 'simple-hotel-crm' ) . '</p></div>';
-        } elseif ( 'restore' === $action ) {
-            $wpdb->query( "UPDATE {$guests_table} SET is_deleted = 0, deleted_at = NULL WHERE id IN (" . implode( ',', $guest_ids ) . ")" );
-            echo '<div class="notice notice-success"><p>' . esc_html__( 'Selected guests restored.', 'simple-hotel-crm' ) . '</p></div>';
+        if ( ! empty( $guest_ids ) ) {
+            if ( 'delete' === $action ) {
+                $blocking = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE guest_id IN (" . implode( ',', $guest_ids ) . ") AND is_deleted = 0" );
+                if ( $blocking > 0 ) {
+                    echo '<div class="notice notice-error"><p>' . esc_html__( 'One or more selected guests still have active bookings and could not be deleted.', 'simple-hotel-crm' ) . '</p></div>';
+                } else {
+                    $wpdb->query( "UPDATE {$guests_table} SET is_deleted = 1, deleted_at = NOW() WHERE id IN (" . implode( ',', $guest_ids ) . ")" );
+                    echo '<div class="notice notice-success"><p>' . esc_html__( 'Selected guests moved to trash.', 'simple-hotel-crm' ) . '</p></div>';
+                }
+            } elseif ( 'restore' === $action ) {
+                $wpdb->query( "UPDATE {$guests_table} SET is_deleted = 0, deleted_at = NULL WHERE id IN (" . implode( ',', $guest_ids ) . ")" );
+                echo '<div class="notice notice-success"><p>' . esc_html__( 'Selected guests restored.', 'simple-hotel-crm' ) . '</p></div>';
+            }
         }
     }
 
