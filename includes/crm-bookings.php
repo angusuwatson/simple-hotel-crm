@@ -221,6 +221,7 @@ function simple_hotel_crm_check_wp_sync_room_availability( $room_sync_id, $check
              FROM {$booking_rooms_table} br
              JOIN {$bookings_table} b ON b.id = br.booking_id
              WHERE br.room_id = %d
+               AND b.is_deleted = 0
                AND b.status_code IN ('pending', 'confirmed', 'checked_in')
                AND b.check_in_date < %s
                AND b.check_out_date > %s",

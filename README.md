@@ -37,6 +37,7 @@ A WordPress plugin to display MotoPress Hotel Booking data, locally synced LGF d
 ### Admin Integration
 - WordPress admin menu
 - Calendar, Bookings, Booking Detail, Guests, Guest Detail, Add Booking, and Settings pages
+- Booking and guest list pages support sortable column headings plus bulk delete/restore via a trash view
 - Shortcode support via `[simple_hotel_crm]`
 - Administrator-only access
 

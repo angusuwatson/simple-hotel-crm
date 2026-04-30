@@ -10,7 +10,7 @@
 defined( 'ABSPATH' ) || exit;
 
 define( 'SIMPLE_HOTEL_CRM_VERSION', '1.6' );
-define( 'SIMPLE_HOTEL_CRM_DB_VERSION', '5' );
+define( 'SIMPLE_HOTEL_CRM_DB_VERSION', '6' );
 
 add_action( 'plugins_loaded', 'simple_hotel_crm_check_dependency' );
 function simple_hotel_crm_check_dependency() {
