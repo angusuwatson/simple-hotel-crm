@@ -221,6 +221,7 @@ function simple_hotel_crm_install_tables() {
 
     simple_hotel_crm_seed_rooms_table();
     simple_hotel_crm_maybe_migrate_sync_data_to_crm();
+    simple_hotel_crm_repair_booking_room_links();
 
     update_option( 'simple_hotel_crm_db_version', SIMPLE_HOTEL_CRM_DB_VERSION );
 }
@@ -297,6 +298,21 @@ function simple_hotel_crm_seed_rooms_table() {
             [ '%d', '%d', '%s', '%s', '%d', '%s', '%d' ]
         );
     }
+}
+
+function simple_hotel_crm_repair_booking_room_links() {
+    global $wpdb;
+
+    $crm_rooms_table = simple_hotel_crm_rooms_table();
+    $crm_booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
+
+    $wpdb->query(
+        "UPDATE {$crm_booking_rooms_table} br
+         JOIN {$sync_bookings_table} sb ON sb.external_booking_room_id = br.legacy_reserved_room_id
+         JOIN {$crm_rooms_table} r ON r.sync_room_id = sb.room_sync_id
+         SET br.room_id = r.id"
+    );
 }
 
 function simple_hotel_crm_maybe_migrate_sync_data_to_crm() {
