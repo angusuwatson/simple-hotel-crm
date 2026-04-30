@@ -222,7 +222,7 @@ function simple_hotel_crm_render_guests_page() {
     submit_button( __( 'Apply', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_bulk_apply_guests', false );
     echo '</p>';
     echo '<table class="widefat striped"><thead><tr>';
-    echo '<th><input type="checkbox" onclick="jQuery('.guest-bulk-cb').prop('checked', this.checked)" /></th>';
+    echo '<th><input type="checkbox" onclick="jQuery(\'.guest-bulk-cb\').prop(\'checked\', this.checked)" /></th>';
     echo '<th>' . $header_link( 'id', __( 'ID', 'simple-hotel-crm' ) ) . '</th>';
     echo '<th>' . $header_link( 'name', __( 'Name', 'simple-hotel-crm' ) ) . '</th>';
     echo '<th>' . $header_link( 'email', __( 'Email', 'simple-hotel-crm' ) ) . '</th>';
