@@ -5,6 +5,7 @@
         var restUrl = simpleHotelCrm.restUrl;
         var dailyNotesUrl = simpleHotelCrm.dailyNotesUrl;
         var bookingUrl = simpleHotelCrm.bookingUrl;
+        var quickBookingUrl = simpleHotelCrm.quickBookingUrl;
         var nonce = simpleHotelCrm.nonce;
         var saveTimers = {};
 
@@ -81,28 +82,61 @@
             });
         }
 
-        function getOverlayPayload($input) {
-            var $table = $input.closest('table');
-            var bookingId = $input.data('booking-id') || $input.closest('.calendar-occupancy-editor').data('booking-id');
-            var roomId = $input.data('room-id') || $input.closest('.calendar-occupancy-editor').data('room-id');
-            var reservedRoomId = $input.data('reserved-room-id') || $input.closest('.calendar-occupancy-editor').data('reserved-room-id');
-
-            return {
-                booking_id: bookingId,
-                room_id: roomId,
-                reserved_room_id: reservedRoomId,
-                booking_note: $table.find('.calendar-booking-note-input[data-reserved-room-id="' + reservedRoomId + '"]').first().val() || '',
-                manual_guest_name: $table.find('.calendar-booking-input[data-field="manual_guest_name"][data-reserved-room-id="' + reservedRoomId + '"]').first().val() || '',
-                manual_adults: $table.find('.occupancy-part-input[data-field="manual_adults"][data-reserved-room-id="' + reservedRoomId + '"]').first().val() || '',
-                manual_children: $table.find('.occupancy-part-input[data-field="manual_children"][data-reserved-room-id="' + reservedRoomId + '"]').first().val() || '',
-                extras_formula: $table.find('.calendar-extras-input[data-reserved-room-id="' + reservedRoomId + '"]').first().val() || '',
-                manual_tarif: $table.find('.calendar-money-input[data-field="manual_tarif"][data-reserved-room-id="' + reservedRoomId + '"]').first().val() || '',
-                manual_commission: $table.find('.calendar-money-input[data-field="manual_commission"][data-reserved-room-id="' + reservedRoomId + '"]').first().val() || ''
-            };
+        function getModal() {
+            return $('.simple-hotel-crm-modal');
         }
 
-        function saveBookingOverlay($input) {
-            var payload = getOverlayPayload($input);
+        function closeModal() {
+            var $modal = getModal();
+            $modal.hide().attr('aria-hidden', 'true');
+            $modal.find('.simple-hotel-crm-quick-booking-message').removeClass('error success').text('');
+        }
+
+        function openQuickBooking(bookingId) {
+            var $modal = getModal();
+            var $form = $modal.find('.simple-hotel-crm-quick-booking-form');
+            var $message = $modal.find('.simple-hotel-crm-quick-booking-message');
+            $message.removeClass('error success').text('Loading...');
+            $modal.show().attr('aria-hidden', 'false');
+            request({
+                url: quickBookingUrl,
+                method: 'GET',
+                data: { booking_id: bookingId },
+                success: function(response) {
+                    if (!response || !response.id) {
+                        $message.addClass('error').text('Failed to load booking.');
+                        return;
+                    }
+                    $form.find('[name="booking_id"]').val(response.id);
+                    $form.find('[name="guest_name"]').val(response.guest_name || '');
+                    $form.find('[name="phone"]').val(response.phone || '');
+                    $form.find('[name="contacted_date"]').val(response.contacted_date || '');
+                    $form.find('[name="internal_notes"]').val(response.internal_notes || '');
+                    var $status = $form.find('[name="status_code"]').empty();
+                    $.each(response.status_options || {}, function(value, label) {
+                        $('<option>').val(value).text(label).prop('selected', value === response.status_code).appendTo($status);
+                    });
+                    var $channel = $form.find('[name="source_channel"]').empty();
+                    $.each(response.channel_options || {}, function(value, label) {
+                        $('<option>').val(value).text(label).prop('selected', value === response.source_channel).appendTo($channel);
+                    });
+                    $modal.find('.simple-hotel-crm-open-full-booking').attr('href', response.detail_url || '#');
+                    $message.text('');
+                },
+                error: function(xhr) {
+                    console.error(xhr.responseText);
+                    $message.addClass('error').text('Failed to load booking.');
+                }
+            });
+        }
+
+        function saveExtras($input) {
+            var payload = {
+                booking_id: $input.data('booking-id'),
+                room_id: $input.data('room-id'),
+                reserved_room_id: $input.data('reserved-room-id'),
+                extras_formula: $input.val() || ''
+            };
             if (!payload.reserved_room_id) return;
             setSavingState($input, 'saving');
             request({
@@ -111,14 +145,12 @@
                 data: payload,
                 success: function(response) {
                     setSavingState($input, 'done');
-                    if ($input.hasClass('calendar-extras-input')) {
-                        var $editor = $input.closest('.calendar-extras-editor');
-                        if (response && typeof response.extras_formula !== 'undefined') {
-                            $input.val(response.extras_formula || '');
-                        }
-                        $editor.find('.calendar-extras-display').text(response && response.extras_total !== null && Number(response.extras_total) > 0 ? Number(response.extras_total).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €' : '');
-                        $editor.removeClass('is-editing');
+                    var $editor = $input.closest('.calendar-extras-editor');
+                    if (response && typeof response.extras_formula !== 'undefined') {
+                        $input.val(response.extras_formula || '');
                     }
+                    $editor.find('.calendar-extras-display').text(response && response.extras_total !== null && Number(response.extras_total) > 0 ? Number(response.extras_total).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €' : '');
+                    $editor.removeClass('is-editing');
                 },
                 error: function(xhr) {
                     console.error(xhr.responseText);
@@ -126,6 +158,41 @@
                 }
             });
         }
+
+        $(document).on('click', '.quick-booking-trigger', function(e) {
+            e.preventDefault();
+            openQuickBooking($(this).data('booking-id'));
+        });
+
+        $(document).on('click', '.simple-hotel-crm-modal-backdrop, .simple-hotel-crm-modal-close', function() {
+            closeModal();
+        });
+
+        $(document).on('submit', '.simple-hotel-crm-quick-booking-form', function(e) {
+            e.preventDefault();
+            var $form = $(this);
+            var $message = $form.find('.simple-hotel-crm-quick-booking-message');
+            $message.removeClass('error success').text('Saving...');
+            request({
+                url: quickBookingUrl,
+                method: 'POST',
+                data: $form.serialize(),
+                success: function(response) {
+                    if (response && response.success) {
+                        $message.addClass('success').text('Saved.');
+                        var params = new URLSearchParams(window.location.search);
+                        loadMonth(params.get('month') || new Date().getMonth() + 1, params.get('year') || new Date().getFullYear(), false);
+                        setTimeout(closeModal, 500);
+                    } else {
+                        $message.addClass('error').text('Save failed.');
+                    }
+                },
+                error: function(xhr) {
+                    console.error(xhr.responseText);
+                    $message.addClass('error').text((xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Save failed.');
+                }
+            });
+        });
 
         $(document).on('click', '.simple-hotel-crm-container .calendar-nav .button, .simple-hotel-crm-container .calendar-month-tab', function(e) {
             var href = $(this).attr('href');
@@ -142,7 +209,7 @@
             debounceSave('note:' + $input.data('note-date'), function() { saveDailyNote($input); });
         });
 
-        $(document).on('input', '.simple-hotel-crm-container .calendar-booking-input', function() {
+        $(document).on('input', '.simple-hotel-crm-container .calendar-extras-input', function() {
             setSavingState($(this), 'done');
         });
 
@@ -152,10 +219,9 @@
             $editor.find('.calendar-extras-input').trigger('focus').trigger('select');
         });
 
-        $(document).on('change blur', '.simple-hotel-crm-container .calendar-booking-input', function() {
+        $(document).on('change blur', '.simple-hotel-crm-container .calendar-extras-input', function() {
             var $input = $(this);
-            var reservedRoomId = $input.data('reserved-room-id') || $input.closest('.calendar-occupancy-editor').data('reserved-room-id');
-            debounceSave('booking:' + reservedRoomId, function() { saveBookingOverlay($input); });
+            debounceSave('booking:' + $input.data('reserved-room-id'), function() { saveExtras($input); });
         });
 
         window.addEventListener('popstate', function(e) {

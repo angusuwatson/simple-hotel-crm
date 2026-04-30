@@ -55,12 +55,12 @@ $calendar_base_url = $calendar_base_url ?? '';
                         $room_number = $room_numbers[ $room->code ?? '' ] ?? ( $index + 1 );
                         $rows = [
                             [ 'label' => $room_number . ' - ' . $room->title, 'class' => 'room-name-row', 'type' => 'title', 'field' => 'booking_note' ],
-                            [ 'label' => 'Name', 'class' => 'guest-row', 'type' => 'detail editable-text', 'field' => 'manual_guest_name', 'display_fn' => function( $b ) { return $b->guest_name ?? ''; } ],
+                            [ 'label' => 'Name', 'class' => 'guest-row', 'type' => 'detail', 'field' => 'manual_guest_name', 'display_fn' => function( $b ) { return $b->guest_name ?? ''; } ],
                             [ 'label' => 'Channel', 'class' => 'channel-row', 'type' => 'detail', 'field' => '', 'display_fn' => function( $b ) { return $b->channel ?? ''; } ],
-                            [ 'label' => 'Occupancy', 'class' => 'occupancy-row', 'type' => 'detail editable-occupancy', 'field' => 'occupancy', 'display_fn' => function( $b ) { return $b->occupancy_str ?? ''; } ],
+                            [ 'label' => 'Occupancy', 'class' => 'occupancy-row', 'type' => 'detail', 'field' => 'occupancy', 'display_fn' => function( $b ) { return $b->occupancy_str ?? ''; } ],
                             [ 'label' => 'Extras', 'class' => 'extras-row', 'type' => 'detail editable-text', 'field' => 'extras_formula', 'display_fn' => function( $b ) { return $b->extras_formula ?? ''; } ],
-                            [ 'label' => 'Room rate', 'class' => 'tarif-row', 'type' => 'detail editable-decimal detail-tarif', 'field' => 'manual_tarif', 'display_fn' => function( $b ) { return isset( $b->tarif ) && '' !== $b->tarif && null !== $b->tarif ? number_format( (float) $b->tarif, 2, ',', ' ' ) . ' €' : ''; } ],
-                            [ 'label' => 'Commission', 'class' => 'commission-row', 'type' => 'detail editable-decimal detail-commission', 'field' => 'manual_commission', 'display_fn' => function( $b ) { return isset( $b->commission ) && '' !== $b->commission && null !== $b->commission ? number_format( (float) $b->commission, 2, ',', ' ' ) . ' €' : ''; } ],
+                            [ 'label' => 'Room rate', 'class' => 'tarif-row', 'type' => 'detail detail-tarif', 'field' => 'manual_tarif', 'display_fn' => function( $b ) { return isset( $b->tarif ) && '' !== $b->tarif && null !== $b->tarif ? number_format( (float) $b->tarif, 2, ',', ' ' ) . ' €' : ''; } ],
+                            [ 'label' => 'Commission', 'class' => 'commission-row', 'type' => 'detail detail-commission', 'field' => 'manual_commission', 'display_fn' => function( $b ) { return isset( $b->commission ) && '' !== $b->commission && null !== $b->commission ? number_format( (float) $b->commission, 2, ',', ' ' ) . ' €' : ''; } ],
                         ];
 
                         foreach ( $rows as $row_index => $row ) :
@@ -77,8 +77,10 @@ $calendar_base_url = $calendar_base_url ?? '';
                                 $entry = $matrix[ $room_id ][ $date_str ] ?? null;
                                 $booking = $entry['booking'] ?? null;
                                 $display_value = '';
+                                $booking_detail_url = '';
                                 if ( $booking && isset( $row['display_fn'] ) && is_callable( $row['display_fn'] ) ) {
                                     $display_value = $row['display_fn']( $booking );
+                                    $booking_detail_url = admin_url( 'admin.php?page=simple-hotel-crm-booking-detail&booking_id=' . absint( $booking->id ) );
                                 }
                                 $cell_classes = [ 'calendar-cell', $row['type'] ];
                                 if ( ! empty( $booking ) ) {
@@ -87,28 +89,20 @@ $calendar_base_url = $calendar_base_url ?? '';
                             ?>
                                 <td class="<?php echo esc_attr( implode( ' ', $cell_classes ) ); ?>" data-room-color="<?php echo esc_attr( $color ); ?>">
                                     <?php if ( $booking && 'room-name-row' === $row['class'] ) : ?>
-                                        <div class="room-header-note-wrap">
-                                            <a class="button button-small" href="<?php echo esc_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-detail&booking_id=' . absint( $booking->id ) ) ); ?>"><?php esc_html_e( 'Open', 'simple-hotel-crm' ); ?></a>
-                                            <input type="text" class="calendar-booking-input calendar-booking-note-input room-header-note-input" data-field="booking_note" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( $booking->booking_note ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Booking note for room %1$s on %2$s', 'simple-hotel-crm' ), $room->title, $date_str ) ); ?>" />
-                                        </div>
+                                        <?php echo esc_html( $booking->booking_note ?? '' ); ?>
                                     <?php elseif ( $booking && 'guest-row' === $row['class'] ) : ?>
-                                        <input type="text" class="calendar-booking-input" data-field="manual_guest_name" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( $booking->guest_name ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Guest name for room %1$s on %2$s', 'simple-hotel-crm' ), $room->title, $date_str ) ); ?>" />
+                                        <a class="calendar-booking-link quick-booking-trigger" href="<?php echo esc_url( $booking_detail_url ); ?>" data-booking-id="<?php echo esc_attr( $booking->id ); ?>"><?php echo esc_html( $display_value ); ?></a>
                                     <?php elseif ( $booking && 'occupancy-row' === $row['class'] ) : ?>
-                                        <div class="calendar-occupancy-editor" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>">
-                                            <input type="number" min="0" step="1" class="calendar-booking-input occupancy-part-input" data-field="manual_adults" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( (string) ( $booking->adults ?? '' ) ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Adults for room %1$s on %2$s', 'simple-hotel-crm' ), $room->title, $date_str ) ); ?>" />
-                                            <span class="occupancy-separator">A</span>
-                                            <input type="number" min="0" step="1" class="calendar-booking-input occupancy-part-input" data-field="manual_children" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( (string) ( $booking->children ?? '' ) ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Children for room %1$s on %2$s', 'simple-hotel-crm' ), $room->title, $date_str ) ); ?>" />
-                                            <span class="occupancy-separator">C</span>
-                                        </div>
+                                        <?php echo esc_html( $display_value ); ?>
                                     <?php elseif ( $booking && 'extras-row' === $row['class'] ) : ?>
                                         <div class="calendar-extras-editor">
                                             <span class="calendar-extras-display"><?php echo null !== $booking->extras_total && '' !== $booking->extras_total && (float) $booking->extras_total > 0 ? esc_html( number_format( (float) $booking->extras_total, 2, ',', ' ' ) . ' €' ) : ''; ?></span>
                                             <input type="text" class="calendar-booking-input calendar-extras-input" data-field="extras_formula" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( $booking->extras_formula ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Extras formula for room %1$s on %2$s', 'simple-hotel-crm' ), $room->title, $date_str ) ); ?>" />
                                         </div>
                                     <?php elseif ( $booking && 'tarif-row' === $row['class'] ) : ?>
-                                        <input type="text" class="calendar-booking-input calendar-money-input" data-field="manual_tarif" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( isset( $booking->tarif ) && '' !== $booking->tarif ? number_format( (float) $booking->tarif, 2, '.', '' ) : '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Tarif for room %1$s on %2$s', 'simple-hotel-crm' ), $room->title, $date_str ) ); ?>" />
+                                        <?php echo esc_html( $display_value ); ?>
                                     <?php elseif ( $booking && 'commission-row' === $row['class'] ) : ?>
-                                        <input type="text" class="calendar-booking-input calendar-money-input" data-field="manual_commission" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( isset( $booking->commission ) && '' !== $booking->commission ? number_format( (float) $booking->commission, 2, '.', '' ) : '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Commission for room %1$s on %2$s', 'simple-hotel-crm' ), $room->title, $date_str ) ); ?>" />
+                                        <?php echo esc_html( $display_value ); ?>
                                     <?php elseif ( $booking && 'invoice-row' === $row['class'] ) : ?>
                                         <button type="button" class="button button-small create-invoice-button" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>">
                                             <?php esc_html_e( 'Create Invoice', 'simple-hotel-crm' ); ?>
@@ -150,5 +144,27 @@ $calendar_base_url = $calendar_base_url ?? '';
                 <?php endforeach; ?>
             </tbody>
         </table>
+    </div>
+
+    <div class="simple-hotel-crm-modal" style="display:none;" aria-hidden="true">
+        <div class="simple-hotel-crm-modal-backdrop"></div>
+        <div class="simple-hotel-crm-modal-dialog">
+            <button type="button" class="simple-hotel-crm-modal-close" aria-label="<?php esc_attr_e( 'Close', 'simple-hotel-crm' ); ?>">×</button>
+            <h2><?php esc_html_e( 'Quick Edit Booking', 'simple-hotel-crm' ); ?></h2>
+            <form class="simple-hotel-crm-quick-booking-form">
+                <input type="hidden" name="booking_id" value="" />
+                <p><label><?php esc_html_e( 'Guest name', 'simple-hotel-crm' ); ?><br><input type="text" name="guest_name" class="regular-text" /></label></p>
+                <p><label><?php esc_html_e( 'Phone', 'simple-hotel-crm' ); ?><br><input type="text" name="phone" class="regular-text" /></label></p>
+                <p><label><?php esc_html_e( 'Status', 'simple-hotel-crm' ); ?><br><select name="status_code"></select></label></p>
+                <p><label><?php esc_html_e( 'Channel', 'simple-hotel-crm' ); ?><br><select name="source_channel"></select></label></p>
+                <p><label><?php esc_html_e( 'Contacted date', 'simple-hotel-crm' ); ?><br><input type="date" name="contacted_date" /></label></p>
+                <p><label><?php esc_html_e( 'Internal notes', 'simple-hotel-crm' ); ?><br><textarea name="internal_notes" rows="5" class="large-text"></textarea></label></p>
+                <p class="simple-hotel-crm-quick-booking-actions">
+                    <a href="#" class="button simple-hotel-crm-open-full-booking"><?php esc_html_e( 'Open full booking', 'simple-hotel-crm' ); ?></a>
+                    <button type="submit" class="button button-primary"><?php esc_html_e( 'Save', 'simple-hotel-crm' ); ?></button>
+                </p>
+                <div class="simple-hotel-crm-quick-booking-message" aria-live="polite"></div>
+            </form>
+        </div>
     </div>
 </div>

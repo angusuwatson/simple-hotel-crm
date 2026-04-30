@@ -14,6 +14,7 @@ function simple_hotel_crm_enqueue_shared_assets( $context = 'frontend' ) {
         'restUrl'        => esc_url_raw( rest_url( 'simple-hotel-crm/v1/table' ) ),
         'dailyNotesUrl'  => esc_url_raw( rest_url( 'simple-hotel-crm/v1/daily-note' ) ),
         'bookingUrl'     => esc_url_raw( rest_url( 'simple-hotel-crm/v1/booking-overlay' ) ),
+        'quickBookingUrl'=> esc_url_raw( rest_url( 'simple-hotel-crm/v1/quick-booking' ) ),
         'nonce'          => wp_create_nonce( 'wp_rest' ),
         'context'        => $context,
         'adminPageUrl'   => admin_url( 'admin.php?page=simple-hotel-crm' ),
