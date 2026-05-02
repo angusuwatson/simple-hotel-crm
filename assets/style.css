@@ -41,7 +41,7 @@
     width: 100%;
     min-width: 2480px;
     font-family: Arial, Helvetica, sans-serif;
-    font-size: 12px;
+    font-size: 11px;
     table-layout: fixed;
 }
 
@@ -78,9 +78,9 @@
 .simple-hotel-crm .calendar-grid .calendar-day-number,
 .simple-hotel-crm .calendar-grid .calendar-weekday,
 .simple-hotel-crm .calendar-grid .calendar-corner-month { display: block; }
-.simple-hotel-crm .calendar-grid .calendar-corner-month { color: #000; font-size: 12px; font-weight: 700; text-align: left; }
-.simple-hotel-crm .calendar-grid .calendar-day-number { color: #000; font-size: 12px; font-weight: 400; }
-.simple-hotel-crm .calendar-grid .calendar-weekday { font-size: 12px; color: #000; }
+.simple-hotel-crm .calendar-grid .calendar-corner-month { color: #000; font-size: 11px; font-weight: 700; text-align: left; }
+.simple-hotel-crm .calendar-grid .calendar-day-number { color: #000; font-size: 11px; font-weight: 400; }
+.simple-hotel-crm .calendar-grid .calendar-weekday { font-size: 11px; color: #000; }
 .simple-hotel-crm .calendar-grid .room-label-cell,
 .simple-hotel-crm .calendar-grid td.calendar-cell { background: #fff; }
 
@@ -130,18 +130,10 @@
 
 .simple-hotel-crm .calendar-grid .room-name-row .room-label-cell,
 .simple-hotel-crm .calendar-grid .room-name-row td.calendar-cell {
-    background: rgba(0, 0, 0, 0.85);
+    background: linear-gradient(rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.55)), var(--room-fill, rgba(0, 0, 0, 0.85));
     color: #fff;
     font-weight: 700;
 }
-
-.simple-hotel-crm .calendar-grid .room-name-row td[data-room-color="#cc99ff"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #b885ea; }
-.simple-hotel-crm .calendar-grid .room-name-row td[data-room-color="#b4c7e7"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #a4b7d8; }
-.simple-hotel-crm .calendar-grid .room-name-row td[data-room-color="#a9d18e"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #a9cf90; }
-.simple-hotel-crm .calendar-grid .room-name-row td[data-room-color="#ffe699"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #fde39b; }
-.simple-hotel-crm .calendar-grid .room-name-row td[data-room-color="#f4b183"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #f4b07d; }
-.simple-hotel-crm .calendar-grid .room-name-row td[data-room-color="#cccccc"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #c8c8c8; }
-.simple-hotel-crm .calendar-grid .room-name-row td[data-room-color="#cccccc"] { background: linear-gradient(rgba(0, 0, 0, 0.85), rgba(0, 0, 0, 0.85)), #c8c8c8; }
 
 .simple-hotel-crm .calendar-grid .room-name-row .room-label-cell { z-index: 9; }
 .simple-hotel-crm .calendar-grid .room-label-cell.detail,
@@ -161,105 +153,6 @@
 .simple-hotel-crm .calendar-grid .tarif-row td,
 .simple-hotel-crm .calendar-grid .commission-row .room-label-cell,
 .simple-hotel-crm .calendar-grid .commission-row td { background: var(--room-fill, transparent); }
-
-.simple-hotel-crm .calendar-grid .guest-row .room-label-cell,
-.simple-hotel-crm .calendar-grid .guest-row td,
-.simple-hotel-crm .calendar-grid .channel-row .room-label-cell,
-.simple-hotel-crm .calendar-grid .channel-row td,
-.simple-hotel-crm .calendar-grid .import-row .room-label-cell,
-.simple-hotel-crm .calendar-grid .import-row td,
-.simple-hotel-crm .calendar-grid .occupancy-row .room-label-cell,
-.simple-hotel-crm .calendar-grid .occupancy-row td,
-.simple-hotel-crm .calendar-grid .extras-row .room-label-cell,
-.simple-hotel-crm .calendar-grid .extras-row td,
-.simple-hotel-crm .calendar-grid .tarif-row .room-label-cell,
-.simple-hotel-crm .calendar-grid .tarif-row td {
-    --room-fill: #c693f0;
-    background: #c693f0;
-}
-
-
-.simple-hotel-crm .calendar-grid .commission-row .room-label-cell,
-.simple-hotel-crm .calendar-grid .commission-row td,
-.simple-hotel-crm .calendar-grid .commission-row td.has-booking { background: #fff; }
-
-.simple-hotel-crm .calendar-grid .guest-row .room-label-cell[data-room-color="#cc99ff"],
-.simple-hotel-crm .calendar-grid .guest-row td[data-room-color="#cc99ff"],
-.simple-hotel-crm .calendar-grid .channel-row .room-label-cell[data-room-color="#cc99ff"],
-.simple-hotel-crm .calendar-grid .channel-row td[data-room-color="#cc99ff"],
-.simple-hotel-crm .calendar-grid .import-row .room-label-cell[data-room-color="#cc99ff"],
-.simple-hotel-crm .calendar-grid .import-row td[data-room-color="#cc99ff"],
-.simple-hotel-crm .calendar-grid .occupancy-row .room-label-cell[data-room-color="#cc99ff"],
-.simple-hotel-crm .calendar-grid .occupancy-row td[data-room-color="#cc99ff"],
-.simple-hotel-crm .calendar-grid .extras-row .room-label-cell[data-room-color="#cc99ff"],
-.simple-hotel-crm .calendar-grid .extras-row td[data-room-color="#cc99ff"],
-.simple-hotel-crm .calendar-grid .tarif-row .room-label-cell[data-room-color="#cc99ff"],
-.simple-hotel-crm .calendar-grid .tarif-row td[data-room-color="#cc99ff"] { background: #b885ea; }
-
-.simple-hotel-crm .calendar-grid .guest-row .room-label-cell[data-room-color="#b4c7e7"],
-.simple-hotel-crm .calendar-grid .guest-row td[data-room-color="#b4c7e7"],
-.simple-hotel-crm .calendar-grid .channel-row .room-label-cell[data-room-color="#b4c7e7"],
-.simple-hotel-crm .calendar-grid .channel-row td[data-room-color="#b4c7e7"],
-.simple-hotel-crm .calendar-grid .import-row .room-label-cell[data-room-color="#b4c7e7"],
-.simple-hotel-crm .calendar-grid .import-row td[data-room-color="#b4c7e7"],
-.simple-hotel-crm .calendar-grid .occupancy-row .room-label-cell[data-room-color="#b4c7e7"],
-.simple-hotel-crm .calendar-grid .occupancy-row td[data-room-color="#b4c7e7"],
-.simple-hotel-crm .calendar-grid .extras-row .room-label-cell[data-room-color="#b4c7e7"],
-.simple-hotel-crm .calendar-grid .extras-row td[data-room-color="#b4c7e7"],
-.simple-hotel-crm .calendar-grid .tarif-row .room-label-cell[data-room-color="#b4c7e7"],
-.simple-hotel-crm .calendar-grid .tarif-row td[data-room-color="#b4c7e7"] { background: #a4b7d8; }
-
-.simple-hotel-crm .calendar-grid .guest-row .room-label-cell[data-room-color="#a9d18e"],
-.simple-hotel-crm .calendar-grid .guest-row td[data-room-color="#a9d18e"],
-.simple-hotel-crm .calendar-grid .channel-row .room-label-cell[data-room-color="#a9d18e"],
-.simple-hotel-crm .calendar-grid .channel-row td[data-room-color="#a9d18e"],
-.simple-hotel-crm .calendar-grid .import-row .room-label-cell[data-room-color="#a9d18e"],
-.simple-hotel-crm .calendar-grid .import-row td[data-room-color="#a9d18e"],
-.simple-hotel-crm .calendar-grid .occupancy-row .room-label-cell[data-room-color="#a9d18e"],
-.simple-hotel-crm .calendar-grid .occupancy-row td[data-room-color="#a9d18e"],
-.simple-hotel-crm .calendar-grid .extras-row .room-label-cell[data-room-color="#a9d18e"],
-.simple-hotel-crm .calendar-grid .extras-row td[data-room-color="#a9d18e"],
-.simple-hotel-crm .calendar-grid .tarif-row .room-label-cell[data-room-color="#a9d18e"],
-.simple-hotel-crm .calendar-grid .tarif-row td[data-room-color="#a9d18e"] { background: #a9cf90; }
-
-.simple-hotel-crm .calendar-grid .guest-row .room-label-cell[data-room-color="#ffe699"],
-.simple-hotel-crm .calendar-grid .guest-row td[data-room-color="#ffe699"],
-.simple-hotel-crm .calendar-grid .channel-row .room-label-cell[data-room-color="#ffe699"],
-.simple-hotel-crm .calendar-grid .channel-row td[data-room-color="#ffe699"],
-.simple-hotel-crm .calendar-grid .import-row .room-label-cell[data-room-color="#ffe699"],
-.simple-hotel-crm .calendar-grid .import-row td[data-room-color="#ffe699"],
-.simple-hotel-crm .calendar-grid .occupancy-row .room-label-cell[data-room-color="#ffe699"],
-.simple-hotel-crm .calendar-grid .occupancy-row td[data-room-color="#ffe699"],
-.simple-hotel-crm .calendar-grid .extras-row .room-label-cell[data-room-color="#ffe699"],
-.simple-hotel-crm .calendar-grid .extras-row td[data-room-color="#ffe699"],
-.simple-hotel-crm .calendar-grid .tarif-row .room-label-cell[data-room-color="#ffe699"],
-.simple-hotel-crm .calendar-grid .tarif-row td[data-room-color="#ffe699"] { background: #fde39b; }
-
-.simple-hotel-crm .calendar-grid .guest-row .room-label-cell[data-room-color="#f4b183"],
-.simple-hotel-crm .calendar-grid .guest-row td[data-room-color="#f4b183"],
-.simple-hotel-crm .calendar-grid .channel-row .room-label-cell[data-room-color="#f4b183"],
-.simple-hotel-crm .calendar-grid .channel-row td[data-room-color="#f4b183"],
-.simple-hotel-crm .calendar-grid .import-row .room-label-cell[data-room-color="#f4b183"],
-.simple-hotel-crm .calendar-grid .import-row td[data-room-color="#f4b183"],
-.simple-hotel-crm .calendar-grid .occupancy-row .room-label-cell[data-room-color="#f4b183"],
-.simple-hotel-crm .calendar-grid .occupancy-row td[data-room-color="#f4b183"],
-.simple-hotel-crm .calendar-grid .extras-row .room-label-cell[data-room-color="#f4b183"],
-.simple-hotel-crm .calendar-grid .extras-row td[data-room-color="#f4b183"],
-.simple-hotel-crm .calendar-grid .tarif-row .room-label-cell[data-room-color="#f4b183"],
-.simple-hotel-crm .calendar-grid .tarif-row td[data-room-color="#f4b183"] { background: #f4b07d; }
-
-.simple-hotel-crm .calendar-grid .guest-row .room-label-cell[data-room-color="#cccccc"],
-.simple-hotel-crm .calendar-grid .guest-row td[data-room-color="#cccccc"],
-.simple-hotel-crm .calendar-grid .channel-row .room-label-cell[data-room-color="#cccccc"],
-.simple-hotel-crm .calendar-grid .channel-row td[data-room-color="#cccccc"],
-.simple-hotel-crm .calendar-grid .import-row .room-label-cell[data-room-color="#cccccc"],
-.simple-hotel-crm .calendar-grid .import-row td[data-room-color="#cccccc"],
-.simple-hotel-crm .calendar-grid .occupancy-row .room-label-cell[data-room-color="#cccccc"],
-.simple-hotel-crm .calendar-grid .occupancy-row td[data-room-color="#cccccc"],
-.simple-hotel-crm .calendar-grid .extras-row .room-label-cell[data-room-color="#cccccc"],
-.simple-hotel-crm .calendar-grid .extras-row td[data-room-color="#cccccc"],
-.simple-hotel-crm .calendar-grid .tarif-row .room-label-cell[data-room-color="#cccccc"],
-.simple-hotel-crm .calendar-grid .tarif-row td[data-room-color="#cccccc"] { background: #c8c8c8; }
 
 .simple-hotel-crm .calendar-grid .room-label-text { display: block; font-weight: 700; }
 .simple-hotel-crm .calendar-grid .guest-row .room-label-text,

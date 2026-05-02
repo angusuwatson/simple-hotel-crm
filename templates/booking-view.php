@@ -71,7 +71,7 @@ $calendar_base_url = $calendar_base_url ?? '';
                             }
                     ?>
                         <tr class="<?php echo esc_attr( implode( ' ', $row_classes ) ); ?>">
-                            <td class="label sticky-col room-label-cell <?php echo esc_attr( $row['type'] ); ?>" data-room-color="<?php echo esc_attr( $color ); ?>"><span class="room-label-text"><?php echo esc_html( $row['label'] ); ?></span></td>
+                            <td class="label sticky-col room-label-cell <?php echo esc_attr( $row['type'] ); ?>" data-room-color="<?php echo esc_attr( $color ); ?>" style="--room-fill: <?php echo esc_attr( $color ); ?>;"><span class="room-label-text"><?php echo esc_html( $row['label'] ); ?></span></td>
                             <?php foreach ( $days as $day ) :
                                 $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
                                 $entry = $matrix[ $room_id ][ $date_str ] ?? null;
@@ -87,7 +87,7 @@ $calendar_base_url = $calendar_base_url ?? '';
                                     $cell_classes[] = 'has-booking';
                                 }
                             ?>
-                                <td class="<?php echo esc_attr( implode( ' ', $cell_classes ) ); ?>" data-room-color="<?php echo esc_attr( $color ); ?>">
+                                <td class="<?php echo esc_attr( implode( ' ', $cell_classes ) ); ?>" data-room-color="<?php echo esc_attr( $color ); ?>" style="--room-fill: <?php echo esc_attr( $color ); ?>;">
                                     <?php if ( $booking && 'room-name-row' === $row['class'] ) : ?>
                                         <?php echo esc_html( $booking->booking_note ?? '' ); ?>
                                     <?php elseif ( $booking && 'guest-row' === $row['class'] ) : ?>
