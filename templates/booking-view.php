@@ -113,16 +113,18 @@ $calendar_base_url = $calendar_base_url ?? '';
                     <?php endforeach; endforeach; ?>
                 <?php endif; ?>
 
+                <tr class="calendar-spacer-row">
+                    <td class="label sticky-col summary-label-cell"></td>
+                    <?php foreach ( $days as $day ) : ?>
+                        <td></td>
+                    <?php endforeach; ?>
+                </tr>
+
                 <?php
                 $footer_rows = [
                     'Income Day' => 'income_day',
-                    'Income Accumulated' => 'income_accumulated',
-                    'Extras Used' => 'table_dhotes',
-                    'Rooms' => 'rooms',
-                    'TOURIST TAX Adults' => 'tourist_tax_adults',
+                    'Adults' => 'tourist_tax_adults',
                     'Children' => 'tourist_tax_children',
-                    'Payment Booking.com' => 'booking_payment',
-                    'Accumulated Booking.com' => 'booking_accumulated',
                 ];
                 foreach ( $footer_rows as $label => $key ) :
                 ?>

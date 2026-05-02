@@ -188,6 +188,7 @@
 
 .calendar-occupancy-editor .occupancy-separator { font-size: 10px; font-weight: 700; }
 
+.simple-hotel-crm .calendar-grid tr.calendar-spacer-row td { background: #fff; height: 14px; }
 .simple-hotel-crm .calendar-grid tr.summary-row td { background: #f7f7f7; height: 21px; }
 .simple-hotel-crm .calendar-grid tr.summary-row .summary-label-cell { background: #efefef; font-weight: 700; }
 .simple-hotel-crm .calendar-grid tr.summary-income-day td,
