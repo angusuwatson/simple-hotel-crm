@@ -208,6 +208,13 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
     $source_channel = sanitize_text_field( (string) ( $data['source_channel'] ?? 'direct' ) );
     $status_code = sanitize_text_field( (string) ( $data['status_code'] ?? 'confirmed' ) );
     $phone = sanitize_text_field( (string) ( $data['phone'] ?? '' ) );
+    $email = sanitize_email( (string) ( $data['email'] ?? '' ) );
+    $address_line_1 = sanitize_text_field( (string) ( $data['address_line_1'] ?? '' ) );
+    $address_line_2 = sanitize_text_field( (string) ( $data['address_line_2'] ?? '' ) );
+    $city = sanitize_text_field( (string) ( $data['city'] ?? '' ) );
+    $postcode = sanitize_text_field( (string) ( $data['postcode'] ?? '' ) );
+    $country = sanitize_text_field( (string) ( $data['country'] ?? '' ) );
+    $guest_notes = sanitize_textarea_field( (string) ( $data['guest_notes'] ?? '' ) );
     $booking_note = sanitize_textarea_field( (string) ( $data['booking_note'] ?? '' ) );
     $import_notes = sanitize_textarea_field( (string) ( $data['import_notes'] ?? '' ) );
     $source_created_at = ( '' !== $contacted_date ? $contacted_date : current_time( 'mysql' ) );
@@ -238,9 +245,16 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
         [
             'first_name' => $first_name,
             'last_name' => $last_name,
+            'email' => $email,
             'phone' => $phone,
+            'address_line_1' => $address_line_1,
+            'address_line_2' => $address_line_2,
+            'city' => $city,
+            'postcode' => $postcode,
+            'country' => $country,
+            'notes' => $guest_notes,
         ],
-        [ '%s', '%s', '%s' ]
+        [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ]
     );
     if ( false === $guest_inserted ) {
         $wpdb->query( 'ROLLBACK' );

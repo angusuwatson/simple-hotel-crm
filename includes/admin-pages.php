@@ -824,6 +824,13 @@ function simple_hotel_crm_render_add_booking_page() {
     $defaults = [
         'guest_name' => '',
         'phone' => '',
+        'email' => '',
+        'address_line_1' => '',
+        'address_line_2' => '',
+        'city' => '',
+        'postcode' => '',
+        'country' => '',
+        'guest_notes' => '',
         'check_in' => '',
         'check_out' => '',
         'source_channel' => 'direct',
@@ -888,6 +895,13 @@ function simple_hotel_crm_render_add_booking_page() {
     echo '<table class="form-table">';
     echo '<tr><th><label for="guest_name">' . esc_html__( 'Guest name', 'simple-hotel-crm' ) . '</label></th><td><input required type="text" name="guest_name" id="guest_name" class="regular-text" value="' . esc_attr( (string) $form_data['guest_name'] ) . '" /></td></tr>';
     echo '<tr><th><label for="phone">' . esc_html__( 'Phone', 'simple-hotel-crm' ) . '</label></th><td><input type="text" name="phone" id="phone" class="regular-text" value="' . esc_attr( (string) $form_data['phone'] ) . '" /></td></tr>';
+    echo '<tr><th><label for="email">' . esc_html__( 'Email', 'simple-hotel-crm' ) . '</label></th><td><input type="email" name="email" id="email" class="regular-text" value="' . esc_attr( (string) $form_data['email'] ) . '" /></td></tr>';
+    echo '<tr><th><label for="address_line_1">' . esc_html__( 'Address line 1', 'simple-hotel-crm' ) . '</label></th><td><input type="text" name="address_line_1" id="address_line_1" class="regular-text" value="' . esc_attr( (string) $form_data['address_line_1'] ) . '" /></td></tr>';
+    echo '<tr><th><label for="address_line_2">' . esc_html__( 'Address line 2', 'simple-hotel-crm' ) . '</label></th><td><input type="text" name="address_line_2" id="address_line_2" class="regular-text" value="' . esc_attr( (string) $form_data['address_line_2'] ) . '" /></td></tr>';
+    echo '<tr><th><label for="city">' . esc_html__( 'City', 'simple-hotel-crm' ) . '</label></th><td><input type="text" name="city" id="city" class="regular-text" value="' . esc_attr( (string) $form_data['city'] ) . '" /></td></tr>';
+    echo '<tr><th><label for="postcode">' . esc_html__( 'Postcode', 'simple-hotel-crm' ) . '</label></th><td><input type="text" name="postcode" id="postcode" class="regular-text" value="' . esc_attr( (string) $form_data['postcode'] ) . '" /></td></tr>';
+    echo '<tr><th><label for="country">' . esc_html__( 'Country', 'simple-hotel-crm' ) . '</label></th><td><input type="text" name="country" id="country" class="regular-text" value="' . esc_attr( (string) $form_data['country'] ) . '" /></td></tr>';
+    echo '<tr><th><label for="guest_notes">' . esc_html__( 'Guest notes', 'simple-hotel-crm' ) . '</label></th><td><textarea name="guest_notes" id="guest_notes" rows="3" class="large-text">' . esc_textarea( (string) $form_data['guest_notes'] ) . '</textarea></td></tr>';
     echo '<tr><th><label for="check_in">' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</label></th><td><input required type="date" name="check_in" id="check_in" value="' . esc_attr( $check_in_value ) . '" onchange="var o=document.getElementById(\'check_out\');if(this.value&&o&&(!o.value||o.value<=this.value)){var d=new Date(this.value+\'T00:00:00\');d.setDate(d.getDate()+1);o.value=d.toISOString().slice(0,10);} this.form.submit();" /></td></tr>';
     echo '<tr><th><label for="check_out">' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</label></th><td><input required type="date" name="check_out" id="check_out" value="' . esc_attr( $check_out_value ) . '" onchange="this.form.submit();" /></td></tr>';
     echo '<tr><th scope="row">' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</th><td>';
