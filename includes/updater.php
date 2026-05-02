@@ -1,18 +1,23 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
+define( 'SIMPLE_HOTEL_CRM_UPDATE_METADATA_URL', 'https://raw.githubusercontent.com/angusuwatson/simple-hotel-crm/master/update.json' );
+define( 'SIMPLE_HOTEL_CRM_UPDATE_CACHE_KEY', 'simple_hotel_crm_update_metadata' );
+
 add_filter( 'pre_set_site_transient_update_plugins', 'simple_hotel_crm_check_for_updates' );
 add_filter( 'plugins_api', 'simple_hotel_crm_plugin_info', 20, 3 );
 add_filter( 'upgrader_source_selection', 'simple_hotel_crm_fix_update_source_dir', 10, 4 );
+add_action( 'admin_init', 'simple_hotel_crm_maybe_refresh_update_cache' );
+add_action( 'upgrader_process_complete', 'simple_hotel_crm_clear_update_cache', 10, 0 );
+add_filter( 'plugin_action_links_simple-hotel-crm/simple-hotel-crm.php', 'simple_hotel_crm_add_refresh_updates_link' );
 
 function simple_hotel_crm_get_update_metadata() {
-    $cache_key = 'simple_hotel_crm_update_metadata';
-    $cached = get_transient( $cache_key );
+    $cached = get_transient( SIMPLE_HOTEL_CRM_UPDATE_CACHE_KEY );
     if ( false !== $cached ) {
         return $cached;
     }
 
-    $response = wp_remote_get( 'https://raw.githubusercontent.com/angusuwatson/simple-hotel-crm/master/update.json', [ 'timeout' => 15 ] );
+    $response = wp_remote_get( SIMPLE_HOTEL_CRM_UPDATE_METADATA_URL, [ 'timeout' => 15, 'headers' => [ 'Cache-Control' => 'no-cache' ] ] );
     if ( is_wp_error( $response ) ) {
         return false;
     }
@@ -22,7 +27,7 @@ function simple_hotel_crm_get_update_metadata() {
         return false;
     }
 
-    set_transient( $cache_key, $data, 15 * MINUTE_IN_SECONDS );
+    set_transient( SIMPLE_HOTEL_CRM_UPDATE_CACHE_KEY, $data, 5 * MINUTE_IN_SECONDS );
     return $data;
 }
 
@@ -77,6 +82,42 @@ function simple_hotel_crm_plugin_info( $result, $action, $args ) {
         'download_link' => (string) $metadata['download_url'],
         'sections' => (array) ( $metadata['sections'] ?? [] ),
     ];
+}
+
+function simple_hotel_crm_maybe_refresh_update_cache() {
+    if ( ! is_admin() || ! current_user_can( 'update_plugins' ) ) {
+        return;
+    }
+
+    $should_refresh = false;
+    if ( isset( $_GET['force-check'] ) ) {
+        $should_refresh = true;
+    }
+    if ( isset( $_GET['simple_hotel_crm_refresh_updates'] ) && isset( $_GET['_wpnonce'] ) && wp_verify_nonce( sanitize_text_field( wp_unslash( $_GET['_wpnonce'] ) ), 'simple_hotel_crm_refresh_updates' ) ) {
+        $should_refresh = true;
+    }
+
+    if ( ! $should_refresh ) {
+        return;
+    }
+
+    simple_hotel_crm_clear_update_cache();
+    wp_clean_plugins_cache( true );
+    delete_site_transient( 'update_plugins' );
+}
+
+function simple_hotel_crm_clear_update_cache() {
+    delete_transient( SIMPLE_HOTEL_CRM_UPDATE_CACHE_KEY );
+}
+
+function simple_hotel_crm_add_refresh_updates_link( $links ) {
+    if ( ! current_user_can( 'update_plugins' ) ) {
+        return $links;
+    }
+
+    $url = wp_nonce_url( admin_url( 'plugins.php?simple_hotel_crm_refresh_updates=1' ), 'simple_hotel_crm_refresh_updates' );
+    $links[] = '<a href="' . esc_url( $url ) . '">' . esc_html__( 'Check updates', 'simple-hotel-crm' ) . '</a>';
+    return $links;
 }
 
 function simple_hotel_crm_fix_update_source_dir( $source, $remote_source, $upgrader, $hook_extra ) {

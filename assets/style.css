@@ -154,7 +154,11 @@
 .simple-hotel-crm .calendar-grid .tarif-row td { background: var(--room-fill, transparent); }
 
 .simple-hotel-crm .calendar-grid .commission-row .room-label-cell,
-.simple-hotel-crm .calendar-grid .commission-row td { background: #fff; }
+.simple-hotel-crm .calendar-grid .commission-row td,
+.simple-hotel-crm .calendar-grid .commission-row td.calendar-cell.detail,
+.simple-hotel-crm .calendar-grid .commission-row .room-label-cell.detail {
+    background: #fff !important;
+}
 
 .simple-hotel-crm .calendar-grid .room-label-text { display: block; font-weight: 700; }
 .simple-hotel-crm .calendar-grid .guest-row .room-label-text,
