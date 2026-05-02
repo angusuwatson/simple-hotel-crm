@@ -91,14 +91,11 @@ $calendar_base_url = $calendar_base_url ?? '';
                                     <?php if ( $booking && 'room-name-row' === $row['class'] ) : ?>
                                         <?php echo esc_html( $booking->booking_note ?? '' ); ?>
                                     <?php elseif ( $booking && 'guest-row' === $row['class'] ) : ?>
-                                        <a class="calendar-booking-link quick-booking-trigger" href="<?php echo esc_url( $booking_detail_url ); ?>" data-booking-id="<?php echo esc_attr( $booking->id ); ?>"><?php echo esc_html( $display_value ); ?></a>
+                                        <a class="calendar-booking-link quick-booking-trigger" href="<?php echo esc_url( $booking_detail_url ); ?>" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>"><?php echo esc_html( $display_value ); ?></a>
                                     <?php elseif ( $booking && 'occupancy-row' === $row['class'] ) : ?>
                                         <?php echo esc_html( $display_value ); ?>
                                     <?php elseif ( $booking && 'extras-row' === $row['class'] ) : ?>
-                                        <div class="calendar-extras-editor">
-                                            <span class="calendar-extras-display"><?php echo null !== $booking->extras_total && '' !== $booking->extras_total && (float) $booking->extras_total > 0 ? esc_html( number_format( (float) $booking->extras_total, 2, ',', ' ' ) . ' €' ) : ''; ?></span>
-                                            <input type="text" class="calendar-booking-input calendar-extras-input" data-field="extras_formula" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-room-id="<?php echo esc_attr( $booking->room_id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>" value="<?php echo esc_attr( $booking->extras_formula ?? '' ); ?>" aria-label="<?php echo esc_attr( sprintf( __( 'Extras formula for room %1$s on %2$s', 'simple-hotel-crm' ), $room->title, $date_str ) ); ?>" />
-                                        </div>
+                                        <?php echo null !== $booking->extras_total && '' !== $booking->extras_total && (float) $booking->extras_total > 0 ? esc_html( number_format( (float) $booking->extras_total, 2, ',', ' ' ) . ' €' ) : ''; ?>
                                     <?php elseif ( $booking && 'tarif-row' === $row['class'] ) : ?>
                                         <?php echo esc_html( $display_value ); ?>
                                     <?php elseif ( $booking && 'commission-row' === $row['class'] ) : ?>
@@ -153,13 +150,15 @@ $calendar_base_url = $calendar_base_url ?? '';
             <h2><?php esc_html_e( 'Quick Edit Booking', 'simple-hotel-crm' ); ?></h2>
             <form class="simple-hotel-crm-quick-booking-form">
                 <input type="hidden" name="booking_id" value="" />
-                <p><label><?php esc_html_e( 'Guest name', 'simple-hotel-crm' ); ?><br><input type="text" name="guest_name" class="regular-text" /></label></p>
-                <p><label><?php esc_html_e( 'Phone', 'simple-hotel-crm' ); ?><br><input type="text" name="phone" class="regular-text" /></label></p>
-                <p><label><?php esc_html_e( 'Status', 'simple-hotel-crm' ); ?><br><select name="status_code"></select></label></p>
-                <p><label><?php esc_html_e( 'Channel', 'simple-hotel-crm' ); ?><br><select name="source_channel"></select></label></p>
-                <p><label><?php esc_html_e( 'Contacted date', 'simple-hotel-crm' ); ?><br><input type="date" name="contacted_date" /></label></p>
-                <p><label><?php esc_html_e( 'Booking note', 'simple-hotel-crm' ); ?><br><textarea name="booking_note" rows="3" class="large-text"></textarea></label></p>
-                <p><label><?php esc_html_e( 'Booking note', 'simple-hotel-crm' ); ?><br><textarea name="booking_note" rows="3" class="large-text"></textarea></label></p>
+                <input type="hidden" name="reserved_room_id" value="" />
+                <input type="hidden" name="status_code" value="" />
+                <div class="simple-hotel-crm-form-grid simple-hotel-crm-form-grid-2">
+                    <p><label><?php esc_html_e( 'Guest name', 'simple-hotel-crm' ); ?><span class="simple-hotel-crm-copy-field"><input type="text" name="guest_name" class="regular-text" /><button type="button" class="button button-small simple-hotel-crm-copy-button" data-copy-target="guest_name"><?php esc_html_e( 'Copy', 'simple-hotel-crm' ); ?></button></span></label></p>
+                    <p><label><?php esc_html_e( 'Phone', 'simple-hotel-crm' ); ?><span class="simple-hotel-crm-copy-field"><input type="text" name="phone" class="regular-text" /><button type="button" class="button button-small simple-hotel-crm-copy-button" data-copy-target="phone"><?php esc_html_e( 'Copy', 'simple-hotel-crm' ); ?></button></span></label></p>
+                    <p><label><?php esc_html_e( 'Email', 'simple-hotel-crm' ); ?><span class="simple-hotel-crm-copy-field"><input type="email" name="email" class="regular-text" /><button type="button" class="button button-small simple-hotel-crm-copy-button" data-copy-target="email"><?php esc_html_e( 'Copy', 'simple-hotel-crm' ); ?></button></span></label></p>
+                    <p><label><?php esc_html_e( 'Extras', 'simple-hotel-crm' ); ?><input type="text" name="extras_formula" class="regular-text" /></label></p>
+                </div>
+                <p><label><?php esc_html_e( 'Booking note', 'simple-hotel-crm' ); ?><br><input type="text" name="booking_note" class="regular-text" /></label></p>
                 <p><label><?php esc_html_e( 'Internal notes', 'simple-hotel-crm' ); ?><br><textarea name="internal_notes" rows="5" class="large-text"></textarea></label></p>
                 <p class="simple-hotel-crm-quick-booking-actions">
                     <a href="#" class="button simple-hotel-crm-open-full-booking"><?php esc_html_e( 'Open full booking', 'simple-hotel-crm' ); ?></a>

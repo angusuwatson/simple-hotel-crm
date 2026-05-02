@@ -4,7 +4,6 @@
     $(function() {
         var restUrl = simpleHotelCrm.restUrl;
         var dailyNotesUrl = simpleHotelCrm.dailyNotesUrl;
-        var bookingUrl = simpleHotelCrm.bookingUrl;
         var quickBookingUrl = simpleHotelCrm.quickBookingUrl;
         var nonce = simpleHotelCrm.nonce;
         var saveTimers = {};
@@ -92,7 +91,7 @@
             $modal.find('.simple-hotel-crm-quick-booking-message').removeClass('error success').text('');
         }
 
-        function openQuickBooking(bookingId) {
+        function openQuickBooking(bookingId, reservedRoomId) {
             var $modal = getModal();
             var $form = $modal.find('.simple-hotel-crm-quick-booking-form');
             var $message = $modal.find('.simple-hotel-crm-quick-booking-message');
@@ -101,27 +100,21 @@
             request({
                 url: quickBookingUrl,
                 method: 'GET',
-                data: { booking_id: bookingId },
+                data: { booking_id: bookingId, reserved_room_id: reservedRoomId || 0 },
                 success: function(response) {
                     if (!response || !response.id) {
                         $message.addClass('error').text('Failed to load booking.');
                         return;
                     }
                     $form.find('[name="booking_id"]').val(response.id);
+                    $form.find('[name="reserved_room_id"]').val(reservedRoomId || '');
                     $form.find('[name="guest_name"]').val(response.guest_name || '');
                     $form.find('[name="phone"]').val(response.phone || '');
-                    $form.find('[name="contacted_date"]').val(response.contacted_date || '');
-                    $form.find('[name="booking_note"]').val(response.booking_note || '');
+                    $form.find('[name="email"]').val(response.email || '');
+                    $form.find('[name="extras_formula"]').val(response.extras_formula || '');
                     $form.find('[name="booking_note"]').val(response.booking_note || '');
                     $form.find('[name="internal_notes"]').val(response.internal_notes || '');
-                    var $status = $form.find('[name="status_code"]').empty();
-                    $.each(response.status_options || {}, function(value, label) {
-                        $('<option>').val(value).text(label).prop('selected', value === response.status_code).appendTo($status);
-                    });
-                    var $channel = $form.find('[name="source_channel"]').empty();
-                    $.each(response.channel_options || {}, function(value, label) {
-                        $('<option>').val(value).text(label).prop('selected', value === response.source_channel).appendTo($channel);
-                    });
+                    $form.find('[name="status_code"]').val(response.status_code || '');
                     $modal.find('.simple-hotel-crm-open-full-booking').attr('href', response.detail_url || '#');
                     $message.text('');
                 },
@@ -132,42 +125,41 @@
             });
         }
 
-        function saveExtras($input) {
-            var payload = {
-                booking_id: $input.data('booking-id'),
-                room_id: $input.data('room-id'),
-                reserved_room_id: $input.data('reserved-room-id'),
-                extras_formula: $input.val() || ''
-            };
-            if (!payload.reserved_room_id) return;
-            setSavingState($input, 'saving');
-            request({
-                url: bookingUrl,
-                method: 'POST',
-                data: payload,
-                success: function(response) {
-                    setSavingState($input, 'done');
-                    var $editor = $input.closest('.calendar-extras-editor');
-                    if (response && typeof response.extras_formula !== 'undefined') {
-                        $input.val(response.extras_formula || '');
-                    }
-                    $editor.find('.calendar-extras-display').text(response && response.extras_total !== null && Number(response.extras_total) > 0 ? Number(response.extras_total).toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €' : '');
-                    $editor.removeClass('is-editing');
-                },
-                error: function(xhr) {
-                    console.error(xhr.responseText);
-                    setSavingState($input, 'error');
-                }
-            });
-        }
-
         $(document).on('click', '.quick-booking-trigger', function(e) {
             e.preventDefault();
-            openQuickBooking($(this).data('booking-id'));
+            openQuickBooking($(this).data('booking-id'), $(this).data('reserved-room-id'));
         });
 
         $(document).on('click', '.simple-hotel-crm-modal-backdrop, .simple-hotel-crm-modal-close', function() {
             closeModal();
+        });
+
+        $(document).on('click', '.simple-hotel-crm-copy-button', function() {
+            var $button = $(this);
+            var target = $button.data('copy-target');
+            var $input = $button.closest('.simple-hotel-crm-copy-field').find('[name="' + target + '"]');
+            var value = ($input.val() || '').toString();
+            if (!value) {
+                return;
+            }
+            function copied() {
+                var oldText = $button.text();
+                $button.text('Copied');
+                setTimeout(function() { $button.text(oldText); }, 1000);
+            }
+            if (navigator.clipboard && window.isSecureContext) {
+                navigator.clipboard.writeText(value).then(copied).catch(function() {
+                    $input.trigger('focus').trigger('select');
+                    try {
+                        if (document.execCommand('copy')) copied();
+                    } catch (e) {}
+                });
+            } else {
+                $input.trigger('focus').trigger('select');
+                try {
+                    if (document.execCommand('copy')) copied();
+                } catch (e) {}
+            }
         });
 
         $(document).on('submit', '.simple-hotel-crm-quick-booking-form', function(e) {
@@ -211,20 +203,6 @@
             debounceSave('note:' + $input.data('note-date'), function() { saveDailyNote($input); });
         });
 
-        $(document).on('input', '.simple-hotel-crm-container .calendar-extras-input', function() {
-            setSavingState($(this), 'done');
-        });
-
-        $(document).on('click', '.simple-hotel-crm-container .calendar-extras-display', function() {
-            var $editor = $(this).closest('.calendar-extras-editor');
-            $editor.addClass('is-editing');
-            $editor.find('.calendar-extras-input').trigger('focus').trigger('select');
-        });
-
-        $(document).on('change blur', '.simple-hotel-crm-container .calendar-extras-input', function() {
-            var $input = $(this);
-            debounceSave('booking:' + $input.data('reserved-room-id'), function() { saveExtras($input); });
-        });
 
         window.addEventListener('popstate', function(e) {
             if (e.state && e.state.month && e.state.year) {

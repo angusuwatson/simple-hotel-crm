@@ -18,12 +18,6 @@ add_action( 'rest_api_init', function() {
         'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
     ] );
 
-    register_rest_route( 'simple-hotel-crm/v1', '/booking-overlay', [
-        'methods'  => 'POST',
-        'callback' => 'simple_hotel_crm_rest_save_booking_overlay',
-        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
-    ] );
-
     register_rest_route( 'simple-hotel-crm/v1', '/create-invoice', [
         'methods'  => 'POST',
         'callback' => 'simple_hotel_crm_rest_create_invoice',
@@ -107,12 +101,14 @@ function simple_hotel_crm_rest_get_quick_booking( WP_REST_Request $request ) {
     global $wpdb;
 
     $booking_id = absint( $request->get_param( 'booking_id' ) );
+    $reserved_room_id = absint( $request->get_param( 'reserved_room_id' ) );
     $bookings_table = simple_hotel_crm_bookings_table();
     $guests_table = simple_hotel_crm_guests_table();
+    $overlay = $reserved_room_id > 0 ? simple_hotel_crm_get_booking_overlay( $reserved_room_id ) : [];
 
     $booking = $wpdb->get_row(
         $wpdb->prepare(
-            "SELECT b.id, b.guest_id, b.status_code, b.source_channel, b.contacted_date, b.booking_note, b.internal_notes, g.first_name, g.last_name, g.phone
+            "SELECT b.id, b.guest_id, b.status_code, b.source_channel, b.contacted_date, b.booking_note, b.internal_notes, g.first_name, g.last_name, g.phone, g.email
              FROM {$bookings_table} b
              JOIN {$guests_table} g ON g.id = b.guest_id
              WHERE b.id = %d AND b.is_deleted = 0
@@ -130,10 +126,12 @@ function simple_hotel_crm_rest_get_quick_booking( WP_REST_Request $request ) {
         'id' => (int) $booking['id'],
         'guest_name' => trim( (string) $booking['first_name'] . ' ' . (string) $booking['last_name'] ),
         'phone' => (string) $booking['phone'],
+        'email' => (string) $booking['email'],
         'status_code' => (string) $booking['status_code'],
         'source_channel' => (string) $booking['source_channel'],
         'contacted_date' => (string) $booking['contacted_date'],
         'booking_note' => (string) $booking['booking_note'],
+        'extras_formula' => (string) ( $overlay['extras_formula'] ?? '' ),
         'internal_notes' => (string) $booking['internal_notes'],
         'status_options' => simple_hotel_crm_get_booking_status_options(),
         'channel_options' => simple_hotel_crm_get_booking_channel_options(),
@@ -145,12 +143,14 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
     global $wpdb;
 
     $booking_id = absint( $request->get_param( 'booking_id' ) );
+    $reserved_room_id = absint( $request->get_param( 'reserved_room_id' ) );
     $guest_name = trim( sanitize_text_field( (string) $request->get_param( 'guest_name' ) ) );
     $phone = sanitize_text_field( (string) $request->get_param( 'phone' ) );
+    $email = sanitize_email( (string) $request->get_param( 'email' ) );
     $status_code = sanitize_text_field( (string) $request->get_param( 'status_code' ) );
-    $source_channel = sanitize_text_field( (string) $request->get_param( 'source_channel' ) );
     $contacted_date = sanitize_text_field( (string) $request->get_param( 'contacted_date' ) );
     $booking_note = sanitize_textarea_field( (string) $request->get_param( 'booking_note' ) );
+    $extras_formula_raw = (string) $request->get_param( 'extras_formula' );
     $internal_notes = sanitize_textarea_field( (string) $request->get_param( 'internal_notes' ) );
 
     if ( '' === $guest_name ) {
@@ -159,9 +159,6 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
     if ( ! isset( simple_hotel_crm_get_booking_status_options()[ $status_code ] ) ) {
         return new WP_Error( 'invalid_status_code', __( 'Please select a valid booking status.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
     }
-    if ( ! isset( simple_hotel_crm_get_booking_channel_options()[ $source_channel ] ) ) {
-        return new WP_Error( 'invalid_source_channel', __( 'Please select a valid booking channel.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
-    }
     if ( '' !== $contacted_date && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $contacted_date ) ) {
         return new WP_Error( 'invalid_contacted_date', __( 'Contacted date is invalid.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
     }
@@ -169,6 +166,7 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
     $bookings_table = simple_hotel_crm_bookings_table();
     $guests_table = simple_hotel_crm_guests_table();
     $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
+    $overlay_table = simple_hotel_crm_booking_overlay_table();
 
     $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bookings_table} WHERE id = %d AND is_deleted = 0 LIMIT 1", $booking_id ), ARRAY_A );
     if ( ! $booking ) {
@@ -180,11 +178,11 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
         'first_name' => $first_name,
         'last_name' => $last_name,
         'phone' => $phone,
-    ], [ 'id' => (int) $booking['guest_id'] ], [ '%s', '%s', '%s' ], [ '%d' ] );
+        'email' => $email,
+    ], [ 'id' => (int) $booking['guest_id'] ], [ '%s', '%s', '%s', '%s' ], [ '%d' ] );
 
     $wpdb->update( $bookings_table, [
         'status_code' => $status_code,
-        'source_channel' => $source_channel,
         'contacted_date' => $contacted_date ?: null,
         'booking_note' => $booking_note,
         'internal_notes' => $internal_notes,
@@ -192,71 +190,40 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
 
     $wpdb->update( $sync_bookings_table, [
         'status_code' => $status_code,
-        'source_channel' => $source_channel,
-        'channel_label' => simple_hotel_crm_get_booking_channel_options()[ $source_channel ] ?? $source_channel,
         'guest_name' => $guest_name,
         'phone' => $phone,
         'import_notes' => $internal_notes,
         'source_created_at' => $contacted_date ?: ( $booking['contacted_date'] ?: current_time( 'mysql' ) ),
-    ], [ 'external_booking_id' => $booking_id ], [ '%s', '%s', '%s', '%s', '%s', '%s', '%s' ], [ '%d' ] );
+    ], [ 'external_booking_id' => $booking_id ], [ '%s', '%s', '%s', '%s', '%s' ], [ '%d' ] );
+
+    if ( $reserved_room_id > 0 ) {
+        $existing_overlay = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$overlay_table} WHERE reserved_room_id = %d", $reserved_room_id ), ARRAY_A );
+        $extras = simple_hotel_crm_evaluate_extras_formula( $extras_formula_raw );
+        if ( ! $extras['valid'] ) {
+            return new WP_Error( 'invalid_extras_formula', __( 'Extras formula only supports numbers joined with +.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
+        }
+        $overlay_payload = [
+            'booking_id' => $booking_id,
+            'reserved_room_id' => $reserved_room_id,
+            'room_id' => isset( $existing_overlay['room_id'] ) ? (int) $existing_overlay['room_id'] : 0,
+            'extras_formula' => $extras['formula'],
+            'extras_total' => $extras['total'],
+            'manual_guest_name' => (string) ( $existing_overlay['manual_guest_name'] ?? '' ),
+            'manual_adults' => isset( $existing_overlay['manual_adults'] ) && '' !== (string) $existing_overlay['manual_adults'] ? (int) $existing_overlay['manual_adults'] : null,
+            'manual_children' => isset( $existing_overlay['manual_children'] ) && '' !== (string) $existing_overlay['manual_children'] ? (int) $existing_overlay['manual_children'] : null,
+            'manual_tarif' => isset( $existing_overlay['manual_tarif'] ) ? simple_hotel_crm_normalize_decimal( $existing_overlay['manual_tarif'] ) : null,
+            'manual_commission' => isset( $existing_overlay['manual_commission'] ) ? simple_hotel_crm_normalize_decimal( $existing_overlay['manual_commission'] ) : null,
+        ];
+        $overlay_formats = [ '%d', '%d', '%d', '%s', '%f', '%s', '%d', '%d', '%f', '%f' ];
+        if ( ! empty( $existing_overlay ) ) {
+            $wpdb->update( $overlay_table, $overlay_payload, [ 'reserved_room_id' => $reserved_room_id ], $overlay_formats, [ '%d' ] );
+        } else {
+            $wpdb->insert( $overlay_table, $overlay_payload, $overlay_formats );
+        }
+    }
 
     simple_hotel_crm_clear_calendar_cache();
 
     return rest_ensure_response( [ 'success' => true ] );
-}
-
-function simple_hotel_crm_rest_save_booking_overlay( WP_REST_Request $request ) {
-    global $wpdb;
-
-    $reserved_room_id = absint( $request->get_param( 'reserved_room_id' ) );
-    $booking_id       = absint( $request->get_param( 'booking_id' ) );
-    $room_id          = absint( $request->get_param( 'room_id' ) );
-
-    if ( $reserved_room_id <= 0 ) {
-        return new WP_Error( 'missing_reserved_room', __( 'Missing reserved room ID.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
-    }
-
-    $table = simple_hotel_crm_booking_overlay_table();
-    $existing = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE reserved_room_id = %d", $reserved_room_id ), ARRAY_A );
-
-    $raw_extras_formula = $request->has_param( 'extras_formula' )
-        ? $request->get_param( 'extras_formula' )
-        : ( $existing['extras_formula'] ?? '' );
-
-    $extras = simple_hotel_crm_evaluate_extras_formula( $raw_extras_formula );
-    if ( ! $extras['valid'] ) {
-        return new WP_Error( 'invalid_extras_formula', __( 'Extras formula only supports numbers joined with +.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
-    }
-
-    $payload = [
-        'booking_id'         => $booking_id,
-        'reserved_room_id'   => $reserved_room_id,
-        'room_id'            => $room_id,
-        'booking_note'       => $request->has_param( 'booking_note' ) ? sanitize_textarea_field( (string) $request->get_param( 'booking_note' ) ) : (string) ( $existing['booking_note'] ?? '' ),
-        'extras_formula'     => $extras['formula'],
-        'extras_total'       => $extras['total'],
-        'manual_guest_name'  => $request->has_param( 'manual_guest_name' ) ? sanitize_text_field( (string) $request->get_param( 'manual_guest_name' ) ) : (string) ( $existing['manual_guest_name'] ?? '' ),
-        'manual_adults'      => $request->has_param( 'manual_adults' ) ? ( '' === (string) $request->get_param( 'manual_adults' ) ? null : max( 0, intval( $request->get_param( 'manual_adults' ) ) ) ) : ( isset( $existing['manual_adults'] ) && '' !== (string) $existing['manual_adults'] ? intval( $existing['manual_adults'] ) : null ),
-        'manual_children'    => $request->has_param( 'manual_children' ) ? ( '' === (string) $request->get_param( 'manual_children' ) ? null : max( 0, intval( $request->get_param( 'manual_children' ) ) ) ) : ( isset( $existing['manual_children'] ) && '' !== (string) $existing['manual_children'] ? intval( $existing['manual_children'] ) : null ),
-        'manual_tarif'       => $request->has_param( 'manual_tarif' ) ? simple_hotel_crm_normalize_decimal( $request->get_param( 'manual_tarif' ) ) : ( isset( $existing['manual_tarif'] ) ? simple_hotel_crm_normalize_decimal( $existing['manual_tarif'] ) : null ),
-        'manual_commission'  => $request->has_param( 'manual_commission' ) ? simple_hotel_crm_normalize_decimal( $request->get_param( 'manual_commission' ) ) : ( isset( $existing['manual_commission'] ) ? simple_hotel_crm_normalize_decimal( $existing['manual_commission'] ) : null ),
-    ];
-
-    $formats = [ '%d', '%d', '%d', '%s', '%s', '%f', '%s', '%d', '%d', '%f', '%f' ];
-    if ( ! empty( $existing ) ) {
-        $wpdb->update( $table, $payload, [ 'reserved_room_id' => $reserved_room_id ], $formats, [ '%d' ] );
-    } else {
-        $wpdb->insert( $table, $payload, $formats );
-    }
-
-    simple_hotel_crm_clear_calendar_cache();
-
-    return rest_ensure_response( [
-        'success'           => true,
-        'reserved_room_id'  => $reserved_room_id,
-        'extras_formula'    => $extras['formula'],
-        'extras_total'      => $extras['total'],
-        'occupancy_str'     => simple_hotel_crm_format_occupancy( $payload['manual_adults'] ?? 0, $payload['manual_children'] ?? 0 ),
-    ] );
 }
 

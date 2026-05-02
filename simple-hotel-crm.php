@@ -12,24 +12,6 @@ defined( 'ABSPATH' ) || exit;
 define( 'SIMPLE_HOTEL_CRM_VERSION', '1.6' );
 define( 'SIMPLE_HOTEL_CRM_DB_VERSION', '7' );
 
-add_action( 'plugins_loaded', 'simple_hotel_crm_check_dependency' );
-function simple_hotel_crm_check_dependency() {
-    if ( 'motopress' !== simple_hotel_crm_get_data_source() ) {
-        return;
-    }
-
-    if ( ! function_exists( 'MPHB' ) || ! class_exists( 'HotelBookingPlugin' ) ) {
-        add_action( 'admin_notices', function() {
-            ?>
-            <div class="notice notice-error">
-                <p><?php esc_html_e( 'Simple Hotel CRM requires MotoPress Hotel Booking when the MotoPress source is selected.', 'simple-hotel-crm' ); ?></p>
-            </div>
-            <?php
-        } );
-        return;
-    }
-}
-
 register_activation_hook( __FILE__, 'simple_hotel_crm_activate' );
 add_action( 'plugins_loaded', 'simple_hotel_crm_maybe_upgrade' );
 

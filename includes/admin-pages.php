@@ -12,8 +12,10 @@ function simple_hotel_crm_register_admin_menu() {
     add_submenu_page( 'simple-hotel-crm', __( 'Add Booking', 'simple-hotel-crm' ), __( 'Add Booking', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-add-booking', 'simple_hotel_crm_render_add_booking_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Bookings', 'simple-hotel-crm' ), __( 'Bookings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-bookings', 'simple_hotel_crm_render_bookings_page' );
     add_submenu_page( null, __( 'Booking Detail', 'simple-hotel-crm' ), __( 'Booking Detail', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-booking-detail', 'simple_hotel_crm_render_booking_detail_page' );
+    add_submenu_page( 'simple-hotel-crm', __( 'Rooms', 'simple-hotel-crm' ), __( 'Rooms', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-rooms', 'simple_hotel_crm_render_rooms_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Guests', 'simple-hotel-crm' ), __( 'Guests', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guests', 'simple_hotel_crm_render_guests_page' );
     add_submenu_page( null, __( 'Guest Detail', 'simple-hotel-crm' ), __( 'Guest Detail', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-detail', 'simple_hotel_crm_render_guest_detail_page' );
+    add_submenu_page( 'simple-hotel-crm', __( 'Import', 'simple-hotel-crm' ), __( 'Import', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-import', 'simple_hotel_crm_render_import_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Invoice Ninja Settings', 'simple-hotel-crm' ), __( 'Settings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-settings', 'simple_hotel_crm_render_settings_page' );
 }
 
@@ -149,6 +151,92 @@ function simple_hotel_crm_render_bookings_page() {
     }
     echo '</tbody></table></form>';
     echo '</div>';
+}
+
+function simple_hotel_crm_render_rooms_page() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
+    }
+
+    global $wpdb;
+    $rooms_table = simple_hotel_crm_rooms_table();
+    $room_id = absint( $_GET['room_id'] ?? 0 );
+    $editing = $room_id > 0;
+
+    if ( isset( $_GET['toggle_room'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_toggle_room_' . absint( $_GET['toggle_room'] ) );
+        $current = (int) $wpdb->get_var( $wpdb->prepare( "SELECT active FROM {$rooms_table} WHERE id = %d", absint( $_GET['toggle_room'] ) ) );
+        $wpdb->update( $rooms_table, [ 'active' => $current ? 0 : 1 ], [ 'id' => absint( $_GET['toggle_room'] ) ], [ '%d' ], [ '%d' ] );
+        echo '<div class="notice notice-success"><p>' . esc_html__( 'Room updated.', 'simple-hotel-crm' ) . '</p></div>';
+        simple_hotel_crm_clear_calendar_cache();
+    }
+
+    if ( isset( $_POST['simple_hotel_crm_save_room'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_save_room', 'simple_hotel_crm_save_room_nonce' );
+        $data = [
+            'room_code' => strtoupper( sanitize_text_field( wp_unslash( $_POST['room_code'] ?? '' ) ) ),
+            'room_name' => sanitize_text_field( wp_unslash( $_POST['room_name'] ?? '' ) ),
+            'sort_order' => (int) ( $_POST['sort_order'] ?? 0 ),
+            'color' => sanitize_hex_color( wp_unslash( $_POST['color'] ?? '' ) ) ?: '#cccccc',
+            'active' => empty( $_POST['active'] ) ? 0 : 1,
+        ];
+        if ( '' === $data['room_code'] || '' === $data['room_name'] ) {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'Room code and room name are required.', 'simple-hotel-crm' ) . '</p></div>';
+        } else {
+            if ( $editing ) {
+                $wpdb->update( $rooms_table, $data, [ 'id' => $room_id ], [ '%s', '%s', '%d', '%s', '%d' ], [ '%d' ] );
+            } else {
+                $wpdb->insert( $rooms_table, $data, [ '%s', '%s', '%d', '%s', '%d' ] );
+                $room_id = (int) $wpdb->insert_id;
+                $editing = $room_id > 0;
+            }
+            echo '<div class="notice notice-success"><p>' . esc_html__( 'Room saved.', 'simple-hotel-crm' ) . '</p></div>';
+            simple_hotel_crm_clear_calendar_cache();
+        }
+    }
+
+    $room = $editing ? $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$rooms_table} WHERE id = %d", $room_id ), ARRAY_A ) : null;
+    $room = array_merge(
+        [ 'room_code' => '', 'room_name' => '', 'sort_order' => 0, 'color' => '#cccccc', 'active' => 1 ],
+        is_array( $room ) ? $room : []
+    );
+    $rooms = $wpdb->get_results( "SELECT * FROM {$rooms_table} ORDER BY sort_order ASC, room_name ASC", ARRAY_A );
+
+    echo '<div class="wrap"><h1>' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</h1>';
+    echo '<div style="display:grid;grid-template-columns:minmax(320px,420px) 1fr;gap:24px;align-items:start;">';
+    echo '<div><h2>' . esc_html( $editing ? __( 'Edit Room', 'simple-hotel-crm' ) : __( 'Add Room', 'simple-hotel-crm' ) ) . '</h2><form method="post">';
+    wp_nonce_field( 'simple_hotel_crm_save_room', 'simple_hotel_crm_save_room_nonce' );
+    echo '<table class="form-table">';
+    echo '<tr><th><label for="room_code">' . esc_html__( 'Room code', 'simple-hotel-crm' ) . '</label></th><td><input id="room_code" name="room_code" type="text" class="regular-text" value="' . esc_attr( (string) $room['room_code'] ) . '" /></td></tr>';
+    echo '<tr><th><label for="room_name">' . esc_html__( 'Room name', 'simple-hotel-crm' ) . '</label></th><td><input id="room_name" name="room_name" type="text" class="regular-text" value="' . esc_attr( (string) $room['room_name'] ) . '" /></td></tr>';
+    echo '<tr><th><label for="sort_order">' . esc_html__( 'Sort order', 'simple-hotel-crm' ) . '</label></th><td><input id="sort_order" name="sort_order" type="number" value="' . esc_attr( (string) $room['sort_order'] ) . '" /></td></tr>';
+    echo '<tr><th><label for="color">' . esc_html__( 'Color', 'simple-hotel-crm' ) . '</label></th><td><input id="color" name="color" type="color" value="' . esc_attr( (string) $room['color'] ) . '" /> <code>' . esc_html( (string) $room['color'] ) . '</code></td></tr>';
+    echo '<tr><th>' . esc_html__( 'Active', 'simple-hotel-crm' ) . '</th><td><label><input type="checkbox" name="active" value="1" ' . checked( (int) $room['active'], 1, false ) . ' /> ' . esc_html__( 'Show this room in the calendar', 'simple-hotel-crm' ) . '</label></td></tr>';
+    echo '</table>';
+    submit_button( __( 'Save Room', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_save_room' );
+    if ( $editing ) {
+        echo '<a class="button" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-rooms' ) ) . '">' . esc_html__( 'Add New Room', 'simple-hotel-crm' ) . '</a>';
+    }
+    echo '</form></div>';
+
+    echo '<div><h2>' . esc_html__( 'Current Rooms', 'simple-hotel-crm' ) . '</h2><table class="widefat striped"><thead><tr><th>' . esc_html__( 'Code', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Name', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Order', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Color', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Actions', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
+    if ( empty( $rooms ) ) {
+        echo '<tr><td colspan="6">' . esc_html__( 'No rooms yet.', 'simple-hotel-crm' ) . '</td></tr>';
+    } else {
+        foreach ( $rooms as $row ) {
+            $edit_url = admin_url( 'admin.php?page=simple-hotel-crm-rooms&room_id=' . absint( $row['id'] ) );
+            $toggle_url = wp_nonce_url( admin_url( 'admin.php?page=simple-hotel-crm-rooms&toggle_room=' . absint( $row['id'] ) ), 'simple_hotel_crm_toggle_room_' . absint( $row['id'] ) );
+            echo '<tr>';
+            echo '<td>' . esc_html( (string) $row['room_code'] ) . '</td>';
+            echo '<td>' . esc_html( (string) $row['room_name'] ) . '</td>';
+            echo '<td>' . esc_html( (string) $row['sort_order'] ) . '</td>';
+            echo '<td><span style="display:inline-block;width:18px;height:18px;border:1px solid #ccc;background:' . esc_attr( (string) $row['color'] ) . ';vertical-align:middle;margin-right:6px;"></span>' . esc_html( (string) $row['color'] ) . '</td>';
+            echo '<td>' . esc_html( ! empty( $row['active'] ) ? __( 'Active', 'simple-hotel-crm' ) : __( 'Inactive', 'simple-hotel-crm' ) ) . '</td>';
+            echo '<td><a class="button button-small" href="' . esc_url( $edit_url ) . '">' . esc_html__( 'Edit', 'simple-hotel-crm' ) . '</a> <a class="button button-small" href="' . esc_url( $toggle_url ) . '">' . esc_html( ! empty( $row['active'] ) ? __( 'Deactivate', 'simple-hotel-crm' ) : __( 'Activate', 'simple-hotel-crm' ) ) . '</a></td>';
+            echo '</tr>';
+        }
+    }
+    echo '</tbody></table></div></div></div>';
 }
 
 function simple_hotel_crm_render_guests_page() {
@@ -580,9 +668,9 @@ function simple_hotel_crm_render_booking_detail_page() {
     }
     echo '</select></td></tr>';
     echo '<tr><th>' . esc_html__( 'Contacted date', 'simple-hotel-crm' ) . '</th><td><input type="date" name="contacted_date" value="' . esc_attr( (string) $booking['contacted_date'] ) . '" /></td></tr>';
-    echo '<tr><th>' . esc_html__( 'Booking note', 'simple-hotel-crm' ) . '</th><td><textarea name="booking_note" rows="3" class="large-text">' . esc_textarea( (string) $booking['booking_note'] ) . '</textarea></td></tr>';
     echo '<tr><th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th><td><input type="date" name="check_in_date" value="' . esc_attr( (string) $booking['check_in_date'] ) . '" /></td></tr>';
     echo '<tr><th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th><td><input type="date" name="check_out_date" value="' . esc_attr( (string) $booking['check_out_date'] ) . '" /></td></tr>';
+    echo '<tr><th>' . esc_html__( 'Booking note', 'simple-hotel-crm' ) . '</th><td><input type="text" name="booking_note" class="regular-text" value="' . esc_attr( (string) $booking['booking_note'] ) . '" /></td></tr>';
     echo '<tr><th>' . esc_html__( 'Internal notes', 'simple-hotel-crm' ) . '</th><td><textarea name="internal_notes" rows="5" class="large-text">' . esc_textarea( (string) $booking['internal_notes'] ) . '</textarea></td></tr>';
     echo '</table>';
     submit_button( __( 'Save Booking', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_save_booking' );
@@ -812,6 +900,336 @@ function simple_hotel_crm_render_add_booking_page() {
 /**
  * Render Invoice Ninja settings page.
  */
+function simple_hotel_crm_read_csv_file( $file ) {
+    if ( empty( $file['tmp_name'] ) || ! is_uploaded_file( $file['tmp_name'] ) ) {
+        return new WP_Error( 'missing_file', __( 'Please upload a CSV file.', 'simple-hotel-crm' ) );
+    }
+
+    $handle = fopen( $file['tmp_name'], 'r' );
+    if ( ! $handle ) {
+        return new WP_Error( 'csv_open_failed', __( 'Could not open the CSV file.', 'simple-hotel-crm' ) );
+    }
+
+    $rows = [];
+    $headers = fgetcsv( $handle );
+    if ( ! is_array( $headers ) ) {
+        fclose( $handle );
+        return new WP_Error( 'csv_headers_missing', __( 'CSV headers are missing.', 'simple-hotel-crm' ) );
+    }
+
+    $headers = array_map( static function( $value ) {
+        return sanitize_key( trim( (string) $value ) );
+    }, $headers );
+
+    while ( false !== ( $data = fgetcsv( $handle ) ) ) {
+        if ( 1 === count( $data ) && '' === trim( (string) $data[0] ) ) {
+            continue;
+        }
+        $row = [];
+        foreach ( $headers as $index => $header ) {
+            $row[ $header ] = isset( $data[ $index ] ) ? trim( (string) $data[ $index ] ) : '';
+        }
+        $rows[] = $row;
+    }
+
+    fclose( $handle );
+    return $rows;
+}
+
+function simple_hotel_crm_find_guest_for_import_row( $row ) {
+    global $wpdb;
+    $table = simple_hotel_crm_guests_table();
+    $first_name = sanitize_text_field( $row['first_name'] ?? '' );
+    $last_name = sanitize_text_field( $row['last_name'] ?? '' );
+    $email = sanitize_email( $row['email'] ?? ( $row['guest_email'] ?? '' ) );
+    $phone = sanitize_text_field( $row['phone'] ?? '' );
+
+    if ( $email ) {
+        $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE email = %s LIMIT 1", $email ), ARRAY_A );
+        if ( $guest ) return $guest;
+    }
+    if ( $phone && ( $first_name || $last_name ) ) {
+        $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE phone = %s AND first_name = %s AND last_name = %s LIMIT 1", $phone, $first_name, $last_name ), ARRAY_A );
+        if ( $guest ) return $guest;
+    }
+    if ( empty( $first_name ) && empty( $last_name ) && ! empty( $row['guest_name'] ) ) {
+        list( $first_name, $last_name ) = simple_hotel_crm_split_guest_name( sanitize_text_field( $row['guest_name'] ) );
+    }
+    if ( $first_name || $last_name ) {
+        return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE first_name = %s AND last_name = %s LIMIT 1", $first_name, $last_name ), ARRAY_A );
+    }
+    return null;
+}
+
+function simple_hotel_crm_find_booking_for_import_row( $row, $guest_id = 0 ) {
+    global $wpdb;
+    $table = simple_hotel_crm_bookings_table();
+    $external_booking_id = sanitize_text_field( $row['external_booking_id'] ?? '' );
+    $check_in = sanitize_text_field( $row['check_in'] ?? '' );
+    $check_out = sanitize_text_field( $row['check_out'] ?? '' );
+
+    if ( $external_booking_id ) {
+        $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE source_booking_id = %s LIMIT 1", $external_booking_id ), ARRAY_A );
+        if ( $booking ) return $booking;
+    }
+    if ( $guest_id > 0 && $check_in && $check_out ) {
+        return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE guest_id = %d AND check_in_date = %s AND check_out_date = %s LIMIT 1", $guest_id, $check_in, $check_out ), ARRAY_A );
+    }
+    return null;
+}
+
+function simple_hotel_crm_import_guests_csv( $rows, $dry_run = false ) {
+    global $wpdb;
+    $table = simple_hotel_crm_guests_table();
+    $summary = [ 'created' => 0, 'skipped' => 0, 'errors' => [] ];
+
+    foreach ( $rows as $index => $row ) {
+        $first_name = sanitize_text_field( $row['first_name'] ?? '' );
+        $last_name = sanitize_text_field( $row['last_name'] ?? '' );
+        $email = sanitize_email( $row['email'] ?? '' );
+        $phone = sanitize_text_field( $row['phone'] ?? '' );
+        if ( '' === $first_name && '' === $last_name ) {
+            $summary['errors'][] = sprintf( __( 'Guests row %d: missing name.', 'simple-hotel-crm' ), $index + 2 );
+            continue;
+        }
+
+        $existing = simple_hotel_crm_find_guest_for_import_row( $row );
+        if ( ! empty( $existing['id'] ) ) {
+            $summary['skipped']++;
+            continue;
+        }
+
+        if ( $dry_run ) {
+            $summary['created']++;
+            continue;
+        }
+
+        $wpdb->insert( $table, [
+            'first_name' => $first_name,
+            'last_name' => $last_name,
+            'email' => $email,
+            'phone' => $phone,
+            'address_line_1' => sanitize_text_field( $row['address_line_1'] ?? '' ),
+            'address_line_2' => sanitize_text_field( $row['address_line_2'] ?? '' ),
+            'city' => sanitize_text_field( $row['city'] ?? '' ),
+            'postcode' => sanitize_text_field( $row['postcode'] ?? '' ),
+            'country' => sanitize_text_field( $row['country'] ?? '' ),
+            'notes' => sanitize_textarea_field( $row['notes'] ?? '' ),
+        ], [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ] );
+        $summary['created']++;
+    }
+
+    return $summary;
+}
+
+function simple_hotel_crm_import_bookings_csv( $rows, $dry_run = false ) {
+    global $wpdb;
+    $guests_table = simple_hotel_crm_guests_table();
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $summary = [ 'created' => 0, 'skipped' => 0, 'errors' => [] ];
+
+    foreach ( $rows as $index => $row ) {
+        $guest_email = sanitize_email( $row['guest_email'] ?? '' );
+        $guest_name = trim( sanitize_text_field( $row['guest_name'] ?? '' ) );
+        $check_in = sanitize_text_field( $row['check_in'] ?? '' );
+        $check_out = sanitize_text_field( $row['check_out'] ?? '' );
+        if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_in ) || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_out ) ) {
+            $summary['errors'][] = sprintf( __( 'Bookings row %d: invalid dates.', 'simple-hotel-crm' ), $index + 2 );
+            continue;
+        }
+
+        $guest = simple_hotel_crm_find_guest_for_import_row( [ 'email' => $guest_email, 'guest_name' => $guest_name ] );
+        if ( ! $guest ) {
+            $summary['errors'][] = sprintf( __( 'Bookings row %d: guest not found.', 'simple-hotel-crm' ), $index + 2 );
+            continue;
+        }
+
+        $exists = simple_hotel_crm_find_booking_for_import_row( $row, (int) $guest['id'] );
+        if ( ! empty( $exists['id'] ) ) {
+            $summary['skipped']++;
+            continue;
+        }
+
+        if ( $dry_run ) {
+            $summary['created']++;
+            continue;
+        }
+
+        $wpdb->insert( $bookings_table, [
+            'guest_id' => (int) $guest['id'],
+            'source_channel' => sanitize_text_field( $row['source_channel'] ?? 'direct' ),
+            'source_booking_id' => sanitize_text_field( $row['external_booking_id'] ?? '' ),
+            'status_code' => sanitize_text_field( $row['status_code'] ?? 'confirmed' ),
+            'contacted_date' => sanitize_text_field( $row['contacted_date'] ?? '' ) ?: null,
+            'check_in_date' => $check_in,
+            'check_out_date' => $check_out,
+            'currency' => 'EUR',
+            'booking_note' => sanitize_textarea_field( $row['booking_note'] ?? '' ),
+            'internal_notes' => sanitize_textarea_field( $row['internal_notes'] ?? '' ),
+        ], [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ] );
+        $summary['created']++;
+    }
+
+    return $summary;
+}
+
+function simple_hotel_crm_import_booking_rooms_csv( $rows, $dry_run = false ) {
+    global $wpdb;
+    $guests_table = simple_hotel_crm_guests_table();
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $rooms_table = simple_hotel_crm_rooms_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+    $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
+    $summary = [ 'created' => 0, 'skipped' => 0, 'errors' => [] ];
+
+    foreach ( $rows as $index => $row ) {
+        $guest_email = sanitize_email( $row['guest_email'] ?? '' );
+        $check_in = sanitize_text_field( $row['check_in'] ?? '' );
+        $check_out = sanitize_text_field( $row['check_out'] ?? '' );
+        $room_code = strtoupper( sanitize_text_field( $row['room_code'] ?? '' ) );
+        $guest = simple_hotel_crm_find_guest_for_import_row( [ 'email' => $guest_email, 'guest_name' => $row['guest_name'] ?? '' ] );
+        if ( ! $guest ) {
+            $summary['errors'][] = sprintf( __( 'Room row %d: guest not found.', 'simple-hotel-crm' ), $index + 2 );
+            continue;
+        }
+        $booking = simple_hotel_crm_find_booking_for_import_row( $row, (int) $guest['id'] );
+        $room = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE room_code = %s LIMIT 1", $room_code ), ARRAY_A );
+        if ( ! $booking || ! $room ) {
+            $summary['errors'][] = sprintf( __( 'Room row %d: booking or room not found.', 'simple-hotel-crm' ), $index + 2 );
+            continue;
+        }
+        $exists = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$booking_rooms_table} WHERE booking_id = %d AND room_id = %d LIMIT 1", $booking['id'], $room['id'] ) );
+        if ( $exists ) {
+            $summary['skipped']++;
+            continue;
+        }
+
+        $adults = max( 0, (int) ( $row['adults'] ?? 0 ) );
+        $children = max( 0, (int) ( $row['children'] ?? 0 ) );
+        $babies = max( 0, (int) ( $row['babies'] ?? 0 ) );
+        $guest_count = $adults + $children + $babies;
+        $room_rate_amount = (float) simple_hotel_crm_normalize_decimal( $row['room_rate_amount'] ?? 0 );
+        $extras_amount = (float) simple_hotel_crm_normalize_decimal( $row['extras_amount'] ?? 0 );
+        $tourist_tax_amount = (float) simple_hotel_crm_normalize_decimal( $row['tourist_tax_amount'] ?? 0 );
+        $total_amount = $room_rate_amount + $extras_amount + $tourist_tax_amount;
+
+        if ( $dry_run ) {
+            $summary['created']++;
+            continue;
+        }
+
+        $legacy_reserved_room_id = max( 1, (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_room_id), 0) + 1 FROM {$sync_bookings_table}" ) );
+        $wpdb->insert( $booking_rooms_table, [
+            'booking_id' => (int) $booking['id'], 'room_id' => (int) $room['id'], 'legacy_reserved_room_id' => $legacy_reserved_room_id, 'guest_count' => $guest_count,
+            'adults' => $adults, 'children' => $children, 'babies' => $babies,
+            'room_rate_amount' => $room_rate_amount, 'extras_amount' => $extras_amount, 'tourist_tax_amount' => $tourist_tax_amount, 'total_amount' => $total_amount,
+        ], [ '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f' ] );
+        $booking_room_id = (int) $wpdb->insert_id;
+        $nights = max( 1, (int) round( ( strtotime( $check_out ) - strtotime( $check_in ) ) / DAY_IN_SECONDS ) );
+        for ( $i = 0; $i < $nights; $i++ ) {
+            $stay_date = gmdate( 'Y-m-d', strtotime( $check_in . ' +' . $i . ' day' ) );
+            $night_room_rate = round( $room_rate_amount / $nights, 2 );
+            $night_extras = round( $extras_amount / $nights, 2 );
+            $night_tax = round( $tourist_tax_amount / $nights, 2 );
+            $night_total = round( $total_amount / $nights, 2 );
+            $wpdb->insert( $booking_nights_table, [
+                'booking_room_id' => $booking_room_id, 'stay_date' => $stay_date, 'guest_count' => $guest_count,
+                'adults' => $adults, 'children' => $children, 'babies' => $babies,
+                'room_rate_amount' => $night_room_rate, 'extras_amount' => $night_extras,
+                'tourist_tax_amount' => $night_tax, 'total_amount' => $night_total,
+            ], [ '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f' ] );
+            $wpdb->insert( $sync_bookings_table, [
+                'external_booking_id' => (int) $booking['id'], 'external_booking_room_id' => $legacy_reserved_room_id,
+                'external_room_id' => 0, 'room_sync_id' => 0, 'status_code' => (string) ( $booking['status_code'] ?? 'confirmed' ),
+                'check_in' => $check_in, 'check_out' => $check_out, 'stay_date' => $stay_date,
+                'guest_count' => $guest_count, 'adults' => $adults, 'children' => $children, 'babies' => $babies,
+                'total_amount' => $night_total, 'room_amount' => $night_room_rate, 'extras_amount' => $night_extras, 'tourist_tax_amount' => $night_tax,
+                'room_count' => 1, 'source_channel' => (string) ( $booking['source_channel'] ?? 'direct' ), 'source_booking_id' => (string) ( $booking['source_booking_id'] ?? '' ),
+                'channel_label' => simple_hotel_crm_get_booking_channel_options()[ (string) ( $booking['source_channel'] ?? 'direct' ) ] ?? (string) ( $booking['source_channel'] ?? 'direct' ),
+                'guest_name' => trim( (string) ( $guest['first_name'] ?? '' ) . ' ' . (string) ( $guest['last_name'] ?? '' ) ), 'phone' => (string) ( $guest['phone'] ?? '' ),
+                'import_notes' => (string) ( $booking['internal_notes'] ?? '' ), 'invoice_ninja_client_id' => (string) ( $booking['invoice_ninja_client_id'] ?? '' ),
+                'invoice_ninja_invoice_id' => (string) ( $booking['invoice_ninja_invoice_id'] ?? '' ), 'source_created_at' => (string) ( $booking['contacted_date'] ?? '' ),
+            ], [ '%d', '%d', '%d', '%d', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ] );
+        }
+        $summary['created']++;
+    }
+
+    simple_hotel_crm_clear_calendar_cache();
+    return $summary;
+}
+
+function simple_hotel_crm_render_import_preview( $rows ) {
+    if ( empty( $rows ) ) {
+        return;
+    }
+    $preview_rows = array_slice( $rows, 0, 5 );
+    $headers = array_keys( $preview_rows[0] );
+    echo '<h2>' . esc_html__( 'Preview', 'simple-hotel-crm' ) . '</h2>';
+    echo '<p>' . esc_html( sprintf( __( '%d row(s) found. Showing first 5.', 'simple-hotel-crm' ), count( $rows ) ) ) . '</p>';
+    echo '<table class="widefat striped"><thead><tr>';
+    foreach ( $headers as $header ) { echo '<th>' . esc_html( $header ) . '</th>'; }
+    echo '</tr></thead><tbody>';
+    foreach ( $preview_rows as $preview_row ) {
+        echo '<tr>';
+        foreach ( $headers as $header ) { echo '<td>' . esc_html( (string) ( $preview_row[$header] ?? '' ) ) . '</td>'; }
+        echo '</tr>';
+    }
+    echo '</tbody></table>';
+}
+
+function simple_hotel_crm_render_import_page() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
+    }
+
+    $result = null;
+    $preview_rows = [];
+    if ( isset( $_POST['simple_hotel_crm_import_submit'] ) || isset( $_POST['simple_hotel_crm_import_preview'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_import', 'simple_hotel_crm_import_nonce' );
+        $type = sanitize_text_field( wp_unslash( $_POST['import_type'] ?? '' ) );
+        $rows = simple_hotel_crm_read_csv_file( $_FILES['import_csv'] ?? [] );
+        if ( is_wp_error( $rows ) ) {
+            $result = [ 'errors' => [ $rows->get_error_message() ], 'created' => 0, 'skipped' => 0 ];
+        } else {
+            $preview_rows = $rows;
+            $dry_run = isset( $_POST['simple_hotel_crm_import_preview'] );
+            if ( 'guests' === $type ) {
+                $result = simple_hotel_crm_import_guests_csv( $rows, $dry_run );
+            } elseif ( 'bookings' === $type ) {
+                $result = simple_hotel_crm_import_bookings_csv( $rows, $dry_run );
+            } elseif ( 'booking_rooms' === $type ) {
+                $result = simple_hotel_crm_import_booking_rooms_csv( $rows, $dry_run );
+            }
+        }
+    }
+
+    echo '<div class="wrap"><h1>' . esc_html__( 'Import CSV', 'simple-hotel-crm' ) . '</h1>';
+    echo '<p>' . esc_html__( 'Import missing records only. Recommended order: guests, bookings, booking rooms.', 'simple-hotel-crm' ) . '</p>';
+    echo '<p><a class="button" href="data:text/csv;charset=utf-8,' . rawurlencode( "external_guest_id,first_name,last_name,email,phone,address_line_1,address_line_2,city,postcode,country,notes\nG-1001,Jane,Doe,jane@example.com,123456789,1 Street,,Town,75000,France,VIP" ) . '" download="guests-template.csv">' . esc_html__( 'Download guests template', 'simple-hotel-crm' ) . '</a> ';
+    echo '<a class="button" href="data:text/csv;charset=utf-8,' . rawurlencode( "external_booking_id,guest_email,guest_name,check_in,check_out,status_code,source_channel,contacted_date,booking_note,internal_notes\nB-2001,jane@example.com,Jane Doe,2026-06-01,2026-06-03,confirmed,direct,2026-05-01,Late arrival,Imported from CSV" ) . '" download="bookings-template.csv">' . esc_html__( 'Download bookings template', 'simple-hotel-crm' ) . '</a> ';
+    echo '<a class="button" href="data:text/csv;charset=utf-8,' . rawurlencode( "external_booking_id,guest_email,guest_name,check_in,check_out,room_code,adults,children,babies,room_rate_amount,extras_amount,tourist_tax_amount\nB-2001,jane@example.com,Jane Doe,2026-06-01,2026-06-03,ANE,2,0,0,180,20,3.2" ) . '" download="booking-rooms-template.csv">' . esc_html__( 'Download booking rooms template', 'simple-hotel-crm' ) . '</a></p>';
+    if ( ! empty( $preview_rows ) ) { simple_hotel_crm_render_import_preview( $preview_rows ); }
+    if ( $result ) {
+        echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Created: %1$d, Skipped: %2$d', 'simple-hotel-crm' ), (int) $result['created'], (int) $result['skipped'] ) ) . '</p></div>';
+        if ( ! empty( $result['errors'] ) ) {
+            echo '<div class="notice notice-warning"><ul>';
+            foreach ( $result['errors'] as $error ) {
+                echo '<li>' . esc_html( $error ) . '</li>';
+            }
+            echo '</ul></div>';
+        }
+    }
+    echo '<form method="post" enctype="multipart/form-data">';
+    wp_nonce_field( 'simple_hotel_crm_import', 'simple_hotel_crm_import_nonce' );
+    echo '<table class="form-table"><tr><th><label for="import_type">' . esc_html__( 'Import type', 'simple-hotel-crm' ) . '</label></th><td><select name="import_type" id="import_type"><option value="guests">' . esc_html__( 'Guests', 'simple-hotel-crm' ) . '</option><option value="bookings">' . esc_html__( 'Bookings', 'simple-hotel-crm' ) . '</option><option value="booking_rooms">' . esc_html__( 'Booking rooms', 'simple-hotel-crm' ) . '</option></select></td></tr>';
+    echo '<tr><th><label for="import_csv">' . esc_html__( 'CSV file', 'simple-hotel-crm' ) . '</label></th><td><input type="file" name="import_csv" id="import_csv" accept=".csv,text/csv" required /></td></tr></table>';
+    submit_button( __( 'Preview / Dry Run', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_import_preview', false );
+    echo ' ';
+    submit_button( __( 'Import CSV', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_import_submit', false );
+    echo '</form></div>';
+}
+
 function simple_hotel_crm_render_settings_page() {
     if ( ! simple_hotel_crm_user_can_access() ) {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
@@ -822,18 +1240,10 @@ function simple_hotel_crm_render_settings_page() {
 
         $api_url = isset( $_POST['simple_hotel_crm_invoice_ninja_url'] ) ? esc_url_raw( trim( wp_unslash( $_POST['simple_hotel_crm_invoice_ninja_url'] ) ) ) : '';
         $api_token = isset( $_POST['simple_hotel_crm_invoice_ninja_token'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_invoice_ninja_token'] ) ) ) : '';
-        $booking_source = isset( $_POST['simple_hotel_crm_booking_source'] ) ? sanitize_text_field( wp_unslash( $_POST['simple_hotel_crm_booking_source'] ) ) : 'wp_sync';
-        $booking_source = in_array( $booking_source, [ 'motopress', 'wp_sync', 'external_pg' ], true ) ? $booking_source : 'wp_sync';
 
         update_option( 'simple_hotel_crm_invoice_ninja_url', $api_url );
         update_option( 'simple_hotel_crm_invoice_ninja_token', $api_token );
-        update_option( 'simple_hotel_crm_booking_source', $booking_source );
-        update_option( 'simple_hotel_crm_external_pg_host', isset( $_POST['simple_hotel_crm_external_pg_host'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_external_pg_host'] ) ) ) : '' );
-        update_option( 'simple_hotel_crm_external_pg_port', isset( $_POST['simple_hotel_crm_external_pg_port'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_external_pg_port'] ) ) ) : '5432' );
-        update_option( 'simple_hotel_crm_external_pg_dbname', isset( $_POST['simple_hotel_crm_external_pg_dbname'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_external_pg_dbname'] ) ) ) : '' );
-        update_option( 'simple_hotel_crm_external_pg_user', isset( $_POST['simple_hotel_crm_external_pg_user'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_external_pg_user'] ) ) ) : '' );
-        update_option( 'simple_hotel_crm_external_pg_password', isset( $_POST['simple_hotel_crm_external_pg_password'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_external_pg_password'] ) ) ) : '' );
-        update_option( 'simple_hotel_crm_external_pg_sslmode', isset( $_POST['simple_hotel_crm_external_pg_sslmode'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_external_pg_sslmode'] ) ) ) : 'disable' );
+        update_option( 'simple_hotel_crm_booking_source', 'wp_sync' );
 
         simple_hotel_crm_clear_calendar_cache();
         echo '<div class="notice notice-success"><p>' . esc_html__( 'Settings saved.', 'simple-hotel-crm' ) . '</p></div>';
@@ -841,39 +1251,12 @@ function simple_hotel_crm_render_settings_page() {
 
     $api_url = get_option( 'simple_hotel_crm_invoice_ninja_url', '' );
     $api_token = get_option( 'simple_hotel_crm_invoice_ninja_token', '' );
-    $booking_source = simple_hotel_crm_get_data_source();
-    $external_db = simple_hotel_crm_get_external_db_settings();
 
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( 'Simple Hotel CRM Settings', 'simple-hotel-crm' ) . '</h1>';
+    echo '<p>' . esc_html__( 'Simple Hotel CRM now uses the WordPress CRM tables as the main booking source.', 'simple-hotel-crm' ) . '</p>';
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
-    echo '<h2>' . esc_html__( 'Booking Source', 'simple-hotel-crm' ) . '</h2>';
-    echo '<table class="form-table">';
-    echo '<tr><th scope="row"><label for="simple_hotel_crm_booking_source">' . esc_html__( 'Booking data source', 'simple-hotel-crm' ) . '</label></th>';
-    echo '<td><select id="simple_hotel_crm_booking_source" name="simple_hotel_crm_booking_source">';
-    echo '<option value="motopress"' . selected( $booking_source, 'motopress', false ) . '>' . esc_html__( 'MotoPress / WordPress', 'simple-hotel-crm' ) . '</option>';
-    echo '<option value="wp_sync"' . selected( $booking_source, 'wp_sync', false ) . '>' . esc_html__( 'WordPress CRM tables', 'simple-hotel-crm' ) . '</option>';
-    echo '<option value="external_pg"' . selected( $booking_source, 'external_pg', false ) . '>' . esc_html__( 'External PostgreSQL (LGF database)', 'simple-hotel-crm' ) . '</option>';
-    echo '</select><p class="description">' . esc_html__( 'Use the WordPress CRM tables as the primary local system of record, or external PostgreSQL for direct local development/testing.', 'simple-hotel-crm' ) . '</p></td></tr>';
-    echo '</table>';
-
-    echo '<h2>' . esc_html__( 'WordPress CRM', 'simple-hotel-crm' ) . '</h2>';
-    echo '<p>' . esc_html__( 'New bookings created in WordPress write to the CRM tables first. Compatibility sync rows are still maintained behind the scenes for the current calendar and integrations.', 'simple-hotel-crm' ) . '</p>';
-
-    echo '<h2>' . esc_html__( 'External PostgreSQL', 'simple-hotel-crm' ) . '</h2>';
-    echo '<table class="form-table">';
-    echo '<tr><th scope="row"><label for="simple_hotel_crm_external_pg_host">' . esc_html__( 'Host', 'simple-hotel-crm' ) . '</label></th><td><input type="text" id="simple_hotel_crm_external_pg_host" name="simple_hotel_crm_external_pg_host" value="' . esc_attr( $external_db['host'] ) . '" class="regular-text" placeholder="127.0.0.1 or postgres" /></td></tr>';
-    echo '<tr><th scope="row"><label for="simple_hotel_crm_external_pg_port">' . esc_html__( 'Port', 'simple-hotel-crm' ) . '</label></th><td><input type="text" id="simple_hotel_crm_external_pg_port" name="simple_hotel_crm_external_pg_port" value="' . esc_attr( $external_db['port'] ) . '" class="small-text" placeholder="5432" /></td></tr>';
-    echo '<tr><th scope="row"><label for="simple_hotel_crm_external_pg_dbname">' . esc_html__( 'Database name', 'simple-hotel-crm' ) . '</label></th><td><input type="text" id="simple_hotel_crm_external_pg_dbname" name="simple_hotel_crm_external_pg_dbname" value="' . esc_attr( $external_db['dbname'] ) . '" class="regular-text" placeholder="lgf_bookings" /></td></tr>';
-    echo '<tr><th scope="row"><label for="simple_hotel_crm_external_pg_user">' . esc_html__( 'User', 'simple-hotel-crm' ) . '</label></th><td><input type="text" id="simple_hotel_crm_external_pg_user" name="simple_hotel_crm_external_pg_user" value="' . esc_attr( $external_db['user'] ) . '" class="regular-text" placeholder="lgf" /></td></tr>';
-    echo '<tr><th scope="row"><label for="simple_hotel_crm_external_pg_password">' . esc_html__( 'Password', 'simple-hotel-crm' ) . '</label></th><td><input type="password" id="simple_hotel_crm_external_pg_password" name="simple_hotel_crm_external_pg_password" value="' . esc_attr( $external_db['password'] ) . '" class="regular-text" /></td></tr>';
-    echo '<tr><th scope="row"><label for="simple_hotel_crm_external_pg_sslmode">' . esc_html__( 'SSL mode', 'simple-hotel-crm' ) . '</label></th><td><select id="simple_hotel_crm_external_pg_sslmode" name="simple_hotel_crm_external_pg_sslmode">';
-    foreach ( [ 'disable', 'prefer', 'require' ] as $sslmode ) {
-        echo '<option value="' . esc_attr( $sslmode ) . '"' . selected( $external_db['sslmode'], $sslmode, false ) . '>' . esc_html( $sslmode ) . '</option>';
-    }
-    echo '</select></td></tr>';
-    echo '</table>';
 
     echo '<h2>' . esc_html__( 'Invoice Ninja', 'simple-hotel-crm' ) . '</h2>';
     echo '<table class="form-table">';
