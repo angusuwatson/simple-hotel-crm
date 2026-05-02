@@ -1,7 +1,7 @@
 {
   "name": "Simple Hotel CRM",
   "slug": "simple-hotel-crm",
-  "version": "1.7.2",
+  "version": "1.7.3",
   "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
   "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
   "requires": "6.0",
@@ -10,6 +10,6 @@
   "last_updated": "2026-05-02",
   "sections": {
     "description": "WordPress-native hotel CRM with calendar, bookings, guests, importer, room management, and GitHub-based updating.",
-    "changelog": "<ul><li>1.7.2: Fix guest permanent delete from trash.</li><li>1.7.1: Fix trash delete behaviour and improve import matching.</li><li>1.7.0: Added GitHub-based updater.</li></ul>"
+    "changelog": "<ul><li>1.7.3: Fix calendar contacted date display to use booking contacted date.</li><li>1.7.2: Fix guest permanent delete from trash.</li><li>1.7.1: Fix trash delete behaviour and improve import matching.</li></ul>"
   }
 }
