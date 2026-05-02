@@ -2,14 +2,15 @@
 /**
  * Plugin Name: Simple Hotel CRM
  * Description: A simple WordPress-native hotel CRM with calendar and booking management tools
- * Version: 1.6
+ * Version: 1.7.0
+ * Update URI: https://github.com/angusuwatson/simple-hotel-crm
  * Author: Angus Watson, Quinn (mistral/codestral) & Kylie (stepfun/step-3.5-flash:free)
  * Text Domain: simple-hotel-crm
  */
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SIMPLE_HOTEL_CRM_VERSION', '1.6' );
+define( 'SIMPLE_HOTEL_CRM_VERSION', '1.7.0' );
 define( 'SIMPLE_HOTEL_CRM_DB_VERSION', '7' );
 
 register_activation_hook( __FILE__, 'simple_hotel_crm_activate' );
@@ -39,3 +40,5 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/crm-bookings.php';
 require_once plugin_dir_path( __FILE__ ) . 'includes/rest.php';
 
 require_once plugin_dir_path( __FILE__ ) . 'includes/invoicing.php';
+
+require_once plugin_dir_path( __FILE__ ) . 'includes/updater.php';

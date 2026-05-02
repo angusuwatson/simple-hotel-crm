@@ -1,0 +1,15 @@
+{
+  "name": "Simple Hotel CRM",
+  "slug": "simple-hotel-crm",
+  "version": "1.7.0",
+  "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
+  "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
+  "requires": "6.0",
+  "tested": "6.8",
+  "requires_php": "7.4",
+  "last_updated": "2026-05-02",
+  "sections": {
+    "description": "WordPress-native hotel CRM with calendar, bookings, guests, importer, and room management.",
+    "changelog": "<ul><li>Added GitHub-based updater.</li><li>Added rooms admin page.</li><li>Added CSV importer with dry-run.</li></ul>"
+  }
+}
