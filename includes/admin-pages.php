@@ -57,8 +57,18 @@ function simple_hotel_crm_render_bookings_page() {
         $booking_ids = array_map( 'absint', (array) $_POST['booking_ids'] );
         $action = sanitize_text_field( wp_unslash( $_POST['bulk_action'] ?? '' ) );
         if ( 'delete' === $action ) {
-            $wpdb->query( "UPDATE {$bookings_table} SET is_deleted = 1, deleted_at = NOW() WHERE id IN (" . implode( ',', $booking_ids ) . ")" );
-            echo '<div class="notice notice-success"><p>' . esc_html__( 'Selected bookings moved to trash.', 'simple-hotel-crm' ) . '</p></div>';
+            if ( 'trash' === $view ) {
+                $deleted_count = 0;
+                foreach ( $booking_ids as $booking_id ) {
+                    if ( simple_hotel_crm_delete_booking( $booking_id ) ) {
+                        $deleted_count++;
+                    }
+                }
+                echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( '%d booking(s) permanently deleted.', 'simple-hotel-crm' ), $deleted_count ) ) . '</p></div>';
+            } else {
+                $wpdb->query( "UPDATE {$bookings_table} SET is_deleted = 1, deleted_at = NOW() WHERE id IN (" . implode( ',', $booking_ids ) . ")" );
+                echo '<div class="notice notice-success"><p>' . esc_html__( 'Selected bookings moved to trash.', 'simple-hotel-crm' ) . '</p></div>';
+            }
         } elseif ( 'restore' === $action ) {
             $wpdb->query( "UPDATE {$bookings_table} SET is_deleted = 0, deleted_at = NULL WHERE id IN (" . implode( ',', $booking_ids ) . ")" );
             echo '<div class="notice notice-success"><p>' . esc_html__( 'Selected bookings restored.', 'simple-hotel-crm' ) . '</p></div>';
@@ -75,13 +85,14 @@ function simple_hotel_crm_render_bookings_page() {
 
     if ( isset( $_GET['delete_booking'] ) ) {
         check_admin_referer( 'simple_hotel_crm_delete_booking_' . absint( $_GET['delete_booking'] ) );
-        $deleted = false !== $wpdb->update( $bookings_table, [ 'is_deleted' => 1, 'deleted_at' => current_time( 'mysql' ) ], [ 'id' => absint( $_GET['delete_booking'] ) ], [ '%d', '%s' ], [ '%d' ] );
-        if ( $deleted ) {
-            echo '<div class="notice notice-success"><p>' . esc_html__( 'Booking moved to trash.', 'simple-hotel-crm' ) . '</p></div>';
+        if ( 'trash' === $view ) {
+            $deleted = simple_hotel_crm_delete_booking( absint( $_GET['delete_booking'] ) );
+            echo '<div class="notice ' . esc_attr( $deleted ? 'notice-success' : 'notice-error' ) . '"><p>' . esc_html( $deleted ? __( 'Booking permanently deleted.', 'simple-hotel-crm' ) : __( 'Booking could not be deleted.', 'simple-hotel-crm' ) ) . '</p></div>';
         } else {
-            echo '<div class="notice notice-error"><p>' . esc_html__( 'Booking could not be deleted.', 'simple-hotel-crm' ) . '</p></div>';
+            $deleted = false !== $wpdb->update( $bookings_table, [ 'is_deleted' => 1, 'deleted_at' => current_time( 'mysql' ) ], [ 'id' => absint( $_GET['delete_booking'] ) ], [ '%d', '%s' ], [ '%d' ] );
+            echo '<div class="notice ' . esc_attr( $deleted ? 'notice-success' : 'notice-error' ) . '"><p>' . esc_html( $deleted ? __( 'Booking moved to trash.', 'simple-hotel-crm' ) : __( 'Booking could not be deleted.', 'simple-hotel-crm' ) ) . '</p></div>';
+            simple_hotel_crm_clear_calendar_cache();
         }
-        simple_hotel_crm_clear_calendar_cache();
     }
 
     $rows = $wpdb->get_results(
@@ -110,6 +121,9 @@ function simple_hotel_crm_render_bookings_page() {
     wp_nonce_field( 'simple_hotel_crm_bulk_bookings' );
     echo '<p><select name="bulk_action"><option value="">' . esc_html__( 'Bulk actions', 'simple-hotel-crm' ) . '</option><option value="delete">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</option><option value="restore">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</option></select> ';
     submit_button( __( 'Apply', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_bulk_apply', false );
+    if ( 'trash' === $view ) {
+        echo ' <span class="description">' . esc_html__( 'Delete will permanently remove trashed bookings.', 'simple-hotel-crm' ) . '</span>';
+    }
     echo '</p>';
     $header_link = function( $key, $label ) use ( $orderby_key, $order, $view ) {
         $next_order = ( $orderby_key === $key && 'ASC' === $order ) ? 'desc' : 'asc';
@@ -145,7 +159,7 @@ function simple_hotel_crm_render_bookings_page() {
             echo '<td>' . esc_html( (string) $row['status_code'] ) . '</td>';
             echo '<td>' . esc_html( (string) $row['source_channel'] ) . '</td>';
             echo '<td>' . esc_html( number_format( (float) $row['total_amount'], 2, '.', '' ) ) . '</td>';
-            echo '<td><a class="button button-small" href="' . esc_url( $detail_url ) . '">' . esc_html__( 'View / Edit', 'simple-hotel-crm' ) . '</a> ' . ( 'trash' === $view ? '<a class="button button-small" href="' . esc_url( $restore_url ) . '">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</a>' : '<a class="button button-small" href="' . esc_url( $delete_url ) . '" onclick="return confirm(' . wp_json_encode( __( 'Delete this booking?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</a>' ) . '</td>';
+            echo '<td><a class="button button-small" href="' . esc_url( $detail_url ) . '">' . esc_html__( 'View / Edit', 'simple-hotel-crm' ) . '</a> ' . ( 'trash' === $view ? '<a class="button button-small" href="' . esc_url( $restore_url ) . '">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</a> <a class="button button-small button-link-delete" href="' . esc_url( $delete_url ) . '" onclick="return confirm(' . wp_json_encode( __( 'Permanently delete this booking?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Delete Permanently', 'simple-hotel-crm' ) . '</a>' : '<a class="button button-small" href="' . esc_url( $delete_url ) . '" onclick="return confirm(' . wp_json_encode( __( 'Delete this booking?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</a>' ) . '</td>';
             echo '</tr>';
         }
     }
@@ -936,6 +950,12 @@ function simple_hotel_crm_read_csv_file( $file ) {
     return $rows;
 }
 
+function simple_hotel_crm_normalize_import_name( $value ) {
+    $value = remove_accents( strtolower( trim( (string) $value ) ) );
+    $value = preg_replace( '/[^a-z0-9]+/', ' ', $value );
+    return trim( preg_replace( '/\s+/', ' ', (string) $value ) );
+}
+
 function simple_hotel_crm_find_guest_for_import_row( $row ) {
     global $wpdb;
     $table = simple_hotel_crm_guests_table();
@@ -946,18 +966,37 @@ function simple_hotel_crm_find_guest_for_import_row( $row ) {
 
     if ( $email ) {
         $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE email = %s LIMIT 1", $email ), ARRAY_A );
-        if ( $guest ) return $guest;
+        if ( $guest ) {
+            return $guest;
+        }
     }
     if ( $phone && ( $first_name || $last_name ) ) {
         $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE phone = %s AND first_name = %s AND last_name = %s LIMIT 1", $phone, $first_name, $last_name ), ARRAY_A );
-        if ( $guest ) return $guest;
+        if ( $guest ) {
+            return $guest;
+        }
     }
     if ( empty( $first_name ) && empty( $last_name ) && ! empty( $row['guest_name'] ) ) {
         list( $first_name, $last_name ) = simple_hotel_crm_split_guest_name( sanitize_text_field( $row['guest_name'] ) );
     }
     if ( $first_name || $last_name ) {
-        return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE first_name = %s AND last_name = %s LIMIT 1", $first_name, $last_name ), ARRAY_A );
+        $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE first_name = %s AND last_name = %s LIMIT 1", $first_name, $last_name ), ARRAY_A );
+        if ( $guest ) {
+            return $guest;
+        }
     }
+
+    $target_name = simple_hotel_crm_normalize_import_name( trim( $first_name . ' ' . $last_name ) ?: (string) ( $row['guest_name'] ?? '' ) );
+    if ( '' !== $target_name ) {
+        $guests = $wpdb->get_results( "SELECT * FROM {$table}", ARRAY_A );
+        foreach ( $guests as $guest ) {
+            $guest_name = simple_hotel_crm_normalize_import_name( trim( (string) ( $guest['first_name'] ?? '' ) . ' ' . (string) ( $guest['last_name'] ?? '' ) ) );
+            if ( $guest_name === $target_name ) {
+                return $guest;
+            }
+        }
+    }
+
     return null;
 }
 
