@@ -131,7 +131,7 @@
 
 .simple-hotel-crm .calendar-grid .room-name-row .room-label-cell,
 .simple-hotel-crm .calendar-grid .room-name-row td.calendar-cell {
-    background: rgba(0, 0, 0, 0.85);
+    background: #262626;
     color: #fff;
     font-weight: 700;
 }
