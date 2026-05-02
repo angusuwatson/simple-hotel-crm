@@ -276,12 +276,21 @@ function simple_hotel_crm_render_guests_page() {
 
     if ( isset( $_GET['delete_guest'] ) ) {
         check_admin_referer( 'simple_hotel_crm_delete_guest_' . absint( $_GET['delete_guest'] ) );
-        $booking_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$bookings_table} WHERE guest_id = %d AND is_deleted = 0", absint( $_GET['delete_guest'] ) ) );
-        if ( $booking_count > 0 ) {
-            echo '<div class="notice notice-error"><p>' . esc_html__( 'This guest cannot be deleted because bookings are still linked to them.', 'simple-hotel-crm' ) . '</p></div>';
+        if ( 'trash' === $view ) {
+            $deleted = simple_hotel_crm_delete_guest( absint( $_GET['delete_guest'] ) );
+            if ( is_wp_error( $deleted ) ) {
+                echo '<div class="notice notice-error"><p>' . esc_html( $deleted->get_error_message() ) . '</p></div>';
+            } else {
+                echo '<div class="notice ' . esc_attr( $deleted ? 'notice-success' : 'notice-error' ) . '"><p>' . esc_html( $deleted ? __( 'Guest permanently deleted.', 'simple-hotel-crm' ) : __( 'Guest could not be deleted.', 'simple-hotel-crm' ) ) . '</p></div>';
+            }
         } else {
-            $deleted = false !== $wpdb->update( $guests_table, [ 'is_deleted' => 1, 'deleted_at' => current_time( 'mysql' ) ], [ 'id' => absint( $_GET['delete_guest'] ) ], [ '%d', '%s' ], [ '%d' ] );
-            echo '<div class="notice ' . esc_attr( $deleted ? 'notice-success' : 'notice-error' ) . '"><p>' . esc_html( $deleted ? __( 'Guest moved to trash.', 'simple-hotel-crm' ) : __( 'Guest could not be deleted.', 'simple-hotel-crm' ) ) . '</p></div>';
+            $booking_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$bookings_table} WHERE guest_id = %d AND is_deleted = 0", absint( $_GET['delete_guest'] ) ) );
+            if ( $booking_count > 0 ) {
+                echo '<div class="notice notice-error"><p>' . esc_html__( 'This guest cannot be deleted because bookings are still linked to them.', 'simple-hotel-crm' ) . '</p></div>';
+            } else {
+                $deleted = false !== $wpdb->update( $guests_table, [ 'is_deleted' => 1, 'deleted_at' => current_time( 'mysql' ) ], [ 'id' => absint( $_GET['delete_guest'] ) ], [ '%d', '%s' ], [ '%d' ] );
+                echo '<div class="notice ' . esc_attr( $deleted ? 'notice-success' : 'notice-error' ) . '"><p>' . esc_html( $deleted ? __( 'Guest moved to trash.', 'simple-hotel-crm' ) : __( 'Guest could not be deleted.', 'simple-hotel-crm' ) ) . '</p></div>';
+            }
         }
     }
 
@@ -291,12 +300,31 @@ function simple_hotel_crm_render_guests_page() {
         $action = sanitize_text_field( wp_unslash( $_POST['bulk_action'] ?? '' ) );
         if ( ! empty( $guest_ids ) ) {
             if ( 'delete' === $action ) {
-                $blocking = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE guest_id IN (" . implode( ',', $guest_ids ) . ") AND is_deleted = 0" );
-                if ( $blocking > 0 ) {
-                    echo '<div class="notice notice-error"><p>' . esc_html__( 'One or more selected guests still have active bookings and could not be deleted.', 'simple-hotel-crm' ) . '</p></div>';
+                if ( 'trash' === $view ) {
+                    $deleted_count = 0;
+                    $errors = [];
+                    foreach ( $guest_ids as $guest_id ) {
+                        $deleted = simple_hotel_crm_delete_guest( $guest_id );
+                        if ( true === $deleted ) {
+                            $deleted_count++;
+                        } elseif ( is_wp_error( $deleted ) ) {
+                            $errors[] = $deleted->get_error_message();
+                        }
+                    }
+                    if ( $deleted_count > 0 ) {
+                        echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( '%d guest(s) permanently deleted.', 'simple-hotel-crm' ), $deleted_count ) ) . '</p></div>';
+                    }
+                    if ( ! empty( $errors ) ) {
+                        echo '<div class="notice notice-error"><p>' . esc_html( implode( ' ', array_unique( $errors ) ) ) . '</p></div>';
+                    }
                 } else {
-                    $wpdb->query( "UPDATE {$guests_table} SET is_deleted = 1, deleted_at = NOW() WHERE id IN (" . implode( ',', $guest_ids ) . ")" );
-                    echo '<div class="notice notice-success"><p>' . esc_html__( 'Selected guests moved to trash.', 'simple-hotel-crm' ) . '</p></div>';
+                    $blocking = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE guest_id IN (" . implode( ',', $guest_ids ) . ") AND is_deleted = 0" );
+                    if ( $blocking > 0 ) {
+                        echo '<div class="notice notice-error"><p>' . esc_html__( 'One or more selected guests still have active bookings and could not be deleted.', 'simple-hotel-crm' ) . '</p></div>';
+                    } else {
+                        $wpdb->query( "UPDATE {$guests_table} SET is_deleted = 1, deleted_at = NOW() WHERE id IN (" . implode( ',', $guest_ids ) . ")" );
+                        echo '<div class="notice notice-success"><p>' . esc_html__( 'Selected guests moved to trash.', 'simple-hotel-crm' ) . '</p></div>';
+                    }
                 }
             } elseif ( 'restore' === $action ) {
                 $wpdb->query( "UPDATE {$guests_table} SET is_deleted = 0, deleted_at = NULL WHERE id IN (" . implode( ',', $guest_ids ) . ")" );
@@ -334,6 +362,9 @@ function simple_hotel_crm_render_guests_page() {
     wp_nonce_field( 'simple_hotel_crm_bulk_guests' );
     echo '<p><select name="bulk_action"><option value="">' . esc_html__( 'Bulk actions', 'simple-hotel-crm' ) . '</option><option value="delete">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</option><option value="restore">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</option></select> ';
     submit_button( __( 'Apply', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_bulk_apply_guests', false );
+    if ( 'trash' === $view ) {
+        echo ' <span class="description">' . esc_html__( 'Delete will permanently remove trashed guests.', 'simple-hotel-crm' ) . '</span>';
+    }
     echo '</p>';
     echo '<table class="widefat striped"><thead><tr>';
     echo '<th><input type="checkbox" onclick="jQuery(\'.guest-bulk-cb\').prop(\'checked\', this.checked)" /></th>';
@@ -358,7 +389,7 @@ function simple_hotel_crm_render_guests_page() {
             echo '<td>' . esc_html( (string) $row['email'] ) . '</td>';
             echo '<td>' . esc_html( (string) $row['phone'] ) . '</td>';
             echo '<td>' . esc_html( (string) $row['booking_count'] ) . '</td>';
-            echo '<td>' . ( 'trash' === $view ? '<a class="button button-small" href="' . esc_url( $restore_url ) . '">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</a>' : '<a class="button button-small" href="' . esc_url( $detail_url ) . '">' . esc_html__( 'View / Edit', 'simple-hotel-crm' ) . '</a> <a class="button button-small" href="' . esc_url( $delete_url ) . '" onclick="return confirm(' . wp_json_encode( __( 'Delete this guest?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</a>' ) . '</td>';
+            echo '<td>' . ( 'trash' === $view ? '<a class="button button-small" href="' . esc_url( $restore_url ) . '">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</a> <a class="button button-small button-link-delete" href="' . esc_url( $delete_url ) . '" onclick="return confirm(' . wp_json_encode( __( 'Permanently delete this guest?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Delete Permanently', 'simple-hotel-crm' ) . '</a>' : '<a class="button button-small" href="' . esc_url( $detail_url ) . '">' . esc_html__( 'View / Edit', 'simple-hotel-crm' ) . '</a> <a class="button button-small" href="' . esc_url( $delete_url ) . '" onclick="return confirm(' . wp_json_encode( __( 'Delete this guest?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</a>' ) . '</td>';
             echo '</tr>';
         }
     }
