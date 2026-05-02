@@ -9,7 +9,8 @@ add_filter( 'plugins_api', 'simple_hotel_crm_plugin_info', 20, 3 );
 add_filter( 'upgrader_source_selection', 'simple_hotel_crm_fix_update_source_dir', 10, 4 );
 add_action( 'admin_init', 'simple_hotel_crm_maybe_refresh_update_cache' );
 add_action( 'upgrader_process_complete', 'simple_hotel_crm_clear_update_cache', 10, 0 );
-add_filter( 'plugin_action_links_simple-hotel-crm/simple-hotel-crm.php', 'simple_hotel_crm_add_refresh_updates_link' );
+add_filter( 'plugin_action_links_' . SIMPLE_HOTEL_CRM_PLUGIN_BASENAME, 'simple_hotel_crm_add_refresh_updates_link' );
+add_action( 'admin_notices', 'simple_hotel_crm_render_update_debug_notice' );
 
 function simple_hotel_crm_get_update_metadata() {
     $cached = get_transient( SIMPLE_HOTEL_CRM_UPDATE_CACHE_KEY );
@@ -41,7 +42,7 @@ function simple_hotel_crm_check_for_updates( $transient ) {
         return $transient;
     }
 
-    $plugin_file = plugin_basename( dirname( __DIR__ ) . '/simple-hotel-crm.php' );
+    $plugin_file = SIMPLE_HOTEL_CRM_PLUGIN_BASENAME;
     $current_version = $transient->checked[ $plugin_file ] ?? SIMPLE_HOTEL_CRM_VERSION;
 
     if ( version_compare( (string) $metadata['version'], (string) $current_version, '>' ) ) {
@@ -120,10 +121,20 @@ function simple_hotel_crm_add_refresh_updates_link( $links ) {
     return $links;
 }
 
+function simple_hotel_crm_render_update_debug_notice() {
+    if ( ! is_admin() || ! current_user_can( 'update_plugins' ) || empty( $_GET['simple_hotel_crm_refresh_updates'] ) ) {
+        return;
+    }
+
+    $metadata = simple_hotel_crm_get_update_metadata();
+    $remote_version = is_array( $metadata ) && ! empty( $metadata['version'] ) ? (string) $metadata['version'] : 'unavailable';
+    echo '<div class="notice notice-info"><p>' . esc_html( sprintf( 'Simple Hotel CRM updater checked. Installed: %s. Remote: %s. Plugin key: %s', SIMPLE_HOTEL_CRM_VERSION, $remote_version, SIMPLE_HOTEL_CRM_PLUGIN_BASENAME ) ) . '</p></div>';
+}
+
 function simple_hotel_crm_fix_update_source_dir( $source, $remote_source, $upgrader, $hook_extra ) {
     global $wp_filesystem;
 
-    if ( empty( $hook_extra['plugin'] ) || 'simple-hotel-crm/simple-hotel-crm.php' !== $hook_extra['plugin'] ) {
+    if ( empty( $hook_extra['plugin'] ) || SIMPLE_HOTEL_CRM_PLUGIN_BASENAME !== $hook_extra['plugin'] ) {
         return $source;
     }
 
