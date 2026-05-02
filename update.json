@@ -1,7 +1,7 @@
 {
   "name": "Simple Hotel CRM",
   "slug": "simple-hotel-crm",
-  "version": "1.7.9",
+  "version": "1.8.0",
   "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
   "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
   "requires": "6.0",
@@ -10,6 +10,6 @@
   "last_updated": "2026-05-02",
   "sections": {
     "description": "WordPress-native hotel CRM with calendar, bookings, guests, importer, room management, and GitHub-based updating.",
-    "changelog": "<ul><li>1.7.9: Fix updater plugin key handling and add refresh/debug notice.</li><li>1.7.8: Fix sticky room header darkening by using solid header color.</li><li>1.7.7: Force white commission row and improve built-in update refresh.</li></ul>"
+    "changelog": "<ul><li>1.8.0: Reduce calendar text size again.</li><li>1.7.9: Fix updater plugin key handling and add refresh/debug notice.</li><li>1.7.8: Fix sticky room header darkening by using solid header color.</li></ul>"
   }
 }
