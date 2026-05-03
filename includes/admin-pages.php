@@ -888,6 +888,16 @@ function simple_hotel_crm_render_add_booking_page() {
     if ( isset( $_POST['lgf_add_room_line'] ) && is_array( $form_data['room_lines'] ) ) {
         $form_data['room_lines'][] = [ 'room_sync_id' => '', 'adults' => 2, 'children' => 0, 'babies' => 0, 'room_rate_amount' => '0.00', 'extras_amount' => '0.00' ];
     }
+    if ( isset( $_POST['lgf_remove_room_line'] ) && is_array( $form_data['room_lines'] ) ) {
+        $remove_index = absint( $_POST['lgf_remove_room_line'] );
+        if ( isset( $form_data['room_lines'][ $remove_index ] ) ) {
+            unset( $form_data['room_lines'][ $remove_index ] );
+            $form_data['room_lines'] = array_values( $form_data['room_lines'] );
+        }
+        if ( empty( $form_data['room_lines'] ) ) {
+            $form_data['room_lines'][] = [ 'room_sync_id' => '', 'adults' => 2, 'children' => 0, 'babies' => 0, 'room_rate_amount' => '0.00', 'extras_amount' => '0.00' ];
+        }
+    }
 
     echo '<p>' . esc_html__( 'Choose dates first, then add one or more available rooms for the same booking.', 'simple-hotel-crm' ) . '</p>';
     echo '<form method="post">';
@@ -900,7 +910,11 @@ function simple_hotel_crm_render_add_booking_page() {
     $selected_room_ids = [];
     foreach ( (array) $form_data['room_lines'] as $line_index => $line ) {
         echo '<fieldset style="margin:0 0 16px 0;padding:12px;border:1px solid #ccd0d4;">';
-        echo '<legend><strong>' . esc_html( sprintf( __( 'Room %d', 'simple-hotel-crm' ), $line_index + 1 ) ) . '</strong></legend>';
+        echo '<legend><strong>' . esc_html( sprintf( __( 'Room %d', 'simple-hotel-crm' ), $line_index + 1 ) ) . '</strong>';
+        if ( count( (array) $form_data['room_lines'] ) > 1 ) {
+            echo ' <button type="submit" class="button button-small" name="lgf_remove_room_line" value="' . esc_attr( (string) $line_index ) . '">' . esc_html__( 'Remove room', 'simple-hotel-crm' ) . '</button>';
+        }
+        echo '</legend>';
         echo '<p><label>' . esc_html__( 'Room', 'simple-hotel-crm' ) . ' <select name="room_lines[' . esc_attr( $line_index ) . '][room_sync_id]" ' . ( $dates_ready ? '' : 'disabled' ) . '>';
         echo '<option value="">' . esc_html__( $dates_ready ? 'Select an available room' : 'Choose dates first', 'simple-hotel-crm' ) . '</option>';
         foreach ( $rooms as $room ) {
