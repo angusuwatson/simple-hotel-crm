@@ -928,6 +928,15 @@ function simple_hotel_crm_render_add_booking_page() {
     }
     submit_button( __( 'Add another room', 'simple-hotel-crm' ), 'secondary', 'lgf_add_room_line', false );
     echo '</td></tr>';
+    echo '<tr><th><label for="contacted_date">' . esc_html__( 'Contacted date', 'simple-hotel-crm' ) . '</label></th><td><input type="date" name="contacted_date" id="contacted_date" value="' . esc_attr( (string) $form_data['contacted_date'] ) . '" /> &nbsp; <label for="source_channel" style="margin-left:8px;">' . esc_html__( 'Channel', 'simple-hotel-crm' ) . '</label> <select name="source_channel" id="source_channel">';
+    foreach ( $channels as $code => $label ) {
+        echo '<option value="' . esc_attr( $code ) . '"' . selected( (string) $form_data['source_channel'], $code, false ) . '>' . esc_html( $label ) . '</option>';
+    }
+    echo '</select> &nbsp; <label for="status_code" style="margin-left:8px;">' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</label> <select name="status_code" id="status_code">';
+    foreach ( $statuses as $code => $label ) {
+        echo '<option value="' . esc_attr( $code ) . '"' . selected( (string) $form_data['status_code'], $code, false ) . '>' . esc_html( $label ) . '</option>';
+    }
+    echo '</select></td></tr>';
     echo '<tr><th colspan="2"><h2 style="margin:0;">' . esc_html__( 'Guest details', 'simple-hotel-crm' ) . '</h2></th></tr>';
     echo '<tr><th><label for="guest_name">' . esc_html__( 'Guest name', 'simple-hotel-crm' ) . '</label></th><td><input required type="text" name="guest_name" id="guest_name" class="regular-text" value="' . esc_attr( (string) $form_data['guest_name'] ) . '" /></td></tr>';
     echo '<tr><th><label for="phone">' . esc_html__( 'Phone', 'simple-hotel-crm' ) . '</label></th><td><input type="text" name="phone" id="phone" class="regular-text" value="' . esc_attr( (string) $form_data['phone'] ) . '" /></td></tr>';
@@ -938,17 +947,6 @@ function simple_hotel_crm_render_add_booking_page() {
     echo '<tr><th><label for="postcode">' . esc_html__( 'Postcode', 'simple-hotel-crm' ) . '</label></th><td><input type="text" name="postcode" id="postcode" class="regular-text" value="' . esc_attr( (string) $form_data['postcode'] ) . '" /></td></tr>';
     echo '<tr><th><label for="country">' . esc_html__( 'Country', 'simple-hotel-crm' ) . '</label></th><td><input type="text" name="country" id="country" class="regular-text" value="' . esc_attr( (string) $form_data['country'] ) . '" /></td></tr>';
     echo '<tr><th><label for="guest_notes">' . esc_html__( 'Guest notes', 'simple-hotel-crm' ) . '</label></th><td><textarea name="guest_notes" id="guest_notes" rows="3" class="large-text">' . esc_textarea( (string) $form_data['guest_notes'] ) . '</textarea></td></tr>';
-    echo '<tr><th><label for="source_channel">' . esc_html__( 'Channel', 'simple-hotel-crm' ) . '</label></th><td><select name="source_channel" id="source_channel">';
-    foreach ( $channels as $code => $label ) {
-        echo '<option value="' . esc_attr( $code ) . '"' . selected( (string) $form_data['source_channel'], $code, false ) . '>' . esc_html( $label ) . '</option>';
-    }
-    echo '</select></td></tr>';
-    echo '<tr><th><label for="status_code">' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</label></th><td><select name="status_code" id="status_code">';
-    foreach ( $statuses as $code => $label ) {
-        echo '<option value="' . esc_attr( $code ) . '"' . selected( (string) $form_data['status_code'], $code, false ) . '>' . esc_html( $label ) . '</option>';
-    }
-    echo '</select></td></tr>';
-    echo '<tr><th><label for="contacted_date">' . esc_html__( 'Contacted date', 'simple-hotel-crm' ) . '</label></th><td><input type="date" name="contacted_date" id="contacted_date" value="' . esc_attr( (string) $form_data['contacted_date'] ) . '" /></td></tr>';
     echo '<tr><th><label for="booking_note">' . esc_html__( 'Booking note', 'simple-hotel-crm' ) . '</label></th><td><textarea name="booking_note" id="booking_note" rows="3" class="large-text">' . esc_textarea( (string) $form_data['booking_note'] ) . '</textarea></td></tr>';
     echo '<tr><th><label for="import_notes">' . esc_html__( 'Import / internal notes', 'simple-hotel-crm' ) . '</label></th><td><textarea name="import_notes" id="import_notes" rows="4" class="large-text">' . esc_textarea( (string) $form_data['import_notes'] ) . '</textarea></td></tr>';
     echo '</table>';

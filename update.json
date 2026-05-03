@@ -1,7 +1,7 @@
 {
   "name": "Simple Hotel CRM",
   "slug": "simple-hotel-crm",
-  "version": "1.8.4",
+  "version": "1.8.6",
   "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
   "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
   "requires": "6.0",
@@ -10,6 +10,6 @@
   "last_updated": "2026-05-03",
   "sections": {
     "description": "WordPress-native hotel CRM with calendar, bookings, guests, importer, room management, and GitHub-based updating.",
-    "changelog": "<ul><li>1.8.4: Fix updater to use the installed plugin folder name dynamically.</li><li>1.8.3: Add guest contact fields to Add Booking form.</li><li>1.8.2: Fix built-in updater package install/folder move handling.</li></ul>"
+    "changelog": "<ul><li>1.8.6: Simplify updater path handling and move booking meta row above guest details.</li><li>1.8.5: Move guest details below date and room selection on Add Booking.</li><li>1.8.4: Fix updater to use the installed plugin folder name dynamically.</li></ul>"
   }
 }

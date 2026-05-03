@@ -8,7 +8,6 @@ define( 'SIMPLE_HOTEL_CRM_PLUGIN_DIRNAME', dirname( SIMPLE_HOTEL_CRM_PLUGIN_BASE
 add_filter( 'pre_set_site_transient_update_plugins', 'simple_hotel_crm_check_for_updates' );
 add_filter( 'plugins_api', 'simple_hotel_crm_plugin_info', 20, 3 );
 add_filter( 'upgrader_source_selection', 'simple_hotel_crm_fix_update_source_dir', 10, 4 );
-add_filter( 'upgrader_post_install', 'simple_hotel_crm_finalize_plugin_update', 10, 3 );
 add_action( 'admin_init', 'simple_hotel_crm_maybe_refresh_update_cache' );
 add_action( 'upgrader_process_complete', 'simple_hotel_crm_clear_update_cache', 10, 0 );
 add_filter( 'plugin_action_links_' . SIMPLE_HOTEL_CRM_PLUGIN_BASENAME, 'simple_hotel_crm_add_refresh_updates_link' );
@@ -141,9 +140,7 @@ function simple_hotel_crm_fix_update_source_dir( $source, $remote_source, $upgra
     }
 
     $desired = trailingslashit( $remote_source ) . SIMPLE_HOTEL_CRM_PLUGIN_DIRNAME;
-    $normalized_source = untrailingslashit( $source );
-    $normalized_desired = untrailingslashit( $desired );
-    if ( $normalized_source === $normalized_desired ) {
+    if ( untrailingslashit( $source ) === untrailingslashit( $desired ) ) {
         return $source;
     }
 
@@ -155,31 +152,5 @@ function simple_hotel_crm_fix_update_source_dir( $source, $remote_source, $upgra
         return $desired;
     }
 
-    return new WP_Error( 'simple_hotel_crm_update_rename_failed', __( 'Simple Hotel CRM update could not prepare the package folder.', 'simple-hotel-crm' ) );
-}
-
-function simple_hotel_crm_finalize_plugin_update( $response, $hook_extra, $result ) {
-    global $wp_filesystem;
-
-    if ( empty( $hook_extra['plugin'] ) || SIMPLE_HOTEL_CRM_PLUGIN_BASENAME !== $hook_extra['plugin'] || empty( $result['destination'] ) ) {
-        return $response;
-    }
-
-    $proper_destination = trailingslashit( WP_PLUGIN_DIR ) . SIMPLE_HOTEL_CRM_PLUGIN_DIRNAME;
-    $current_destination = untrailingslashit( $result['destination'] );
-    if ( $current_destination !== untrailingslashit( $proper_destination ) ) {
-        if ( $wp_filesystem->exists( $proper_destination ) ) {
-            $wp_filesystem->delete( $proper_destination, true );
-        }
-        if ( ! $wp_filesystem->move( $result['destination'], $proper_destination ) ) {
-            return new WP_Error( 'simple_hotel_crm_update_finalize_failed', __( 'Simple Hotel CRM update could not move the plugin into place.', 'simple-hotel-crm' ) );
-        }
-        $result['destination'] = $proper_destination;
-    }
-
-    if ( is_plugin_inactive( SIMPLE_HOTEL_CRM_PLUGIN_BASENAME ) ) {
-        activate_plugin( SIMPLE_HOTEL_CRM_PLUGIN_BASENAME );
-    }
-
-    return $response;
+    return $source;
 }
