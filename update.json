@@ -1,7 +1,7 @@
 {
   "name": "Simple Hotel CRM",
   "slug": "simple-hotel-crm",
-  "version": "1.8.8.04",
+  "version": "1.8.8.05",
   "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
   "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
   "requires": "6.0",
@@ -10,6 +10,6 @@
   "last_updated": "2026-05-03",
   "sections": {
     "description": "WordPress-native hotel CRM with calendar, bookings, guests, importer, room management, and GitHub-based updating.",
-    "changelog": "<ul><li>1.8.8.04: Centralize CRM room resolution for remaining migration and booking flows.</li><li>1.8.8.03: Move booking edit room handling to CRM room ids and centralize room number mapping.</li><li>1.8.8.02: Fix Create Booking room lookup for CRM room ids.</li></ul>"
+    "changelog": "<ul><li>1.8.8.05: Fix booking edit room dropdown availability and add room line action.</li><li>1.8.8.04: Centralize CRM room resolution for remaining migration and booking flows.</li><li>1.8.8.03: Move booking edit room handling to CRM room ids and centralize room number mapping.</li></ul>"
   }
 }
