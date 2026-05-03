@@ -3,6 +3,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 define( 'SIMPLE_HOTEL_CRM_UPDATE_METADATA_URL', 'https://raw.githubusercontent.com/angusuwatson/simple-hotel-crm/master/update.json' );
 define( 'SIMPLE_HOTEL_CRM_UPDATE_CACHE_KEY', 'simple_hotel_crm_update_metadata' );
+define( 'SIMPLE_HOTEL_CRM_PLUGIN_DIRNAME', dirname( SIMPLE_HOTEL_CRM_PLUGIN_BASENAME ) );
 
 add_filter( 'pre_set_site_transient_update_plugins', 'simple_hotel_crm_check_for_updates' );
 add_filter( 'plugins_api', 'simple_hotel_crm_plugin_info', 20, 3 );
@@ -139,7 +140,7 @@ function simple_hotel_crm_fix_update_source_dir( $source, $remote_source, $upgra
         return $source;
     }
 
-    $desired = trailingslashit( $remote_source ) . 'simple-hotel-crm';
+    $desired = trailingslashit( $remote_source ) . SIMPLE_HOTEL_CRM_PLUGIN_DIRNAME;
     $normalized_source = untrailingslashit( $source );
     $normalized_desired = untrailingslashit( $desired );
     if ( $normalized_source === $normalized_desired ) {
@@ -164,7 +165,7 @@ function simple_hotel_crm_finalize_plugin_update( $response, $hook_extra, $resul
         return $response;
     }
 
-    $proper_destination = trailingslashit( WP_PLUGIN_DIR ) . 'simple-hotel-crm';
+    $proper_destination = trailingslashit( WP_PLUGIN_DIR ) . SIMPLE_HOTEL_CRM_PLUGIN_DIRNAME;
     $current_destination = untrailingslashit( $result['destination'] );
     if ( $current_destination !== untrailingslashit( $proper_destination ) ) {
         if ( $wp_filesystem->exists( $proper_destination ) ) {
