@@ -1,7 +1,7 @@
 {
   "name": "Simple Hotel CRM",
   "slug": "simple-hotel-crm",
-  "version": "1.8.8.07",
+  "version": "1.8.8.08",
   "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
   "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
   "requires": "6.0",
@@ -10,6 +10,6 @@
   "last_updated": "2026-05-03",
   "sections": {
     "description": "WordPress-native hotel CRM with calendar, bookings, guests, importer, room management, and GitHub-based updating.",
-    "changelog": "<ul><li>1.8.8.07: Tighten booking room edit field widths and move remove checkbox to the start.</li><li>1.8.8.06: Fix duplicate legacy room ids when adding room lines to existing bookings.</li><li>1.8.8.05: Fix booking edit room dropdown availability and add room line action.</li></ul>"
+    "changelog": "<ul><li>1.8.8.08: Add guest duplicate checker and merge tool.</li><li>1.8.8.07: Tighten booking room edit field widths and move remove checkbox to the start.</li><li>1.8.8.06: Fix duplicate legacy room ids when adding room lines to existing bookings.</li></ul>"
   }
 }

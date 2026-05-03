@@ -14,6 +14,7 @@ function simple_hotel_crm_register_admin_menu() {
     add_submenu_page( null, __( 'Booking Detail', 'simple-hotel-crm' ), __( 'Booking Detail', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-booking-detail', 'simple_hotel_crm_render_booking_detail_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Rooms', 'simple-hotel-crm' ), __( 'Rooms', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-rooms', 'simple_hotel_crm_render_rooms_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Guests', 'simple-hotel-crm' ), __( 'Guests', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guests', 'simple_hotel_crm_render_guests_page' );
+    add_submenu_page( 'simple-hotel-crm', __( 'Guest Duplicates', 'simple-hotel-crm' ), __( 'Guest Duplicates', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-duplicates', 'simple_hotel_crm_render_guest_duplicates_page' );
     add_submenu_page( null, __( 'Guest Detail', 'simple-hotel-crm' ), __( 'Guest Detail', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-detail', 'simple_hotel_crm_render_guest_detail_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Import', 'simple-hotel-crm' ), __( 'Import', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-import', 'simple_hotel_crm_render_import_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Invoice Ninja Settings', 'simple-hotel-crm' ), __( 'Settings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-settings', 'simple_hotel_crm_render_settings_page' );
@@ -356,7 +357,7 @@ function simple_hotel_crm_render_guests_page() {
     };
 
     echo '<div class="wrap">';
-    echo '<h1>' . esc_html__( 'Guests', 'simple-hotel-crm' ) . ' <a class="page-title-action" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guest-detail' ) ) . '">' . esc_html__( 'Add New', 'simple-hotel-crm' ) . '</a></h1>';
+    echo '<h1>' . esc_html__( 'Guests', 'simple-hotel-crm' ) . ' <a class="page-title-action" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guest-detail' ) ) . '">' . esc_html__( 'Add New', 'simple-hotel-crm' ) . '</a> <a class="page-title-action" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guest-duplicates' ) ) . '">' . esc_html__( 'Duplicate Check', 'simple-hotel-crm' ) . '</a></h1>';
     echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guests&view=active' ) ) . '">' . esc_html__( 'Active', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $active_count ) . ')</a> | <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guests&view=trash' ) ) . '">' . esc_html__( 'Trash', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $trash_count ) . ')</a></p>';
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_bulk_guests' );
@@ -394,6 +395,140 @@ function simple_hotel_crm_render_guests_page() {
         }
     }
     echo '</tbody></table></form>';
+    echo '</div>';
+}
+
+function simple_hotel_crm_normalize_guest_match_value( $value ) {
+    $value = remove_accents( strtolower( trim( (string) $value ) ) );
+    $value = preg_replace( '/[^a-z0-9]+/', ' ', $value );
+    return trim( preg_replace( '/\s+/', ' ', (string) $value ) );
+}
+
+function simple_hotel_crm_find_duplicate_guest_groups() {
+    global $wpdb;
+
+    $guests_table = simple_hotel_crm_guests_table();
+    $rows = $wpdb->get_results( "SELECT * FROM {$guests_table} WHERE is_deleted = 0 ORDER BY id ASC", ARRAY_A );
+    $groups = [];
+
+    foreach ( $rows as $row ) {
+        $name_key = simple_hotel_crm_normalize_guest_match_value( trim( (string) $row['first_name'] . ' ' . (string) $row['last_name'] ) );
+        $email_key = simple_hotel_crm_normalize_guest_match_value( (string) $row['email'] );
+        $phone_key = preg_replace( '/\D+/', '', (string) $row['phone'] );
+
+        $keys = [];
+        if ( '' !== $name_key && '' !== $email_key ) {
+            $keys[] = 'name_email:' . $name_key . '|' . $email_key;
+        }
+        if ( '' !== $name_key && '' !== $phone_key ) {
+            $keys[] = 'name_phone:' . $name_key . '|' . $phone_key;
+        }
+        if ( '' !== $email_key && '' !== $phone_key ) {
+            $keys[] = 'email_phone:' . $email_key . '|' . $phone_key;
+        }
+        if ( '' !== $name_key ) {
+            $keys[] = 'name:' . $name_key;
+        }
+
+        foreach ( $keys as $key ) {
+            if ( ! isset( $groups[ $key ] ) ) {
+                $groups[ $key ] = [];
+            }
+            $groups[ $key ][ (int) $row['id'] ] = $row;
+        }
+    }
+
+    $result = [];
+    foreach ( $groups as $key => $group ) {
+        if ( count( $group ) < 2 ) {
+            continue;
+        }
+        $result[ $key ] = array_values( $group );
+    }
+
+    return $result;
+}
+
+function simple_hotel_crm_merge_guests( $primary_guest_id, $duplicate_guest_id ) {
+    global $wpdb;
+
+    $primary_guest_id = absint( $primary_guest_id );
+    $duplicate_guest_id = absint( $duplicate_guest_id );
+    if ( $primary_guest_id <= 0 || $duplicate_guest_id <= 0 || $primary_guest_id === $duplicate_guest_id ) {
+        return new WP_Error( 'invalid_guest_merge', __( 'Please choose two different guests.', 'simple-hotel-crm' ) );
+    }
+
+    $guests_table = simple_hotel_crm_guests_table();
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $primary = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$guests_table} WHERE id = %d LIMIT 1", $primary_guest_id ), ARRAY_A );
+    $duplicate = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$guests_table} WHERE id = %d LIMIT 1", $duplicate_guest_id ), ARRAY_A );
+    if ( ! $primary || ! $duplicate ) {
+        return new WP_Error( 'missing_guest_merge', __( 'One or both guests could not be found.', 'simple-hotel-crm' ) );
+    }
+
+    $merge_fields = [ 'email', 'phone', 'address_line_1', 'address_line_2', 'city', 'postcode', 'country', 'notes' ];
+    $update = [];
+    foreach ( $merge_fields as $field ) {
+        if ( empty( $primary[ $field ] ) && ! empty( $duplicate[ $field ] ) ) {
+            $update[ $field ] = $duplicate[ $field ];
+        }
+    }
+
+    $wpdb->query( 'START TRANSACTION' );
+    if ( ! empty( $update ) ) {
+        $wpdb->update( $guests_table, $update, [ 'id' => $primary_guest_id ] );
+    }
+    $wpdb->update( $bookings_table, [ 'guest_id' => $primary_guest_id ], [ 'guest_id' => $duplicate_guest_id ], [ '%d' ], [ '%d' ] );
+    $deleted = $wpdb->delete( $guests_table, [ 'id' => $duplicate_guest_id ], [ '%d' ] );
+    if ( false === $deleted ) {
+        $wpdb->query( 'ROLLBACK' );
+        return new WP_Error( 'guest_merge_failed', __( 'Could not merge guests.', 'simple-hotel-crm' ) );
+    }
+    $wpdb->query( 'COMMIT' );
+    return true;
+}
+
+function simple_hotel_crm_render_guest_duplicates_page() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
+    }
+
+    if ( isset( $_POST['simple_hotel_crm_merge_guests'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_merge_guests' );
+        $result = simple_hotel_crm_merge_guests( absint( $_POST['primary_guest_id'] ?? 0 ), absint( $_POST['duplicate_guest_id'] ?? 0 ) );
+        echo '<div class="notice ' . esc_attr( is_wp_error( $result ) ? 'notice-error' : 'notice-success' ) . '"><p>' . esc_html( is_wp_error( $result ) ? $result->get_error_message() : __( 'Guests merged.', 'simple-hotel-crm' ) ) . '</p></div>';
+    }
+
+    $groups = simple_hotel_crm_find_duplicate_guest_groups();
+    echo '<div class="wrap">';
+    echo '<h1>' . esc_html__( 'Guest Duplicates', 'simple-hotel-crm' ) . '</h1>';
+    echo '<p>' . esc_html__( 'Review possible duplicate guests and merge them into a single primary guest.', 'simple-hotel-crm' ) . '</p>';
+    if ( empty( $groups ) ) {
+        echo '<p>' . esc_html__( 'No likely duplicate guests found.', 'simple-hotel-crm' ) . '</p>';
+        echo '</div>';
+        return;
+    }
+
+    foreach ( $groups as $group_key => $group ) {
+        echo '<form method="post" style="margin:0 0 24px 0;padding:12px;border:1px solid #ccd0d4;background:#fff;">';
+        wp_nonce_field( 'simple_hotel_crm_merge_guests' );
+        echo '<h2 style="margin-top:0;">' . esc_html( $group_key ) . '</h2>';
+        echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Keep', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Merge', 'simple-hotel-crm' ) . '</th><th>ID</th><th>' . esc_html__( 'Name', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Email', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Phone', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
+        foreach ( $group as $index => $guest ) {
+            echo '<tr>';
+            echo '<td><input type="radio" name="primary_guest_id" value="' . esc_attr( (string) $guest['id'] ) . '"' . checked( 0, $index, false ) . ' /></td>';
+            echo '<td><input type="radio" name="duplicate_guest_id" value="' . esc_attr( (string) $guest['id'] ) . '"' . checked( 1, $index, false ) . ' /></td>';
+            echo '<td>' . esc_html( (string) $guest['id'] ) . '</td>';
+            echo '<td>' . esc_html( trim( (string) $guest['first_name'] . ' ' . (string) $guest['last_name'] ) ) . '</td>';
+            echo '<td>' . esc_html( (string) $guest['email'] ) . '</td>';
+            echo '<td>' . esc_html( (string) $guest['phone'] ) . '</td>';
+            echo '</tr>';
+        }
+        echo '</tbody></table>';
+        submit_button( __( 'Merge Selected Guests', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_merge_guests', false, [ 'onclick' => "return confirm('" . esc_js( __( 'Merge the selected duplicate guest into the primary guest?', 'simple-hotel-crm' ) ) . "');" ] );
+        echo '</form>';
+    }
+
     echo '</div>';
 }
 
