@@ -496,6 +496,9 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     $wpdb->delete( $crm_booking_rooms_table, [ 'booking_id' => $booking_id ], [ '%d' ] );
 
     $next_legacy_room_id = max( 1, (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_room_id), 0) + 1 FROM {$sync_bookings_table}" ) );
+    if ( ! empty( $overlay_map ) ) {
+        $next_legacy_room_id = max( $next_legacy_room_id, max( array_map( 'intval', $overlay_map ) ) + 1 );
+    }
     $external_booking_id = $existing_booking ? (int) $existing_booking['id'] : $booking_id;
     $booking_adults = array_sum( array_column( $room_lines, 'adults' ) );
     $booking_children = array_sum( array_column( $room_lines, 'children' ) );
