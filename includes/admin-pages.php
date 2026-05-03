@@ -506,12 +506,8 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     $booking_total = round( array_sum( array_column( $room_lines, 'total_amount' ) ), 2 );
 
     foreach ( $room_lines as $line ) {
-        $crm_room_id = (int) $line['room_sync_id'];
-        $room = $wpdb->get_row( $wpdb->prepare( "SELECT id, sync_room_id, external_room_id, room_code, room_name FROM {$crm_rooms_table} WHERE id = %d LIMIT 1", $crm_room_id ), ARRAY_A );
-        if ( ! $room ) {
-            $room = $wpdb->get_row( $wpdb->prepare( "SELECT id, sync_room_id, external_room_id, room_code, room_name FROM {$crm_rooms_table} WHERE sync_room_id = %d LIMIT 1", $line['room_sync_id'] ), ARRAY_A );
-            $crm_room_id = ! empty( $room['id'] ) ? (int) $room['id'] : 0;
-        }
+        $crm_room_id = simple_hotel_crm_find_crm_room_id( $line['room_sync_id'] ?? 0 );
+        $room = $crm_room_id > 0 ? $wpdb->get_row( $wpdb->prepare( "SELECT id, sync_room_id, external_room_id, room_code, room_name FROM {$crm_rooms_table} WHERE id = %d LIMIT 1", $crm_room_id ), ARRAY_A ) : null;
         if ( ! $room || $crm_room_id <= 0 ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'invalid_room', __( 'Please select a valid room.', 'simple-hotel-crm' ) );

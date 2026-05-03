@@ -309,12 +309,23 @@ function simple_hotel_crm_repair_booking_room_links() {
     $crm_booking_rooms_table = simple_hotel_crm_booking_rooms_table();
     $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
 
-    $wpdb->query(
-        "UPDATE {$crm_booking_rooms_table} br
-         JOIN {$sync_bookings_table} sb ON sb.external_booking_room_id = br.legacy_reserved_room_id
-         JOIN {$crm_rooms_table} r ON r.sync_room_id = sb.room_sync_id
-         SET br.room_id = r.id"
-    );
+    $sync_rows = $wpdb->get_results( "SELECT DISTINCT external_booking_room_id, room_sync_id, external_room_id FROM {$sync_bookings_table} WHERE external_booking_room_id > 0", ARRAY_A );
+    foreach ( $sync_rows as $sync_row ) {
+        $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $sync_row['room_sync_id'], [ 'room_code' => '', 'room_name' => '' ] );
+        if ( $crm_room_id <= 0 ) {
+            $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $sync_row['external_room_id'] );
+        }
+        if ( $crm_room_id <= 0 ) {
+            continue;
+        }
+        $wpdb->update(
+            $crm_booking_rooms_table,
+            [ 'room_id' => $crm_room_id ],
+            [ 'legacy_reserved_room_id' => (int) $sync_row['external_booking_room_id'] ],
+            [ '%d' ],
+            [ '%d' ]
+        );
+    }
 }
 
 function simple_hotel_crm_migrate_overlay_notes_to_booking_notes() {
@@ -423,7 +434,7 @@ function simple_hotel_crm_maybe_migrate_sync_data_to_crm() {
         $booking_id = (int) $wpdb->insert_id;
 
         foreach ( $room_groups as $room_group ) {
-            $crm_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$crm_rooms_table} WHERE sync_room_id = %d LIMIT 1", $room_group['room_sync_id'] ) );
+            $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $room_group['room_sync_id'] );
             if ( $crm_room_id <= 0 ) {
                 continue;
             }

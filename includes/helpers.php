@@ -221,6 +221,46 @@ function simple_hotel_crm_get_room_display_number( $room_code, $fallback = '' ) 
     return '' !== (string) $fallback ? (string) $fallback : (string) $room_code;
 }
 
+function simple_hotel_crm_find_crm_room_id( $room_identifier = 0, $fallbacks = [] ) {
+    global $wpdb;
+
+    $rooms_table = simple_hotel_crm_rooms_table();
+    $room_identifier = (int) $room_identifier;
+    if ( $room_identifier > 0 ) {
+        $room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE id = %d LIMIT 1", $room_identifier ) );
+        if ( $room_id > 0 ) {
+            return $room_id;
+        }
+
+        $room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE sync_room_id = %d LIMIT 1", $room_identifier ) );
+        if ( $room_id > 0 ) {
+            return $room_id;
+        }
+
+        $room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE external_room_id = %d LIMIT 1", $room_identifier ) );
+        if ( $room_id > 0 ) {
+            return $room_id;
+        }
+    }
+
+    $room_code = strtoupper( trim( (string) ( $fallbacks['room_code'] ?? '' ) ) );
+    $room_name = trim( (string) ( $fallbacks['room_name'] ?? '' ) );
+    if ( '' !== $room_code ) {
+        $room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE room_code = %s LIMIT 1", $room_code ) );
+        if ( $room_id > 0 ) {
+            return $room_id;
+        }
+    }
+    if ( '' !== $room_name ) {
+        $room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE room_name = %s LIMIT 1", $room_name ) );
+        if ( $room_id > 0 ) {
+            return $room_id;
+        }
+    }
+
+    return 0;
+}
+
 function simple_hotel_crm_format_channel_code( $source_channel, $created_date = '' ) {
     $source_channel = (string) $source_channel;
     $created_date   = (string) $created_date;
