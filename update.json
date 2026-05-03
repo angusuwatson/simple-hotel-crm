@@ -1,7 +1,7 @@
 {
   "name": "Simple Hotel CRM",
   "slug": "simple-hotel-crm",
-  "version": "1.8.8.01",
+  "version": "1.8.8.02",
   "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
   "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
   "requires": "6.0",
@@ -10,6 +10,6 @@
   "last_updated": "2026-05-03",
   "sections": {
     "description": "WordPress-native hotel CRM with calendar, bookings, guests, importer, room management, and GitHub-based updating.",
-    "changelog": "<ul><li>1.8.8.01: Add remove room button on Add Booking and switch to four-part versioning.</li><li>1.8.8: Allow Add Booking to ignore accidentally added empty room rows.</li><li>1.8.7: Fix Add Booking room availability for manually created CRM rooms.</li></ul>"
+    "changelog": "<ul><li>1.8.8.02: Fix Create Booking room lookup for CRM room ids.</li><li>1.8.8.01: Add remove room button on Add Booking and switch to four-part versioning.</li><li>1.8.8: Allow Add Booking to ignore accidentally added empty room rows.</li></ul>"
   }
 }

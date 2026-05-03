@@ -196,7 +196,6 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
 
     simple_hotel_crm_seed_rooms_table();
 
-    $rooms_table = simple_hotel_crm_sync_rooms_table();
     $bookings_table = simple_hotel_crm_sync_bookings_table();
     $crm_rooms_table = simple_hotel_crm_rooms_table();
     $crm_guests_table = simple_hotel_crm_guests_table();
@@ -301,29 +300,15 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
 
     $last_booking_room_id = 0;
     foreach ( $room_lines as $line ) {
-        $room = $wpdb->get_row( $wpdb->prepare( "SELECT id, external_room_id, room_code, room_name FROM {$rooms_table} WHERE id = %d LIMIT 1", $line['room_sync_id'] ), ARRAY_A );
+        $crm_room_id = (int) $line['room_sync_id'];
+        $room = $wpdb->get_row( $wpdb->prepare( "SELECT id, sync_room_id, external_room_id, room_code, room_name FROM {$crm_rooms_table} WHERE id = %d LIMIT 1", $crm_room_id ), ARRAY_A );
         if ( ! $room ) {
+            $room = $wpdb->get_row( $wpdb->prepare( "SELECT id, sync_room_id, external_room_id, room_code, room_name FROM {$crm_rooms_table} WHERE sync_room_id = %d LIMIT 1", $line['room_sync_id'] ), ARRAY_A );
+            $crm_room_id = ! empty( $room['id'] ) ? (int) $room['id'] : 0;
+        }
+        if ( ! $room || $crm_room_id <= 0 ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'invalid_room', __( 'Please select a valid room.', 'simple-hotel-crm' ) );
-        }
-
-        $crm_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$crm_rooms_table} WHERE sync_room_id = %d LIMIT 1", $line['room_sync_id'] ) );
-        if ( $crm_room_id <= 0 ) {
-            $colors = simple_hotel_crm_get_room_colors();
-            $wpdb->insert(
-                $crm_rooms_table,
-                [
-                    'sync_room_id' => (int) $room['id'],
-                    'external_room_id' => (int) $room['external_room_id'],
-                    'room_code' => (string) $room['room_code'],
-                    'room_name' => (string) $room['room_name'],
-                    'sort_order' => simple_hotel_crm_get_room_sort_order( $room['room_code'], $room['room_name'] ),
-                    'color' => $colors[ strtoupper( (string) $room['room_code'] ) ] ?? '#cccccc',
-                    'active' => 1,
-                ],
-                [ '%d', '%d', '%s', '%s', '%d', '%s', '%d' ]
-            );
-            $crm_room_id = (int) $wpdb->insert_id;
         }
 
         $external_booking_room_id = $next_booking_room_id++;
@@ -386,7 +371,7 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
                     'external_booking_id' => $external_booking_id,
                     'external_booking_room_id' => $external_booking_room_id,
                     'external_room_id' => (int) $room['external_room_id'],
-                    'room_sync_id' => (int) $room['id'],
+                    'room_sync_id' => (int) ( $room['sync_room_id'] ?? 0 ),
                     'status_code' => $status_code,
                     'check_in' => $check_in,
                     'check_out' => $check_out,
