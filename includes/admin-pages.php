@@ -901,7 +901,7 @@ function simple_hotel_crm_render_add_booking_page() {
     foreach ( (array) $form_data['room_lines'] as $line_index => $line ) {
         echo '<fieldset style="margin:0 0 16px 0;padding:12px;border:1px solid #ccd0d4;">';
         echo '<legend><strong>' . esc_html( sprintf( __( 'Room %d', 'simple-hotel-crm' ), $line_index + 1 ) ) . '</strong></legend>';
-        echo '<p><label>' . esc_html__( 'Room', 'simple-hotel-crm' ) . ' <select name="room_lines[' . esc_attr( $line_index ) . '][room_sync_id]" ' . ( $dates_ready ? '' : 'disabled' ) . ' required>';
+        echo '<p><label>' . esc_html__( 'Room', 'simple-hotel-crm' ) . ' <select name="room_lines[' . esc_attr( $line_index ) . '][room_sync_id]" ' . ( $dates_ready ? '' : 'disabled' ) . '>';
         echo '<option value="">' . esc_html__( $dates_ready ? 'Select an available room' : 'Choose dates first', 'simple-hotel-crm' ) . '</option>';
         foreach ( $rooms as $room ) {
             $room_id_value = (string) $room['id'];
