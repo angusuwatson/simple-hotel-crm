@@ -10,10 +10,9 @@ function simple_hotel_crm_get_sync_room_options( $check_in = '', $check_out = ''
     if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_in ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_out ) && $check_out > $check_in ) {
         return $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT r.sync_room_id AS id, r.external_room_id, r.room_code, r.room_name
+                "SELECT r.id, r.external_room_id, r.room_code, r.room_name
                  FROM {$rooms_table} r
                  WHERE r.active = 1
-                   AND r.sync_room_id IS NOT NULL
                    AND NOT EXISTS (
                        SELECT 1 FROM {$booking_rooms_table} br
                        JOIN {$bookings_table} b ON b.id = br.booking_id
@@ -30,7 +29,7 @@ function simple_hotel_crm_get_sync_room_options( $check_in = '', $check_out = ''
         );
     }
 
-    return $wpdb->get_results( "SELECT sync_room_id AS id, external_room_id, room_code, room_name FROM {$rooms_table} WHERE active = 1 AND sync_room_id IS NOT NULL ORDER BY sort_order ASC, room_name ASC", ARRAY_A );
+    return $wpdb->get_results( "SELECT id, external_room_id, room_code, room_name FROM {$rooms_table} WHERE active = 1 ORDER BY sort_order ASC, room_name ASC", ARRAY_A );
 }
 
 function simple_hotel_crm_get_room_options( $check_in = '', $check_out = '' ) {
@@ -156,7 +155,14 @@ function simple_hotel_crm_check_wp_sync_room_availability( $room_sync_id, $check
     $rooms_table = simple_hotel_crm_rooms_table();
     $bookings_table = simple_hotel_crm_bookings_table();
     $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
-    $crm_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE sync_room_id = %d LIMIT 1", $room_sync_id ) );
+    $crm_room_id = (int) $room_sync_id;
+
+    if ( $crm_room_id > 0 ) {
+        $exists = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE id = %d LIMIT 1", $crm_room_id ) );
+        if ( $exists <= 0 ) {
+            $crm_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE sync_room_id = %d LIMIT 1", $room_sync_id ) );
+        }
+    }
 
     if ( $crm_room_id <= 0 ) {
         return true;
