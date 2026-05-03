@@ -452,7 +452,6 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
         return $validated;
     }
 
-    $sync_rooms_table = simple_hotel_crm_sync_rooms_table();
     $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
     $crm_rooms_table = simple_hotel_crm_rooms_table();
     $crm_bookings_table = simple_hotel_crm_bookings_table();
@@ -466,19 +465,19 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     $import_notes = sanitize_textarea_field( (string) ( $data['import_notes'] ?? '' ) );
     $source_created_at = ( '' !== $contacted_date ? $contacted_date : current_time( 'mysql' ) );
 
-    $existing_rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.legacy_reserved_room_id, br.room_id, r.sync_room_id FROM {$crm_booking_rooms_table} br JOIN {$crm_rooms_table} r ON r.id = br.room_id WHERE br.booking_id = %d ORDER BY br.id ASC", $booking_id ), ARRAY_A );
+    $existing_rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.legacy_reserved_room_id, br.room_id FROM {$crm_booking_rooms_table} br WHERE br.booking_id = %d ORDER BY br.id ASC", $booking_id ), ARRAY_A );
     $legacy_ids = wp_list_pluck( $existing_rooms, 'legacy_reserved_room_id' );
     $overlay_map = [];
     foreach ( $existing_rooms as $existing_room ) {
-        $sync_room_id = (int) $existing_room['sync_room_id'];
-        if ( $sync_room_id > 0 && ! isset( $overlay_map[ $sync_room_id ] ) ) {
-            $overlay_map[ $sync_room_id ] = (int) $existing_room['legacy_reserved_room_id'];
+        $room_id = (int) $existing_room['room_id'];
+        if ( $room_id > 0 && ! isset( $overlay_map[ $room_id ] ) ) {
+            $overlay_map[ $room_id ] = (int) $existing_room['legacy_reserved_room_id'];
         }
     }
     foreach ( $room_lines as $line ) {
-        $availability = simple_hotel_crm_check_wp_sync_room_availability( $line['room_sync_id'], $check_in, $check_out );
+        $crm_room_id = (int) $line['room_sync_id'];
+        $availability = simple_hotel_crm_check_wp_sync_room_availability( $crm_room_id, $check_in, $check_out );
         if ( is_wp_error( $availability ) ) {
-            $crm_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$crm_rooms_table} WHERE sync_room_id = %d LIMIT 1", $line['room_sync_id'] ) );
             $current_match = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$crm_booking_rooms_table} WHERE booking_id = %d AND room_id = %d", $booking_id, $crm_room_id ) );
             if ( $current_match <= 0 ) {
                 return $availability;
@@ -507,13 +506,17 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     $booking_total = round( array_sum( array_column( $room_lines, 'total_amount' ) ), 2 );
 
     foreach ( $room_lines as $line ) {
-        $room = $wpdb->get_row( $wpdb->prepare( "SELECT id, external_room_id, room_code, room_name FROM {$sync_rooms_table} WHERE id = %d LIMIT 1", $line['room_sync_id'] ), ARRAY_A );
+        $crm_room_id = (int) $line['room_sync_id'];
+        $room = $wpdb->get_row( $wpdb->prepare( "SELECT id, sync_room_id, external_room_id, room_code, room_name FROM {$crm_rooms_table} WHERE id = %d LIMIT 1", $crm_room_id ), ARRAY_A );
         if ( ! $room ) {
+            $room = $wpdb->get_row( $wpdb->prepare( "SELECT id, sync_room_id, external_room_id, room_code, room_name FROM {$crm_rooms_table} WHERE sync_room_id = %d LIMIT 1", $line['room_sync_id'] ), ARRAY_A );
+            $crm_room_id = ! empty( $room['id'] ) ? (int) $room['id'] : 0;
+        }
+        if ( ! $room || $crm_room_id <= 0 ) {
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'invalid_room', __( 'Please select a valid room.', 'simple-hotel-crm' ) );
         }
-        $crm_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$crm_rooms_table} WHERE sync_room_id = %d LIMIT 1", $line['room_sync_id'] ) );
-        $legacy_reserved_room_id = isset( $overlay_map[ (int) $line['room_sync_id'] ] ) ? (int) $overlay_map[ (int) $line['room_sync_id'] ] : $next_legacy_room_id++;
+        $legacy_reserved_room_id = isset( $overlay_map[ $crm_room_id ] ) ? (int) $overlay_map[ $crm_room_id ] : $next_legacy_room_id++;
         $inserted = $wpdb->insert(
             $crm_booking_rooms_table,
             [
@@ -535,8 +538,8 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'booking_room_insert_failed', __( 'Could not save booking rooms.', 'simple-hotel-crm' ) );
         }
-        if ( isset( $overlay_map[ (int) $line['room_sync_id'] ] ) && (int) $overlay_map[ (int) $line['room_sync_id'] ] !== $legacy_reserved_room_id ) {
-            simple_hotel_crm_copy_booking_overlay( (int) $overlay_map[ (int) $line['room_sync_id'] ], $legacy_reserved_room_id, $booking_id, $crm_room_id );
+        if ( isset( $overlay_map[ $crm_room_id ] ) && (int) $overlay_map[ $crm_room_id ] !== $legacy_reserved_room_id ) {
+            simple_hotel_crm_copy_booking_overlay( (int) $overlay_map[ $crm_room_id ], $legacy_reserved_room_id, $booking_id, $crm_room_id );
         }
         $crm_booking_room_id = (int) $wpdb->insert_id;
         $room_rate_nightly = simple_hotel_crm_distribute_amounts( $line['room_rate_amount'], $nights );
@@ -567,7 +570,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
                     'external_booking_id' => $external_booking_id,
                     'external_booking_room_id' => $legacy_reserved_room_id,
                     'external_room_id' => (int) $room['external_room_id'],
-                    'room_sync_id' => (int) $room['id'],
+                    'room_sync_id' => (int) ( $room['sync_room_id'] ?? 0 ),
                     'status_code' => $status_code,
                     'check_in' => $check_in,
                     'check_out' => $check_out,
@@ -624,9 +627,9 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     if ( ! empty( $legacy_ids ) ) {
         $new_legacy_ids = [];
         foreach ( $room_lines as $line ) {
-            $sync_room_id = (int) $line['room_sync_id'];
-            if ( isset( $overlay_map[ $sync_room_id ] ) ) {
-                $new_legacy_ids[] = (int) $overlay_map[ $sync_room_id ];
+            $crm_room_id = (int) $line['room_sync_id'];
+            if ( isset( $overlay_map[ $crm_room_id ] ) ) {
+                $new_legacy_ids[] = (int) $overlay_map[ $crm_room_id ];
             }
         }
         foreach ( array_diff( array_map( 'intval', array_filter( $legacy_ids ) ), array_map( 'intval', array_filter( $new_legacy_ids ) ) ) as $stale_legacy_id ) {
@@ -685,6 +688,10 @@ function simple_hotel_crm_render_booking_detail_page() {
     }
 
     $rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.*, r.room_name, r.room_code, r.sync_room_id FROM {$booking_rooms_table} br JOIN {$rooms_table} r ON r.id = br.room_id WHERE br.booking_id = %d ORDER BY r.sort_order ASC, r.room_name ASC", $booking_id ), ARRAY_A );
+    foreach ( $rooms as &$room ) {
+        $room['room_sync_id'] = (string) $room['room_id'];
+    }
+    unset( $room );
     if ( ! empty( $posted_room_lines ) ) {
         foreach ( $posted_room_lines as $index => $posted_room_line ) {
             if ( isset( $rooms[ $index ] ) ) {
@@ -694,7 +701,7 @@ function simple_hotel_crm_render_booking_detail_page() {
             }
         }
     }
-    $available_rooms = $wpdb->get_results( "SELECT sync_room_id, room_name, room_code FROM {$rooms_table} WHERE active = 1 AND sync_room_id IS NOT NULL ORDER BY sort_order ASC, room_name ASC", ARRAY_A );
+    $available_rooms = $wpdb->get_results( "SELECT id, sync_room_id, room_name, room_code FROM {$rooms_table} WHERE active = 1 ORDER BY sort_order ASC, room_name ASC", ARRAY_A );
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( 'Booking Detail', 'simple-hotel-crm' ) . ' #' . esc_html( (string) $booking_id ) . '</h1>';
     echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings' ) ) . '">← ' . esc_html__( 'Back to Bookings', 'simple-hotel-crm' ) . '</a></p>';
@@ -729,7 +736,7 @@ function simple_hotel_crm_render_booking_detail_page() {
         echo '<option value="">' . esc_html__( 'Select room', 'simple-hotel-crm' ) . '</option>';
         foreach ( $available_rooms as $available_room ) {
             $label = (string) $available_room['room_code'] . ' - ' . (string) $available_room['room_name'];
-            echo '<option value="' . esc_attr( (string) $available_room['sync_room_id'] ) . '"' . selected( (string) ( $room['sync_room_id'] ?? $room['room_sync_id'] ?? '' ), (string) $available_room['sync_room_id'], false ) . '>' . esc_html( $label ) . '</option>';
+            echo '<option value="' . esc_attr( (string) $available_room['id'] ) . '"' . selected( (string) ( $room['sync_room_id'] ?? $room['room_sync_id'] ?? '' ), (string) $available_room['id'], false ) . '>' . esc_html( $label ) . '</option>';
         }
         echo '</select></td>';
         echo '<td><input type="number" min="0" name="room_lines[' . esc_attr( $index ) . '][adults]" value="' . esc_attr( (string) ( $room['adults'] ?? 0 ) ) . '" /></td>';
@@ -906,7 +913,6 @@ function simple_hotel_crm_render_add_booking_page() {
     echo '<tr><th><label for="check_in">' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</label></th><td><input required type="date" name="check_in" id="check_in" value="' . esc_attr( $check_in_value ) . '" onchange="var o=document.getElementById(\'check_out\');if(this.value&&o&&(!o.value||o.value<=this.value)){var d=new Date(this.value+\'T00:00:00\');d.setDate(d.getDate()+1);o.value=d.toISOString().slice(0,10);} this.form.submit();" /></td></tr>';
     echo '<tr><th><label for="check_out">' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</label></th><td><input required type="date" name="check_out" id="check_out" value="' . esc_attr( $check_out_value ) . '" onchange="this.form.submit();" /></td></tr>';
     echo '<tr><th scope="row">' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</th><td>';
-    $room_numbers = [ 'ANE' => 1, 'DEL' => 2, 'LYS' => 3, 'TOU' => 4, 'TUL' => 5, 'COQ' => 0 ];
     $selected_room_ids = [];
     foreach ( (array) $form_data['room_lines'] as $line_index => $line ) {
         echo '<fieldset style="margin:0 0 16px 0;padding:12px;border:1px solid #ccd0d4;">';
@@ -925,7 +931,7 @@ function simple_hotel_crm_render_add_booking_page() {
                 continue;
             }
             $room_code = (string) $room['room_code'];
-            $room_number = $room_numbers[ $room_code ] ?? '';
+            $room_number = simple_hotel_crm_get_room_display_number( $room_code );
             echo '<option value="' . esc_attr( $room_id_value ) . '"' . selected( $current_selected, $room_id_value, false ) . '>' . esc_html( $room_number . ' - ' . $room['room_name'] ) . '</option>';
         }
         echo '</select></label></p>';

@@ -203,6 +203,24 @@ function simple_hotel_crm_evaluate_extras_formula( $formula ) {
     ];
 }
 
+function simple_hotel_crm_get_room_display_number( $room_code, $fallback = '' ) {
+    $room_code = strtoupper( trim( (string) $room_code ) );
+    $room_numbers = [
+        'ANE' => 1,
+        'DEL' => 2,
+        'LYS' => 3,
+        'TOU' => 4,
+        'TUL' => 5,
+        'COQ' => 0,
+    ];
+
+    if ( isset( $room_numbers[ $room_code ] ) ) {
+        return (string) $room_numbers[ $room_code ];
+    }
+
+    return '' !== (string) $fallback ? (string) $fallback : (string) $room_code;
+}
+
 function simple_hotel_crm_format_channel_code( $source_channel, $created_date = '' ) {
     $source_channel = (string) $source_channel;
     $created_date   = (string) $created_date;

@@ -51,8 +51,7 @@ $calendar_base_url = $calendar_base_url ?? '';
                     <?php foreach ( $rooms as $index => $room ) :
                         $room_id = $room->id;
                         $color = $room->color ?? '#ccc';
-                        $room_numbers = [ 'ANE' => 1, 'DEL' => 2, 'LYS' => 3, 'TOU' => 4, 'TUL' => 5, 'COQ' => 0 ];
-                        $room_number = $room_numbers[ $room->code ?? '' ] ?? ( $index + 1 );
+                        $room_number = simple_hotel_crm_get_room_display_number( $room->code ?? '', $index + 1 );
                         $rows = [
                             [ 'label' => $room_number . ' - ' . $room->title, 'class' => 'room-name-row', 'type' => 'title', 'field' => 'booking_note' ],
                             [ 'label' => 'Name', 'class' => 'guest-row', 'type' => 'detail', 'field' => 'manual_guest_name', 'display_fn' => function( $b ) { return $b->guest_name ?? ''; } ],
