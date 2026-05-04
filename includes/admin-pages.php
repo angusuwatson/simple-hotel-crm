@@ -10,7 +10,7 @@ function simple_hotel_crm_register_admin_menu() {
     add_menu_page( __( 'Simple Hotel CRM', 'simple-hotel-crm' ), __( 'Simple Hotel CRM', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm', 'simple_hotel_crm_render_admin_page', 'dashicons-calendar-alt', 58 );
     add_submenu_page( 'simple-hotel-crm', __( 'Calendar', 'simple-hotel-crm' ), __( 'Calendar', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm', 'simple_hotel_crm_render_admin_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Bookings', 'simple-hotel-crm' ), __( 'Bookings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-bookings', 'simple_hotel_crm_render_bookings_page' );
-    add_submenu_page( 'simple-hotel-crm', __( 'Add Booking', 'simple-hotel-crm' ), __( 'Add Booking', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-add-booking', 'simple_hotel_crm_render_add_booking_page' );
+    add_submenu_page( null, __( 'Add Booking', 'simple-hotel-crm' ), __( 'Add Booking', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-add-booking', 'simple_hotel_crm_render_add_booking_page' );
     add_submenu_page( null, __( 'Booking Detail', 'simple-hotel-crm' ), __( 'Booking Detail', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-booking-detail', 'simple_hotel_crm_render_booking_detail_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Rooms', 'simple-hotel-crm' ), __( 'Rooms', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-rooms', 'simple_hotel_crm_render_rooms_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Guests', 'simple-hotel-crm' ), __( 'Guests', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guests', 'simple_hotel_crm_render_guests_page' );
@@ -1492,12 +1492,48 @@ function simple_hotel_crm_render_import_page() {
     echo '</div>';
 }
 
+function simple_hotel_crm_render_export_panel() {
+    if ( isset( $_POST['simple_hotel_crm_export_download'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_export', 'simple_hotel_crm_export_nonce' );
+
+        global $wpdb;
+        $export = [
+            'exported_at' => current_time( 'mysql' ),
+            'site_url' => site_url(),
+            'plugin_version' => SIMPLE_HOTEL_CRM_VERSION,
+            'rooms' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_rooms_table() . ' ORDER BY sort_order ASC, room_name ASC', ARRAY_A ),
+            'guests' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_guests_table() . ' ORDER BY id ASC', ARRAY_A ),
+            'bookings' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_bookings_table() . ' ORDER BY id ASC', ARRAY_A ),
+            'booking_rooms' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_rooms_table() . ' ORDER BY id ASC', ARRAY_A ),
+            'booking_room_nights' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_room_nights_table() . ' ORDER BY id ASC', ARRAY_A ),
+            'daily_notes' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_daily_notes_table() . ' ORDER BY note_date ASC', ARRAY_A ),
+            'overlays' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_overlay_table() . ' ORDER BY id ASC', ARRAY_A ),
+            'settings' => [
+                'invoice_ninja_url' => get_option( 'simple_hotel_crm_invoice_ninja_url', '' ),
+                'booking_source' => get_option( 'simple_hotel_crm_booking_source', 'wp_sync' ),
+            ],
+        ];
+
+        nocache_headers();
+        header( 'Content-Type: application/json; charset=utf-8' );
+        header( 'Content-Disposition: attachment; filename=simple-hotel-crm-export-' . gmdate( 'Ymd-His' ) . '.json' );
+        echo wp_json_encode( $export, JSON_PRETTY_PRINT );
+        exit;
+    }
+
+    echo '<p>' . esc_html__( 'Download a full export of rooms, guests, bookings, booking rooms, nights, notes, overlays, and key settings as a JSON backup file.', 'simple-hotel-crm' ) . '</p>';
+    echo '<form method="post">';
+    wp_nonce_field( 'simple_hotel_crm_export', 'simple_hotel_crm_export_nonce' );
+    submit_button( __( 'Download Full Export', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_export_download', false );
+    echo '</form>';
+}
+
 function simple_hotel_crm_render_settings_page() {
     if ( ! simple_hotel_crm_user_can_access() ) {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
 
-    $tab = isset( $_GET['tab'] ) && 'import' === $_GET['tab'] ? 'import' : 'invoice-ninja';
+    $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'import', 'export' ], true ) ? sanitize_key( $_GET['tab'] ) : 'invoice-ninja';
 
     if ( isset( $_POST['simple_hotel_crm_submit'] ) ) {
         check_admin_referer( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
@@ -1522,10 +1558,13 @@ function simple_hotel_crm_render_settings_page() {
     echo '<nav class="nav-tab-wrapper">';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=invoice-ninja' ) ) . '" class="nav-tab ' . ( 'invoice-ninja' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Invoice Ninja', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=import' ) ) . '" class="nav-tab ' . ( 'import' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Import', 'simple-hotel-crm' ) . '</a>';
+    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=export' ) ) . '" class="nav-tab ' . ( 'export' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Export', 'simple-hotel-crm' ) . '</a>';
     echo '</nav>';
 
     if ( 'import' === $tab ) {
         simple_hotel_crm_render_import_panel();
+    } elseif ( 'export' === $tab ) {
+        simple_hotel_crm_render_export_panel();
     } else {
         echo '<form method="post">';
         wp_nonce_field( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
