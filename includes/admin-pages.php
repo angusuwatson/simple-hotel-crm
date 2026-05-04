@@ -17,6 +17,7 @@ function simple_hotel_crm_register_admin_menu() {
     add_submenu_page( null, __( 'Guest Duplicates', 'simple-hotel-crm' ), __( 'Guest Duplicates', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-duplicates', 'simple_hotel_crm_render_guest_duplicates_page' );
     add_submenu_page( null, __( 'Guest Detail', 'simple-hotel-crm' ), __( 'Guest Detail', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-detail', 'simple_hotel_crm_render_guest_detail_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Invoice Ninja Settings', 'simple-hotel-crm' ), __( 'Settings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-settings', 'simple_hotel_crm_render_settings_page' );
+    add_submenu_page( 'simple-hotel-crm', __( 'MotoPress Sync', 'simple-hotel-crm' ), __( 'MotoPress Sync', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-motopress', 'simple_hotel_crm_render_motopress_sync_page' );
     add_submenu_page( null, __( 'Import', 'simple-hotel-crm' ), __( 'Import', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-import', 'simple_hotel_crm_render_import_page' );
 }
 
@@ -1480,6 +1481,99 @@ function simple_hotel_crm_render_import_panel() {
     echo ' ';
     submit_button( __( 'Import CSV', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_import_submit', false );
     echo '</form>';
+}
+
+function simple_hotel_crm_render_motopress_sync_page() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
+    }
+
+    $consumer_key = get_option( 'simple_hotel_crm_motopress_consumer_key', '' );
+    $consumer_secret = get_option( 'simple_hotel_crm_motopress_consumer_secret', '' );
+    $test_result = '';
+    $test_message = '';
+
+    if ( isset( $_POST['simple_hotel_crm_motopress_test'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_motopress_test' );
+        $consumer_key = sanitize_text_field( wp_unslash( $_POST['consumer_key'] ) );
+        $consumer_secret = sanitize_text_field( wp_unslash( $_POST['consumer_secret'] ) );
+
+        $response = wp_remote_get( 'https://lagrangefleurie.fr/wp-json/mphb/v1/bookings', [
+            'headers' => [
+                'Authorization' => 'Basic ' . base64_encode( $consumer_key . ':' . $consumer_secret ),
+            ],
+            'timeout' => 15,
+        ] );
+
+        if ( is_wp_error( $response ) ) {
+            $test_result = 'error';
+            $test_message = $response->get_error_message();
+        } else {
+            $body = wp_remote_retrieve_body( $response );
+            $code = wp_remote_retrieve_response_code( $response );
+            if ( $code === 200 && ! empty( $body ) ) {
+                $test_result = 'success';
+                $test_message = __( 'Connection successful! MotoPress API is accessible.', 'simple-hotel-crm' );
+            } else {
+                $test_result = 'error';
+                $test_message = __( 'Failed to connect. Please check your API credentials and ensure the MotoPress REST API is enabled.', 'simple-hotel-crm' );
+            }
+        }
+    }
+
+    if ( isset( $_POST['simple_hotel_crm_motopress_save'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_motopress_save' );
+        update_option( 'simple_hotel_crm_motopress_consumer_key', sanitize_text_field( wp_unslash( $_POST['consumer_key'] ) ) );
+        update_option( 'simple_hotel_crm_motopress_consumer_secret', sanitize_text_field( wp_unslash( $_POST['consumer_secret'] ) ) );
+        echo '<div class="notice notice-success"><p>' . esc_html__( 'MotoPress API credentials saved.', 'simple-hotel-crm' ) . '</p></div>';
+    }
+
+    echo '<div class="wrap">';
+    echo '<h1>' . esc_html__( 'MotoPress Sync Settings', 'simple-hotel-crm' ) . '</h1>';
+    echo '<form method="post">';
+    wp_nonce_field( 'simple_hotel_crm_motopress_save' );
+    echo '<table class="form-table">
+        <tr>
+            <th><label for="consumer_key">' . esc_html__( 'MotoPress Consumer Key', 'simple-hotel-crm' ) . '</label></th>
+            <td><input type="text" name="consumer_key" id="consumer_key" class="regular-text" value="' . esc_attr( $consumer_key ) . '" /></td>
+        </tr>
+        <tr>
+            <th><label for="consumer_secret">' . esc_html__( 'MotoPress Consumer Secret', 'simple-hotel-crm' ) . '</label></th>
+            <td><input type="text" name="consumer_secret" id="consumer_secret" class="regular-text" value="' . esc_attr( $consumer_secret ) . '" /></td>
+        </tr>
+    </table>';
+    submit_button( __( 'Save API Credentials', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_motopress_save', false );
+    echo '</form>';
+
+    echo '<h2>' . esc_html__( 'Test Connection', 'simple-hotel-crm' ) . '</h2>';
+    echo '<form method="post">';
+    wp_nonce_field( 'simple_hotel_crm_motopress_test' );
+    echo '<table class="form-table">
+        <tr>
+            <th><label for="consumer_key_test">' . esc_html__( 'Consumer Key', 'simple-hotel-crm' ) . '</label></th>
+            <td><input type="text" name="consumer_key" id="consumer_key_test" class="regular-text" value="' . esc_attr( $consumer_key ) . '" /></td>
+        </tr>
+        <tr>
+            <th><label for="consumer_secret_test">' . esc_html__( 'Consumer Secret', 'simple-hotel-crm' ) . '</label></th>
+            <td><input type="text" name="consumer_secret" id="consumer_secret_test" class="regular-text" value="' . esc_attr( $consumer_secret ) . '" /></td>
+        </tr>
+    </table>';
+    submit_button( __( 'Test MotoPress Connection', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_motopress_test', false );
+    echo '</form>';
+
+    if ( ! empty( $test_result ) ) {
+        echo '<div class="notice notice-' . esc_attr( $test_result ) . '"><p>' . esc_html( $test_message ) . '</p></div>';
+    }
+
+    echo '<h2>' . esc_html__( 'How to Get API Credentials', 'simple-hotel-crm' ) . '</h2>';
+    echo '<ol>
+        <li>' . esc_html__( 'Log in to your WordPress admin at Lagrange Fleurie.', 'simple-hotel-crm' ) . '</li>
+        <li>' . esc_html__( 'Go to MotoPress → Settings → API.', 'simple-hotel-crm' ) . '</li>
+        <li>' . esc_html__( 'Create a new API user or use an existing one.', 'simple-hotel-crm' ) . '</li>
+        <li>' . esc_html__( 'Copy the Consumer Key and Consumer Secret.', 'simple-hotel-crm' ) . '</li>
+        <li>' . esc_html__( 'Paste them into the fields above and click Save.', 'simple-hotel-crm' ) . '</li>
+    </ol>';
+    echo '</div>';
 }
 
 function simple_hotel_crm_render_import_page() {

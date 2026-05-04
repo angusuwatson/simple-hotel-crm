@@ -1,7 +1,7 @@
 {
   "name": "Simple Hotel CRM",
   "slug": "simple-hotel-crm",
-  "version": "1.8.8.15",
+  "version": "1.8.8.16",
   "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
   "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
   "requires": "6.0",
@@ -10,6 +10,6 @@
   "last_updated": "2026-05-03",
   "sections": {
     "description": "WordPress-native hotel CRM with calendar, bookings, guests, importer, room management, and GitHub-based updating.",
-    "changelog": "<ul><li>1.8.8.15: Restore status selector in the calendar quick edit popup.</li><li>1.8.8.14: Add export type dropdown and CSV export option.</li><li>1.8.8.13: Hide Add Booking from menu and add Export tab in Settings.</li></ul>"
+    "changelog": "<ul><li>1.8.8.16: Add MotoPress Sync settings tab with API key storage and test connection.</li><li>1.8.8.15: Restore status selector in the calendar quick edit popup.</li><li>1.8.8.14: Add export type dropdown and CSV export option.</li><li>1.8.8.13: Hide Add Booking from menu and add Export tab in Settings.</li></ul>"
   }
 }
