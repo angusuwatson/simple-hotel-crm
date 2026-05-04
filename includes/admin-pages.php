@@ -1492,39 +1492,97 @@ function simple_hotel_crm_render_import_page() {
     echo '</div>';
 }
 
+function simple_hotel_crm_get_export_datasets() {
+    global $wpdb;
+
+    return [
+        'all' => [
+            'label' => __( 'Everything', 'simple-hotel-crm' ),
+            'data' => [
+                'exported_at' => current_time( 'mysql' ),
+                'site_url' => site_url(),
+                'plugin_version' => SIMPLE_HOTEL_CRM_VERSION,
+                'rooms' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_rooms_table() . ' ORDER BY sort_order ASC, room_name ASC', ARRAY_A ),
+                'guests' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_guests_table() . ' ORDER BY id ASC', ARRAY_A ),
+                'bookings' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_bookings_table() . ' ORDER BY id ASC', ARRAY_A ),
+                'booking_rooms' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_rooms_table() . ' ORDER BY id ASC', ARRAY_A ),
+                'booking_room_nights' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_room_nights_table() . ' ORDER BY id ASC', ARRAY_A ),
+                'daily_notes' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_daily_notes_table() . ' ORDER BY note_date ASC', ARRAY_A ),
+                'overlays' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_overlay_table() . ' ORDER BY id ASC', ARRAY_A ),
+                'settings' => [
+                    [ 'option_name' => 'invoice_ninja_url', 'option_value' => get_option( 'simple_hotel_crm_invoice_ninja_url', '' ) ],
+                    [ 'option_name' => 'booking_source', 'option_value' => get_option( 'simple_hotel_crm_booking_source', 'wp_sync' ) ],
+                ],
+            ],
+        ],
+        'rooms' => [ 'label' => __( 'Rooms', 'simple-hotel-crm' ), 'data' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_rooms_table() . ' ORDER BY sort_order ASC, room_name ASC', ARRAY_A ) ],
+        'guests' => [ 'label' => __( 'Guests', 'simple-hotel-crm' ), 'data' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_guests_table() . ' ORDER BY id ASC', ARRAY_A ) ],
+        'bookings' => [ 'label' => __( 'Bookings', 'simple-hotel-crm' ), 'data' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_bookings_table() . ' ORDER BY id ASC', ARRAY_A ) ],
+        'booking_rooms' => [ 'label' => __( 'Booking rooms', 'simple-hotel-crm' ), 'data' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_rooms_table() . ' ORDER BY id ASC', ARRAY_A ) ],
+        'booking_room_nights' => [ 'label' => __( 'Booking room nights', 'simple-hotel-crm' ), 'data' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_room_nights_table() . ' ORDER BY id ASC', ARRAY_A ) ],
+        'daily_notes' => [ 'label' => __( 'Daily notes', 'simple-hotel-crm' ), 'data' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_daily_notes_table() . ' ORDER BY note_date ASC', ARRAY_A ) ],
+        'overlays' => [ 'label' => __( 'Overlays', 'simple-hotel-crm' ), 'data' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_overlay_table() . ' ORDER BY id ASC', ARRAY_A ) ],
+        'settings' => [ 'label' => __( 'Settings', 'simple-hotel-crm' ), 'data' => [
+            [ 'option_name' => 'invoice_ninja_url', 'option_value' => get_option( 'simple_hotel_crm_invoice_ninja_url', '' ) ],
+            [ 'option_name' => 'booking_source', 'option_value' => get_option( 'simple_hotel_crm_booking_source', 'wp_sync' ) ],
+        ] ],
+    ];
+}
+
+function simple_hotel_crm_output_csv_export( $rows, $filename ) {
+    nocache_headers();
+    header( 'Content-Type: text/csv; charset=utf-8' );
+    header( 'Content-Disposition: attachment; filename=' . $filename );
+    $out = fopen( 'php://output', 'w' );
+    if ( empty( $rows ) ) {
+        fputcsv( $out, [ 'no_data' ] );
+        fclose( $out );
+        exit;
+    }
+    fputcsv( $out, array_keys( $rows[0] ) );
+    foreach ( $rows as $row ) {
+        fputcsv( $out, $row );
+    }
+    fclose( $out );
+    exit;
+}
+
 function simple_hotel_crm_render_export_panel() {
     if ( isset( $_POST['simple_hotel_crm_export_download'] ) ) {
         check_admin_referer( 'simple_hotel_crm_export', 'simple_hotel_crm_export_nonce' );
 
-        global $wpdb;
-        $export = [
-            'exported_at' => current_time( 'mysql' ),
-            'site_url' => site_url(),
-            'plugin_version' => SIMPLE_HOTEL_CRM_VERSION,
-            'rooms' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_rooms_table() . ' ORDER BY sort_order ASC, room_name ASC', ARRAY_A ),
-            'guests' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_guests_table() . ' ORDER BY id ASC', ARRAY_A ),
-            'bookings' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_bookings_table() . ' ORDER BY id ASC', ARRAY_A ),
-            'booking_rooms' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_rooms_table() . ' ORDER BY id ASC', ARRAY_A ),
-            'booking_room_nights' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_room_nights_table() . ' ORDER BY id ASC', ARRAY_A ),
-            'daily_notes' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_daily_notes_table() . ' ORDER BY note_date ASC', ARRAY_A ),
-            'overlays' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_overlay_table() . ' ORDER BY id ASC', ARRAY_A ),
-            'settings' => [
-                'invoice_ninja_url' => get_option( 'simple_hotel_crm_invoice_ninja_url', '' ),
-                'booking_source' => get_option( 'simple_hotel_crm_booking_source', 'wp_sync' ),
-            ],
-        ];
+        $datasets = simple_hotel_crm_get_export_datasets();
+        $export_type = sanitize_key( wp_unslash( $_POST['export_type'] ?? 'all' ) );
+        $export_format = sanitize_key( wp_unslash( $_POST['export_format'] ?? 'json' ) );
+        if ( ! isset( $datasets[ $export_type ] ) ) {
+            $export_type = 'all';
+        }
+
+        $payload = $datasets[ $export_type ]['data'];
+        $timestamp = gmdate( 'Ymd-His' );
+        if ( 'csv' === $export_format && 'all' !== $export_type && is_array( $payload ) ) {
+            simple_hotel_crm_output_csv_export( $payload, 'simple-hotel-crm-' . $export_type . '-' . $timestamp . '.csv' );
+        }
 
         nocache_headers();
         header( 'Content-Type: application/json; charset=utf-8' );
-        header( 'Content-Disposition: attachment; filename=simple-hotel-crm-export-' . gmdate( 'Ymd-His' ) . '.json' );
-        echo wp_json_encode( $export, JSON_PRETTY_PRINT );
+        header( 'Content-Disposition: attachment; filename=simple-hotel-crm-' . $export_type . '-' . $timestamp . '.json' );
+        echo wp_json_encode( $payload, JSON_PRETTY_PRINT );
         exit;
     }
 
-    echo '<p>' . esc_html__( 'Download a full export of rooms, guests, bookings, booking rooms, nights, notes, overlays, and key settings as a JSON backup file.', 'simple-hotel-crm' ) . '</p>';
+    echo '<p>' . esc_html__( 'Choose which data to export and whether to download it as JSON or CSV.', 'simple-hotel-crm' ) . '</p>';
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_export', 'simple_hotel_crm_export_nonce' );
-    submit_button( __( 'Download Full Export', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_export_download', false );
+    echo '<table class="form-table">';
+    echo '<tr><th><label for="export_type">' . esc_html__( 'Export data', 'simple-hotel-crm' ) . '</label></th><td><select name="export_type" id="export_type">';
+    foreach ( simple_hotel_crm_get_export_datasets() as $key => $dataset ) {
+        echo '<option value="' . esc_attr( $key ) . '">' . esc_html( $dataset['label'] ) . '</option>';
+    }
+    echo '</select></td></tr>';
+    echo '<tr><th><label for="export_format">' . esc_html__( 'Format', 'simple-hotel-crm' ) . '</label></th><td><select name="export_format" id="export_format"><option value="json">JSON</option><option value="csv">CSV</option></select></td></tr>';
+    echo '</table>';
+    submit_button( __( 'Download Export', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_export_download', false );
     echo '</form>';
 }
 
