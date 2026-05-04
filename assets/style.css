@@ -5,6 +5,30 @@
     background: #fff;
 }
 
+.simple-hotel-crm-floating-add-booking {
+    position: fixed;
+    right: 24px;
+    bottom: 24px;
+    width: 44px;
+    height: 44px;
+    border-radius: 999px;
+    background: #2271b1;
+    color: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    font-size: 28px;
+    line-height: 1;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    z-index: 1000;
+}
+
+.simple-hotel-crm-floating-add-booking:hover {
+    background: #135e96;
+    color: #fff;
+}
+
 .simple-hotel-crm-container.loading {
     opacity: 0.72;
     transition: opacity 0.2s ease;

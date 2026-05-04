@@ -30,11 +30,11 @@ function simple_hotel_crm_render_admin_page() {
     $calendar_data = simple_hotel_crm_get_calendar_data( $month, $year );
 
     echo '<div class="wrap">';
-    echo '<h1>' . esc_html__( 'Calendar', 'simple-hotel-crm' ) . ' <a class="page-title-action" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-add-booking' ) ) . '">' . esc_html__( 'Add Booking', 'simple-hotel-crm' ) . '</a></h1>';
     if ( isset( $_GET['created_booking'] ) ) {
         echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Booking %d created.', 'simple-hotel-crm' ), absint( $_GET['created_booking'] ) ) ) . '</p></div>';
     }
     echo simple_hotel_crm_render_calendar( $calendar_data, 'admin' );
+    echo '<a class="simple-hotel-crm-floating-add-booking" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-add-booking' ) ) . '" aria-label="' . esc_attr__( 'Add Booking', 'simple-hotel-crm' ) . '">+</a>';
     echo '</div>';
 }
 
