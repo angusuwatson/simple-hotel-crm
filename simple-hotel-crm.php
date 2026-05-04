@@ -10,7 +10,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SIMPLE_HOTEL_CRM_VERSION', '1.8.8.16' );
+define( 'SIMPLE_HOTEL_CRM_VERSION', '1.8.8.17' );
 define( 'SIMPLE_HOTEL_CRM_DB_VERSION', '7' );
 define( 'SIMPLE_HOTEL_CRM_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 

@@ -17,7 +17,7 @@ function simple_hotel_crm_register_admin_menu() {
     add_submenu_page( null, __( 'Guest Duplicates', 'simple-hotel-crm' ), __( 'Guest Duplicates', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-duplicates', 'simple_hotel_crm_render_guest_duplicates_page' );
     add_submenu_page( null, __( 'Guest Detail', 'simple-hotel-crm' ), __( 'Guest Detail', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-detail', 'simple_hotel_crm_render_guest_detail_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Invoice Ninja Settings', 'simple-hotel-crm' ), __( 'Settings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-settings', 'simple_hotel_crm_render_settings_page' );
-    add_submenu_page( 'simple-hotel-crm', __( 'MotoPress Sync', 'simple-hotel-crm' ), __( 'MotoPress Sync', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-motopress', 'simple_hotel_crm_render_motopress_sync_page' );
+    
     add_submenu_page( null, __( 'Import', 'simple-hotel-crm' ), __( 'Import', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-import', 'simple_hotel_crm_render_import_page' );
 }
 
@@ -1685,7 +1685,7 @@ function simple_hotel_crm_render_settings_page() {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
 
-    $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'import', 'export' ], true ) ? sanitize_key( $_GET['tab'] ) : 'invoice-ninja';
+    $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'import', 'export', 'motopress' ], true ) ? sanitize_key( $_GET['tab'] ) : 'motopress';
 
     if ( isset( $_POST['simple_hotel_crm_submit'] ) ) {
         check_admin_referer( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
@@ -1711,12 +1711,15 @@ function simple_hotel_crm_render_settings_page() {
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=invoice-ninja' ) ) . '" class="nav-tab ' . ( 'invoice-ninja' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Invoice Ninja', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=import' ) ) . '" class="nav-tab ' . ( 'import' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Import', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=export' ) ) . '" class="nav-tab ' . ( 'export' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Export', 'simple-hotel-crm' ) . '</a>';
+    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=motopress' ) ) . '" class="nav-tab ' . ( 'motopress' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'MotoPress Sync', 'simple-hotel-crm' ) . '</a>';
     echo '</nav>';
 
     if ( 'import' === $tab ) {
         simple_hotel_crm_render_import_panel();
     } elseif ( 'export' === $tab ) {
         simple_hotel_crm_render_export_panel();
+    } elseif ( 'motopress' === $tab ) {
+        simple_hotel_crm_render_motopress_sync_page();
     } else {
         echo '<form method="post">';
         wp_nonce_field( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
