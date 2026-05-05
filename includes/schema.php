@@ -12,6 +12,7 @@ function simple_hotel_crm_install_tables() {
     $sync_rooms_table  = simple_hotel_crm_sync_rooms_table();
     $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
     $crm_rooms_table   = simple_hotel_crm_rooms_table();
+    $crm_room_pricing_table = simple_hotel_crm_room_pricing_table();
     $crm_guests_table  = simple_hotel_crm_guests_table();
     $crm_bookings_table = simple_hotel_crm_bookings_table();
     $crm_booking_rooms_table = simple_hotel_crm_booking_rooms_table();
@@ -117,6 +118,20 @@ function simple_hotel_crm_install_tables() {
         KEY active (active)
     ) {$charset_collate};";
 
+    $sql_crm_room_pricing = "CREATE TABLE {$crm_room_pricing_table} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        room_id bigint(20) unsigned NOT NULL,
+        occupancy_adults int(11) NOT NULL DEFAULT 1,
+        price_amount decimal(10,2) NOT NULL DEFAULT 0.00,
+        active tinyint(1) NOT NULL DEFAULT 1,
+        created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        UNIQUE KEY room_occupancy (room_id, occupancy_adults),
+        KEY room_id (room_id),
+        KEY active (active)
+    ) {$charset_collate};";
+
     $sql_crm_guests = "CREATE TABLE {$crm_guests_table} (
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         first_name varchar(100) NULL,
@@ -177,10 +192,17 @@ function simple_hotel_crm_install_tables() {
         booking_id bigint(20) unsigned NOT NULL,
         room_id bigint(20) unsigned NOT NULL,
         legacy_reserved_room_id bigint(20) unsigned NULL,
+        pricing_room_id bigint(20) unsigned NULL,
+        occupancy_adults int(11) NOT NULL DEFAULT 0,
         guest_count int(11) NOT NULL DEFAULT 0,
         adults int(11) NOT NULL DEFAULT 0,
         children int(11) NOT NULL DEFAULT 0,
         babies int(11) NOT NULL DEFAULT 0,
+        base_price_amount decimal(10,2) NOT NULL DEFAULT 0.00,
+        discount_type varchar(20) NOT NULL DEFAULT 'none',
+        discount_value decimal(10,2) NOT NULL DEFAULT 0.00,
+        discount_amount decimal(10,2) NOT NULL DEFAULT 0.00,
+        subtotal_amount decimal(10,2) NOT NULL DEFAULT 0.00,
         room_rate_amount decimal(10,2) NOT NULL DEFAULT 0.00,
         extras_amount decimal(10,2) NOT NULL DEFAULT 0.00,
         tourist_tax_amount decimal(10,2) NOT NULL DEFAULT 0.00,
@@ -189,7 +211,8 @@ function simple_hotel_crm_install_tables() {
         PRIMARY KEY  (id),
         UNIQUE KEY legacy_reserved_room_id (legacy_reserved_room_id),
         KEY booking_id (booking_id),
-        KEY room_id (room_id)
+        KEY room_id (room_id),
+        KEY pricing_room_id (pricing_room_id)
     ) {$charset_collate};";
 
     $sql_crm_booking_nights = "CREATE TABLE {$crm_booking_nights_table} (
@@ -200,6 +223,9 @@ function simple_hotel_crm_install_tables() {
         adults int(11) NOT NULL DEFAULT 0,
         children int(11) NOT NULL DEFAULT 0,
         babies int(11) NOT NULL DEFAULT 0,
+        base_price_amount decimal(10,2) NOT NULL DEFAULT 0.00,
+        discount_amount decimal(10,2) NOT NULL DEFAULT 0.00,
+        subtotal_amount decimal(10,2) NOT NULL DEFAULT 0.00,
         room_rate_amount decimal(10,2) NOT NULL DEFAULT 0.00,
         extras_amount decimal(10,2) NOT NULL DEFAULT 0.00,
         tourist_tax_amount decimal(10,2) NOT NULL DEFAULT 0.00,
@@ -215,6 +241,7 @@ function simple_hotel_crm_install_tables() {
     dbDelta( $sql_sync_rooms );
     dbDelta( $sql_sync_bookings );
     dbDelta( $sql_crm_rooms );
+    dbDelta( $sql_crm_room_pricing );
     dbDelta( $sql_crm_guests );
     dbDelta( $sql_crm_bookings );
     dbDelta( $sql_crm_booking_rooms );
@@ -251,6 +278,11 @@ function simple_hotel_crm_sync_bookings_table() {
 function simple_hotel_crm_rooms_table() {
     global $wpdb;
     return $wpdb->prefix . 'simple_hotel_crm_rooms';
+}
+
+function simple_hotel_crm_room_pricing_table() {
+    global $wpdb;
+    return $wpdb->prefix . 'simple_hotel_crm_room_pricing';
 }
 
 function simple_hotel_crm_guests_table() {
