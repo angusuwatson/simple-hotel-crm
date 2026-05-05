@@ -1772,10 +1772,10 @@ function simple_hotel_crm_render_settings_page() {
     echo '<h1>' . esc_html__( 'LGF Bookings & CRM Settings', 'simple-hotel-crm' ) . '</h1>';
     echo '<p>' . esc_html__( 'LGF Bookings & CRM now uses the WordPress CRM tables as the main booking source.', 'simple-hotel-crm' ) . '</p>';
     echo '<nav class="nav-tab-wrapper">';
+    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=motopress' ) ) . '" class="nav-tab ' . ( 'motopress' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'MotoPress Sync', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=invoice-ninja' ) ) . '" class="nav-tab ' . ( 'invoice-ninja' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Invoice Ninja', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=import' ) ) . '" class="nav-tab ' . ( 'import' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Import', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=export' ) ) . '" class="nav-tab ' . ( 'export' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Export', 'simple-hotel-crm' ) . '</a>';
-    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=motopress' ) ) . '" class="nav-tab ' . ( 'motopress' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'MotoPress Sync', 'simple-hotel-crm' ) . '</a>';
     echo '</nav>';
 
     if ( 'import' === $tab ) {
