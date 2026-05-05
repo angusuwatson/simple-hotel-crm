@@ -1831,6 +1831,7 @@ function simple_hotel_crm_render_settings_page() {
 }
 
 add_shortcode( 'simple_hotel_crm', 'simple_hotel_crm_shortcode' );
+add_shortcode( 'lgf_bookings', 'simple_hotel_crm_shortcode' );
 add_shortcode( 'lgf_calendar_view', 'simple_hotel_crm_shortcode' );
 function simple_hotel_crm_render_calendar( $calendar_data, $context = 'frontend' ) {
     $template = locate_template( 'simple-hotel-crm/booking-view.php' );
