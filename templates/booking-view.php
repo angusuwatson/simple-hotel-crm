@@ -11,7 +11,9 @@ $summary = simple_hotel_crm_build_daily_summary( $calendar_data );
 $month_tabs = simple_hotel_crm_get_month_tabs( $month, $year );
 $calendar_base_url = $calendar_base_url ?? '';
 $today = current_time( 'Y-m-d' );
-$scroll_to_today = false;
+$today_month = (int) current_time( 'n' );
+$today_year = (int) current_time( 'Y' );
+$scroll_to_today = ( (int) $month === $today_month && (int) $year === $today_year );
 ?>
 <div class="simple-hotel-crm-container" data-scroll-to-today="<?php echo esc_attr( $scroll_to_today ? '1' : '0' ); ?>" data-today-date="<?php echo esc_attr( $today ); ?>">
     <div class="calendar-month-tabs" role="tablist" aria-label="Calendar months">

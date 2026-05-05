@@ -216,10 +216,10 @@
         });
 
         function scrollToTodayIfVisible() {
+            var $container = getContainer();
+            if (!$container.length || $container.data('scroll-to-today') !== 1 && $container.data('scroll-to-today') !== '1') return;
             var today = new Date();
-            var month = String(today.getMonth() + 1);
-            var year = String(today.getFullYear());
-            var selector = '.simple-hotel-crm-container [data-date="' + year + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0') + '"]';
+            var selector = '.simple-hotel-crm-container [data-date="' + today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0') + '"]';
             var $cell = $(selector).first();
             if (!$cell.length) return;
             var $scroller = $('.simple-hotel-crm');
