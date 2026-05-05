@@ -1,4 +1,4 @@
-# Simple Hotel CRM Plugin
+# LGF Bookings & CRM Plugin
 
 A WordPress plugin to display MotoPress Hotel Booking data, locally synced LGF database data, or direct PostgreSQL LGF data in a LibreOffice Calc-style spreadsheet layout.
 
@@ -54,14 +54,14 @@ A WordPress plugin to display MotoPress Hotel Booking data, locally synced LGF d
 2. Activate the plugin through the 'Plugins' screen in WordPress.
 3. If using the MotoPress source, ensure MotoPress Hotel Booking is installed and active.
 4. If you want to seed local room/sync data from the older LGF PostgreSQL project, run `scripts/sync-lgf-db-to-wp.sh` to copy data into the plugin's compatibility sync tables.
-5. Open **Simple Hotel CRM → Settings** and use **WordPress CRM tables** as the primary booking source for local operation.
+5. Open **LGF Bookings & CRM → Settings** and use **WordPress CRM tables** as the primary booking source for local operation.
 6. If using the direct LGF PostgreSQL source, enter the PostgreSQL connection details for your `lgf_bookings` database and switch the booking source to **External PostgreSQL**.
-7. Access the calendar via the **Simple Hotel CRM** admin menu or use the shortcode `[simple_hotel_crm]` on any page or post.
+7. Access the calendar via the **LGF Bookings & CRM** admin menu or use the shortcode `[simple_hotel_crm]` on any page or post.
 8. Optionally, pass attributes: `[simple_hotel_crm month="3" year="2026"]`
 
 ### Invoice Ninja Setup
 
-1. Go to **Simple Hotel CRM → Settings**.
+1. Go to **LGF Bookings & CRM → Settings**.
 2. Enter your Invoice Ninja URL.
 3. Enter your API token.
 4. Save settings.
@@ -82,10 +82,8 @@ A WordPress plugin to display MotoPress Hotel Booking data, locally synced LGF d
 
 - The original monolithic plugin file is now being split into focused includes, including `includes/schema.php`, `includes/helpers.php`, `includes/calendar-data.php`, `includes/admin-pages.php`, `includes/crm-bookings.php`, `includes/rest.php`, and `includes/invoicing.php`.
 
-This plugin was co-developed by:
+This plugin was authored by:
 - Angus Watson
-- Quinn (mistral/codestral)
-- Kylie (stepfun/step-3.5-flash:free)
 
 ## License
 

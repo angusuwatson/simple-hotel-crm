@@ -7,7 +7,7 @@ function simple_hotel_crm_register_admin_menu() {
         return;
     }
 
-    add_menu_page( __( 'Simple Hotel CRM', 'simple-hotel-crm' ), __( 'Simple Hotel CRM', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm', 'simple_hotel_crm_render_admin_page', 'dashicons-calendar-alt', 58 );
+    add_menu_page( __( 'LGF Bookings & CRM', 'simple-hotel-crm' ), __( 'LGF Bookings & CRM', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm', 'simple_hotel_crm_render_admin_page', 'dashicons-calendar-alt', 58 );
     add_submenu_page( 'simple-hotel-crm', __( 'Calendar', 'simple-hotel-crm' ), __( 'Calendar', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm', 'simple_hotel_crm_render_admin_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Bookings', 'simple-hotel-crm' ), __( 'Bookings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-bookings', 'simple_hotel_crm_render_bookings_page' );
     add_submenu_page( null, __( 'Add Booking', 'simple-hotel-crm' ), __( 'Add Booking', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-add-booking', 'simple_hotel_crm_render_add_booking_page' );
@@ -1769,8 +1769,8 @@ function simple_hotel_crm_render_settings_page() {
     $api_token = get_option( 'simple_hotel_crm_invoice_ninja_token', '' );
 
     echo '<div class="wrap">';
-    echo '<h1>' . esc_html__( 'Simple Hotel CRM Settings', 'simple-hotel-crm' ) . '</h1>';
-    echo '<p>' . esc_html__( 'Simple Hotel CRM now uses the WordPress CRM tables as the main booking source.', 'simple-hotel-crm' ) . '</p>';
+    echo '<h1>' . esc_html__( 'LGF Bookings & CRM Settings', 'simple-hotel-crm' ) . '</h1>';
+    echo '<p>' . esc_html__( 'LGF Bookings & CRM now uses the WordPress CRM tables as the main booking source.', 'simple-hotel-crm' ) . '</p>';
     echo '<nav class="nav-tab-wrapper">';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=invoice-ninja' ) ) . '" class="nav-tab ' . ( 'invoice-ninja' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Invoice Ninja', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=import' ) ) . '" class="nav-tab ' . ( 'import' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Import', 'simple-hotel-crm' ) . '</a>';
