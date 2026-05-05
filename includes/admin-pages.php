@@ -56,7 +56,8 @@ function simple_hotel_crm_render_bookings_page() {
     $order = isset( $_GET['order'] ) && 'asc' === strtolower( (string) $_GET['order'] ) ? 'ASC' : 'DESC';
     $order_sql = $sortable[ $orderby_key ];
     $allowed_per_page = [ 20, 50, 100 ];
-    $per_page = isset( $_GET['per_page'] ) ? absint( $_GET['per_page'] ) : 20;
+    $user_per_page = (int) get_user_meta( get_current_user_id(), 'simple_hotel_crm_bookings_per_page', true );
+    $per_page = isset( $_GET['per_page'] ) ? absint( $_GET['per_page'] ) : ( in_array( $user_per_page, $allowed_per_page, true ) ? $user_per_page : 20 );
     if ( ! in_array( $per_page, $allowed_per_page, true ) ) {
         $per_page = 20;
     }
@@ -141,6 +142,8 @@ function simple_hotel_crm_render_bookings_page() {
     $trash_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE is_deleted = 1" );
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( 'Bookings', 'simple-hotel-crm' ) . ' <a class="page-title-action" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-add-booking' ) ) . '">' . esc_html__( 'Add Booking', 'simple-hotel-crm' ) . '</a></h1>';
+    if ( isset( $_GET['per_page'] ) ) { update_user_meta( get_current_user_id(), 'simple_hotel_crm_bookings_per_page', $per_page ); }
+    if ( isset( $_GET['per_page'] ) ) { update_user_meta( get_current_user_id(), 'simple_hotel_crm_guests_per_page', $per_page ); }
     echo '<form method="get" style="margin:12px 0;">';
     echo '<input type="hidden" name="page" value="simple-hotel-crm-bookings" />';
     echo '<input type="hidden" name="view" value="' . esc_attr( $view ) . '" />';
@@ -317,7 +320,8 @@ function simple_hotel_crm_render_guests_page() {
     $order = isset( $_GET['order'] ) && 'desc' === strtolower( (string) $_GET['order'] ) ? 'DESC' : 'ASC';
     $order_sql = $sortable[ $orderby_key ];
     $allowed_per_page = [ 20, 50, 100 ];
-    $per_page = isset( $_GET['per_page'] ) ? absint( $_GET['per_page'] ) : 20;
+    $user_per_page = (int) get_user_meta( get_current_user_id(), 'simple_hotel_crm_guests_per_page', true );
+    $per_page = isset( $_GET['per_page'] ) ? absint( $_GET['per_page'] ) : ( in_array( $user_per_page, $allowed_per_page, true ) ? $user_per_page : 20 );
     if ( ! in_array( $per_page, $allowed_per_page, true ) ) {
         $per_page = 20;
     }

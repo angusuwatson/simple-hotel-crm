@@ -153,13 +153,13 @@ $calendar_base_url = $calendar_base_url ?? '';
                 <input type="hidden" name="booking_id" value="" />
                 <input type="hidden" name="reserved_room_id" value="" />
                 <div class="simple-hotel-crm-form-grid simple-hotel-crm-form-grid-2">
-                    <p><label><?php esc_html_e( 'Status', 'simple-hotel-crm' ); ?><select name="status_code" class="regular-text"><?php foreach ( simple_hotel_crm_get_booking_status_options() as $code => $label ) : ?><option value="<?php echo esc_attr( $code ); ?>"><?php echo esc_html( $label ); ?></option><?php endforeach; ?></select></label></p>
                     <p><label><?php esc_html_e( 'Guest name', 'simple-hotel-crm' ); ?><span class="simple-hotel-crm-copy-field"><input type="text" name="guest_name" class="regular-text" /><button type="button" class="button button-small simple-hotel-crm-copy-button" data-copy-target="guest_name"><?php esc_html_e( 'Copy', 'simple-hotel-crm' ); ?></button></span></label></p>
                     <p><label><?php esc_html_e( 'Phone', 'simple-hotel-crm' ); ?><span class="simple-hotel-crm-copy-field"><input type="text" name="phone" class="regular-text" /><button type="button" class="button button-small simple-hotel-crm-copy-button" data-copy-target="phone"><?php esc_html_e( 'Copy', 'simple-hotel-crm' ); ?></button></span></label></p>
                     <p><label><?php esc_html_e( 'Email', 'simple-hotel-crm' ); ?><span class="simple-hotel-crm-copy-field"><input type="email" name="email" class="regular-text" /><button type="button" class="button button-small simple-hotel-crm-copy-button" data-copy-target="email"><?php esc_html_e( 'Copy', 'simple-hotel-crm' ); ?></button></span></label></p>
                     <p><label><?php esc_html_e( 'Extras', 'simple-hotel-crm' ); ?><input type="text" name="extras_formula" class="regular-text" /></label></p>
+                    <p class="simple-hotel-crm-quick-booking-wide"><label><?php esc_html_e( 'Booking note', 'simple-hotel-crm' ); ?><br><input type="text" name="booking_note" class="regular-text simple-hotel-crm-booking-note-input" /></label></p>
+                    <p class="simple-hotel-crm-quick-booking-wide"><label><?php esc_html_e( 'Status', 'simple-hotel-crm' ); ?><select name="status_code" class="regular-text"><?php foreach ( simple_hotel_crm_get_booking_status_options() as $code => $label ) : ?><option value="<?php echo esc_attr( $code ); ?>"><?php echo esc_html( $label ); ?></option><?php endforeach; ?></select></label></p>
                 </div>
-                <p><label><?php esc_html_e( 'Booking note', 'simple-hotel-crm' ); ?><br><input type="text" name="booking_note" class="regular-text" /></label></p>
                 <p><label><?php esc_html_e( 'Internal notes', 'simple-hotel-crm' ); ?><br><textarea name="internal_notes" rows="5" class="large-text"></textarea></label></p>
                 <p class="simple-hotel-crm-quick-booking-actions">
                     <a href="#" class="button simple-hotel-crm-open-full-booking"><?php esc_html_e( 'Open full booking', 'simple-hotel-crm' ); ?></a>
