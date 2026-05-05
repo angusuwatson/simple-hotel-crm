@@ -51,9 +51,20 @@ function simple_hotel_crm_render_bookings_page() {
     $view = ( isset( $_GET['view'] ) && 'trash' === $_GET['view'] ) ? 'trash' : 'active';
     $is_deleted = 'trash' === $view ? 1 : 0;
     $sortable = [ 'id' => 'b.id', 'guest' => 'guest_name', 'check_in' => 'b.check_in_date', 'check_out' => 'b.check_out_date', 'rooms' => 'room_count', 'status' => 'b.status_code', 'channel' => 'b.source_channel', 'total' => 'b.total_amount' ];
+    $search = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
     $orderby_key = isset( $_GET['orderby'] ) && isset( $sortable[ $_GET['orderby'] ] ) ? $_GET['orderby'] : 'check_in';
     $order = isset( $_GET['order'] ) && 'asc' === strtolower( (string) $_GET['order'] ) ? 'ASC' : 'DESC';
     $order_sql = $sortable[ $orderby_key ];
+    $per_page = 20;
+    $paged = max( 1, absint( $_GET['paged'] ?? 1 ) );
+    $offset = ( $paged - 1 ) * $per_page;
+    $search_sql = '';
+    $search_params = [];
+    if ( '' !== $search ) {
+        $search_sql = " AND (b.id LIKE %s OR b.source_booking_id LIKE %s OR g.first_name LIKE %s OR g.last_name LIKE %s OR CONCAT(g.first_name, ' ', g.last_name) LIKE %s OR b.source_channel LIKE %s OR b.status_code LIKE %s) ";
+        $like = '%' . $wpdb->esc_like( $search ) . '%';
+        $search_params = [ $like, $like, $like, $like, $like, $like, $like ];
+    }
 
     if ( isset( $_POST['simple_hotel_crm_bulk_apply'] ) && ! empty( $_POST['booking_ids'] ) && is_array( $_POST['booking_ids'] ) ) {
         check_admin_referer( 'simple_hotel_crm_bulk_bookings' );
@@ -106,19 +117,32 @@ function simple_hotel_crm_render_bookings_page() {
              FROM {$bookings_table} b
              JOIN {$guests_table} g ON g.id = b.guest_id
              LEFT JOIN {$booking_rooms_table} br ON br.booking_id = b.id
-             WHERE b.is_deleted = %d
+             WHERE b.is_deleted = %d {$search_sql}
              GROUP BY b.id, b.guest_id, b.status_code, b.check_in_date, b.check_out_date, b.source_channel, b.total_amount, b.created_at, guest_name
              ORDER BY {$order_sql} {$order}
-             LIMIT 200",
-            $is_deleted
+             LIMIT %d OFFSET %d",
+            array_merge( [ $is_deleted ], $search_params, [ $per_page, $offset ] )
         ),
         ARRAY_A
     );
+    $total_bookings = (int) $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$bookings_table} b JOIN {$guests_table} g ON g.id = b.guest_id WHERE b.is_deleted = %d {$search_sql}",
+            array_merge( [ $is_deleted ], $search_params )
+        )
+    );
+    $page_count = (int) ceil( $total_bookings / $per_page );
 
     $active_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE is_deleted = 0" );
     $trash_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE is_deleted = 1" );
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( 'Bookings', 'simple-hotel-crm' ) . ' <a class="page-title-action" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-add-booking' ) ) . '">' . esc_html__( 'Add Booking', 'simple-hotel-crm' ) . '</a></h1>';
+    echo '<form method="get" style="margin:12px 0;">';
+    echo '<input type="hidden" name="page" value="simple-hotel-crm-bookings" />';
+    echo '<input type="hidden" name="view" value="' . esc_attr( $view ) . '" />';
+    echo '<input type="text" name="s" value="' . esc_attr( $search ) . '" placeholder="' . esc_attr__( 'Search bookings', 'simple-hotel-crm' ) . '" /> ';
+    echo '<button type="submit" class="button">' . esc_html__( 'Search', 'simple-hotel-crm' ) . '</button>';
+    echo '</form>';
     echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings&view=active' ) ) . '">' . esc_html__( 'Active', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $active_count ) . ')</a> | <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings&view=trash' ) ) . '">' . esc_html__( 'Trash', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $trash_count ) . ')</a></p>';
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_bulk_bookings' );
@@ -167,6 +191,14 @@ function simple_hotel_crm_render_bookings_page() {
         }
     }
     echo '</tbody></table></form>';
+    if ( $page_count > 1 ) {
+        echo '<div class="tablenav"><div class="tablenav-pages">';
+        for ( $i = 1; $i <= $page_count; $i++ ) {
+            $url = add_query_arg( [ 'page' => 'simple-hotel-crm-bookings', 'view' => $view, 's' => $search, 'orderby' => $orderby_key, 'order' => strtolower( $order ), 'paged' => $i ], admin_url( 'admin.php' ) );
+            echo '<a class="page-numbers' . ( $i === $paged ? ' current' : '' ) . '" href="' . esc_url( $url ) . '">' . esc_html( (string) $i ) . '</a> ';
+        }
+        echo '</div></div>';
+    }
     echo '</div>';
 }
 
@@ -267,9 +299,20 @@ function simple_hotel_crm_render_guests_page() {
     $view = ( isset( $_GET['view'] ) && 'trash' === $_GET['view'] ) ? 'trash' : 'active';
     $is_deleted = 'trash' === $view ? 1 : 0;
     $sortable = [ 'id' => 'g.id', 'name' => 'guest_name', 'email' => 'g.email', 'phone' => 'g.phone', 'bookings' => 'booking_count' ];
+    $search = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
     $orderby_key = isset( $_GET['orderby'] ) && isset( $sortable[ $_GET['orderby'] ] ) ? $_GET['orderby'] : 'name';
     $order = isset( $_GET['order'] ) && 'desc' === strtolower( (string) $_GET['order'] ) ? 'DESC' : 'ASC';
     $order_sql = $sortable[ $orderby_key ];
+    $per_page = 20;
+    $paged = max( 1, absint( $_GET['paged'] ?? 1 ) );
+    $offset = ( $paged - 1 ) * $per_page;
+    $search_sql = '';
+    $search_params = [];
+    if ( '' !== $search ) {
+        $search_sql = " AND (g.id LIKE %s OR g.first_name LIKE %s OR g.last_name LIKE %s OR CONCAT(g.first_name, ' ', g.last_name) LIKE %s OR g.email LIKE %s OR g.phone LIKE %s) ";
+        $like = '%' . $wpdb->esc_like( $search ) . '%';
+        $search_params = [ $like, $like, $like, $like, $like, $like ];
+    }
 
     if ( isset( $_GET['restore_guest'] ) ) {
         check_admin_referer( 'simple_hotel_crm_restore_guest_' . absint( $_GET['restore_guest'] ) );
@@ -341,14 +384,21 @@ function simple_hotel_crm_render_guests_page() {
             "SELECT g.id, CONCAT(g.first_name, ' ', g.last_name) AS guest_name, g.email, g.phone, COUNT(b.id) AS booking_count
              FROM {$guests_table} g
              LEFT JOIN {$bookings_table} b ON b.guest_id = g.id AND b.is_deleted = 0
-             WHERE g.is_deleted = %d
+             WHERE g.is_deleted = %d {$search_sql}
              GROUP BY g.id, guest_name, g.email, g.phone
              ORDER BY {$order_sql} {$order}
-             LIMIT 200",
-            $is_deleted
+             LIMIT %d OFFSET %d",
+            array_merge( [ $is_deleted ], $search_params, [ $per_page, $offset ] )
         ),
         ARRAY_A
     );
+    $total_guests = (int) $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$guests_table} g WHERE g.is_deleted = %d {$search_sql}",
+            array_merge( [ $is_deleted ], $search_params )
+        )
+    );
+    $page_count = (int) ceil( $total_guests / $per_page );
 
     $active_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$guests_table} WHERE is_deleted = 0" );
     $trash_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$guests_table} WHERE is_deleted = 1" );
@@ -360,6 +410,12 @@ function simple_hotel_crm_render_guests_page() {
 
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( 'Guests', 'simple-hotel-crm' ) . ' <a class="page-title-action" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guest-detail' ) ) . '">' . esc_html__( 'Add New', 'simple-hotel-crm' ) . '</a> <a class="page-title-action" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guest-duplicates' ) ) . '">' . esc_html__( 'Duplicate Check', 'simple-hotel-crm' ) . '</a></h1>';
+    echo '<form method="get" style="margin:12px 0;">';
+    echo '<input type="hidden" name="page" value="simple-hotel-crm-guests" />';
+    echo '<input type="hidden" name="view" value="' . esc_attr( $view ) . '" />';
+    echo '<input type="text" name="s" value="' . esc_attr( $search ) . '" placeholder="' . esc_attr__( 'Search guests', 'simple-hotel-crm' ) . '" /> ';
+    echo '<button type="submit" class="button">' . esc_html__( 'Search', 'simple-hotel-crm' ) . '</button>';
+    echo '</form>';
     echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guests&view=active' ) ) . '">' . esc_html__( 'Active', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $active_count ) . ')</a> | <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guests&view=trash' ) ) . '">' . esc_html__( 'Trash', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $trash_count ) . ')</a></p>';
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_bulk_guests' );
@@ -397,6 +453,14 @@ function simple_hotel_crm_render_guests_page() {
         }
     }
     echo '</tbody></table></form>';
+    if ( $page_count > 1 ) {
+        echo '<div class="tablenav"><div class="tablenav-pages">';
+        for ( $i = 1; $i <= $page_count; $i++ ) {
+            $url = add_query_arg( [ 'page' => 'simple-hotel-crm-bookings', 'view' => $view, 's' => $search, 'orderby' => $orderby_key, 'order' => strtolower( $order ), 'paged' => $i ], admin_url( 'admin.php' ) );
+            echo '<a class="page-numbers' . ( $i === $paged ? ' current' : '' ) . '" href="' . esc_url( $url ) . '">' . esc_html( (string) $i ) . '</a> ';
+        }
+        echo '</div></div>';
+    }
     echo '</div>';
 }
 
