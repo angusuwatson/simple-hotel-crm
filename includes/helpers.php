@@ -203,6 +203,21 @@ function simple_hotel_crm_evaluate_extras_formula( $formula ) {
     ];
 }
 
+function simple_hotel_crm_adjust_color_brightness( $hex, $steps ) {
+    $hex = ltrim( trim( (string) $hex ), '#' );
+    if ( 3 === strlen( $hex ) ) {
+        $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+    }
+    if ( 6 !== strlen( $hex ) ) {
+        return '#444444';
+    }
+    $steps = max( -255, min( 255, (int) $steps ) );
+    $r = max( 0, min( 255, hexdec( substr( $hex, 0, 2 ) ) + $steps ) );
+    $g = max( 0, min( 255, hexdec( substr( $hex, 2, 2 ) ) + $steps ) );
+    $b = max( 0, min( 255, hexdec( substr( $hex, 4, 2 ) ) + $steps ) );
+    return sprintf( '#%02x%02x%02x', $r, $g, $b );
+}
+
 function simple_hotel_crm_get_room_display_number( $room_code, $fallback = '' ) {
     $room_code = strtoupper( trim( (string) $room_code ) );
     $room_numbers = [
