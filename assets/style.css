@@ -2,17 +2,14 @@
 
 .simple-hotel-crm-container {
     margin: 1em 0;
-    background: #111318;
-    color: #e7e9ee;
-    border: 1px solid #2a2f3a;
+    background: #f4f4f6;
+    color: #161616;
+    border: 1px solid #2e2e33;
 }
 
 .simple-hotel-crm-container .simple-hotel-crm,
-.simple-hotel-crm-container .calendar-month-tabs,
-.simple-hotel-crm-container .calendar-grid,
-.simple-hotel-crm-container .calendar-grid th,
-.simple-hotel-crm-container .calendar-grid td {
-    background-color: #111318;
+.simple-hotel-crm-container .calendar-grid {
+    background-color: #f4f4f6;
 }
 
 .simple-hotel-crm-floating-add-booking {
@@ -67,28 +64,28 @@
     display: flex;
     gap: 0;
     overflow-x: auto;
-    background: linear-gradient(180deg, #2a2f3a, #181c24);
-    border-bottom: 1px solid #2f3542;
+    background: linear-gradient(180deg, #4b4d5f, #313242);
+    border-bottom: 1px solid #5a5c70;
 }
 
 .calendar-month-tab {
-    color: #cfd6e6;
+    color: #d9dbe6;
     text-decoration: none;
-    padding: 4px 8px;
-    font-weight: 700;
-    min-width: 52px;
+    padding: 10px 18px;
+    font-weight: 500;
+    min-width: 92px;
     text-align: center;
     border-bottom: 3px solid transparent;
     flex: 0 0 auto;
-    letter-spacing: 0.01em;
-    font-size: 11px;
+    letter-spacing: -0.02em;
+    font-size: 18px;
     line-height: 1.1;
 }
 
-.calendar-month-tab:hover { background: #343434; color: #fff; }
-.calendar-month-tab.is-current { background: #3d3d3d; border-bottom-color: #ffffff; }
+.calendar-month-tab:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.calendar-month-tab.is-current { background: rgba(255,255,255,0.06); border-bottom-color: #f0e0ad; color: #fff; }
 
-.simple-hotel-crm { overflow-x: auto; overflow-y: visible; background: #fff; }
+.simple-hotel-crm { overflow-x: auto; overflow-y: visible; background: #f4f4f6; }
 
 .simple-hotel-crm .calendar-grid {
     border-collapse: collapse;
@@ -101,20 +98,20 @@
 
 .simple-hotel-crm .calendar-grid th,
 .simple-hotel-crm .calendar-grid td {
-    border: 0;
+    border: 1px solid #bfc2ca;
     padding: 0 3px;
     width: 106px;
     vertical-align: middle;
-    height: 14px;
+    height: 16px;
     line-height: 1.0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     box-sizing: border-box;
-    color: #e7e9ee;
+    color: #161616;
 }
 
-.simple-hotel-crm .calendar-grid th { background: #151a22; text-align: center; font-weight: 400; color: #e7e9ee; }
+.simple-hotel-crm .calendar-grid th { background: #f4f4f6; text-align: center; font-weight: 400; color: #161616; }
 
 .simple-hotel-crm .calendar-grid .sticky-col {
     position: sticky;
@@ -126,25 +123,25 @@
     background-clip: padding-box;
 }
 
-.simple-hotel-crm .calendar-grid .room-header-spacer { background: #151a22; }
+.simple-hotel-crm .calendar-grid .room-header-spacer { background: #f4f4f6; }
 .simple-hotel-crm .calendar-grid .month-row th,
-.simple-hotel-crm .calendar-grid .weekday-row th { background: #151a22; }
+.simple-hotel-crm .calendar-grid .weekday-row th { background: #f4f4f6; }
 .simple-hotel-crm .calendar-grid .calendar-day-number,
 .simple-hotel-crm .calendar-grid .calendar-weekday,
 .simple-hotel-crm .calendar-grid .calendar-corner-month { display: block; }
-.simple-hotel-crm .calendar-grid .calendar-corner-month { color: #000; font-size: 10px; font-weight: 700; text-align: left; }
-.simple-hotel-crm .calendar-grid .calendar-day-number { color: #000; font-size: 10px; font-weight: 400; }
-.simple-hotel-crm .calendar-grid .calendar-weekday { font-size: 10px; color: #000; }
+.simple-hotel-crm .calendar-grid .calendar-corner-month { color: #232323; font-size: 11px; font-weight: 400; text-align: left; }
+.simple-hotel-crm .calendar-grid .calendar-day-number { color: #232323; font-size: 12px; font-weight: 400; }
+.simple-hotel-crm .calendar-grid .calendar-weekday { font-size: 11px; color: #232323; }
 .simple-hotel-crm .calendar-grid .room-label-cell,
-.simple-hotel-crm .calendar-grid td.calendar-cell { background: #111318; color: #e7e9ee; }
+.simple-hotel-crm .calendar-grid td.calendar-cell { background: #ffffff; color: #161616; }
 
 .simple-hotel-crm .calendar-grid .notes-row td,
 .simple-hotel-crm .calendar-grid .notes-row th {
-    background: #111318;
-    height: 14px;
+    background: #ffffff;
+    height: 16px;
 }
 
-.simple-hotel-crm .calendar-grid .notes-label-cell { background: #151a22; font-weight: 700; z-index: 9; }
+.simple-hotel-crm .calendar-grid .notes-label-cell { background: #ececef; font-weight: 700; z-index: 9; }
 .simple-hotel-crm .calendar-grid .notes-cell { padding: 0; }
 
 .simple-hotel-crm .calendar-grid .calendar-note-input,
@@ -156,7 +153,7 @@
     background: transparent;
     padding: 0 3px;
     font: inherit;
-    color: #e7e9ee;
+    color: #161616;
     box-sizing: border-box;
 }
 
@@ -173,9 +170,9 @@
 
 .simple-hotel-crm .calendar-grid .calendar-note-input:focus,
 .simple-hotel-crm .calendar-grid .calendar-booking-input:focus {
-    outline: 2px solid #7aa7ff;
+    outline: 2px solid #6b6fe3;
     outline-offset: -2px;
-    background: rgba(255,255,255,0.08);
+    background: rgba(107,111,227,0.08);
 }
 
 .simple-hotel-crm .calendar-grid .calendar-note-input.is-saving,
@@ -185,7 +182,7 @@
 
 .simple-hotel-crm .calendar-grid .room-name-row .room-label-cell,
 .simple-hotel-crm .calendar-grid .room-name-row td.calendar-cell {
-    background: var(--room-fill, #262626);
+    background: #2f2f31;
     color: #fff;
     font-weight: 700;
 }
@@ -205,13 +202,14 @@
 .simple-hotel-crm .calendar-grid .extras-row .room-label-cell,
 .simple-hotel-crm .calendar-grid .extras-row td,
 .simple-hotel-crm .calendar-grid .tarif-row .room-label-cell,
-.simple-hotel-crm .calendar-grid .tarif-row td { background: var(--room-fill, transparent); }
+.simple-hotel-crm .calendar-grid .tarif-row td { background: var(--room-fill, transparent); color: #1a1a1a; }
 
 .simple-hotel-crm .calendar-grid .commission-row .room-label-cell,
 .simple-hotel-crm .calendar-grid .commission-row td,
 .simple-hotel-crm .calendar-grid .commission-row td.calendar-cell.detail,
 .simple-hotel-crm .calendar-grid .commission-row .room-label-cell.detail {
-    background: #2b2f36 !important;
+    background: #ffffff !important;
+    color: #161616;
 }
 
 .simple-hotel-crm .calendar-grid .room-label-text { display: block; font-weight: 700; }
@@ -242,9 +240,9 @@
 
 .calendar-occupancy-editor .occupancy-separator { font-size: 10px; font-weight: 700; }
 
-.simple-hotel-crm .calendar-grid tr.calendar-spacer-row td { background: #fff; height: 14px; }
-.simple-hotel-crm .calendar-grid tr.summary-row td { background: #f7f7f7; height: 21px; }
-.simple-hotel-crm .calendar-grid tr.summary-row .summary-label-cell { background: #efefef; font-weight: 700; }
+.simple-hotel-crm .calendar-grid tr.calendar-spacer-row td { background: #ffffff; height: 14px; }
+.simple-hotel-crm .calendar-grid tr.summary-row td { background: #f6f6f7; height: 21px; color: #161616; }
+.simple-hotel-crm .calendar-grid tr.summary-row .summary-label-cell { background: #e9e9ec; font-weight: 700; }
 .simple-hotel-crm .calendar-grid tr.summary-income-day td,
 .simple-hotel-crm .calendar-grid tr.summary-income-accumulated td,
 .simple-hotel-crm .calendar-grid tr.summary-booking-payment td,
@@ -369,7 +367,7 @@
 .simple-hotel-crm-quick-booking-message.success { color: #027a48; }
 
 @media (max-width: 768px) {
-    .calendar-month-tab { min-width: 48px; padding: 4px 6px; }
+    .calendar-month-tab { min-width: 64px; padding: 8px 10px; font-size: 15px; }
     .simple-hotel-crm .calendar-grid { min-width: 1950px; font-size: 11px; }
     .simple-hotel-crm .calendar-grid th,
     .simple-hotel-crm .calendar-grid td { width: 86px; font-size: 10px; height: 14px; }
