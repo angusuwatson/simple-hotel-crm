@@ -195,6 +195,7 @@ function simple_hotel_crm_render_bookings_page() {
         $base_args = [ 'page' => 'simple-hotel-crm-bookings', 'view' => $view, 's' => $search, 'orderby' => $orderby_key, 'order' => strtolower( $order ) ];
         echo '<div class="tablenav"><div class="tablenav-pages">';
         echo '<span class="pagination-links">';
+        echo '<a class="first-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => 1 ] ), admin_url( 'admin.php' ) ) ) . '">&laquo;</a> ';
         if ( $paged > 1 ) {
             echo '<a class="prev-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged - 1 ] ), admin_url( 'admin.php' ) ) ) . '">&lsaquo;</a> ';
         } else {
@@ -202,10 +203,11 @@ function simple_hotel_crm_render_bookings_page() {
         }
         echo '<span class="paging-input">' . esc_html( sprintf( __( 'Page %1$d of %2$d', 'simple-hotel-crm' ), $paged, $page_count ) ) . '</span> ';
         if ( $paged < $page_count ) {
-            echo '<a class="next-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged + 1 ] ), admin_url( 'admin.php' ) ) ) . '">&rsaquo;</a>';
+            echo '<a class="next-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged + 1 ] ), admin_url( 'admin.php' ) ) ) . '">&rsaquo;</a> ';
         } else {
-            echo '<span class="tablenav-pages-navspan button disabled">&rsaquo;</span>';
+            echo '<span class="tablenav-pages-navspan button disabled">&rsaquo;</span> ';
         }
+        echo '<a class="last-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $page_count ] ), admin_url( 'admin.php' ) ) ) . '">&raquo;</a>';
         echo '</span></div></div>';
     }
     echo '</div>';
@@ -466,6 +468,7 @@ function simple_hotel_crm_render_guests_page() {
         $base_args = [ 'page' => 'simple-hotel-crm-guests', 'view' => $view, 's' => $search, 'orderby' => $orderby_key, 'order' => strtolower( $order ) ];
         echo '<div class="tablenav"><div class="tablenav-pages">';
         echo '<span class="pagination-links">';
+        echo '<a class="first-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => 1 ] ), admin_url( 'admin.php' ) ) ) . '">&laquo;</a> ';
         if ( $paged > 1 ) {
             echo '<a class="prev-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged - 1 ] ), admin_url( 'admin.php' ) ) ) . '">&lsaquo;</a> ';
         } else {
@@ -473,10 +476,11 @@ function simple_hotel_crm_render_guests_page() {
         }
         echo '<span class="paging-input">' . esc_html( sprintf( __( 'Page %1$d of %2$d', 'simple-hotel-crm' ), $paged, $page_count ) ) . '</span> ';
         if ( $paged < $page_count ) {
-            echo '<a class="next-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged + 1 ] ), admin_url( 'admin.php' ) ) ) . '">&rsaquo;</a>';
+            echo '<a class="next-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged + 1 ] ), admin_url( 'admin.php' ) ) ) . '">&rsaquo;</a> ';
         } else {
-            echo '<span class="tablenav-pages-navspan button disabled">&rsaquo;</span>';
+            echo '<span class="tablenav-pages-navspan button disabled">&rsaquo;</span> ';
         }
+        echo '<a class="last-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $page_count ] ), admin_url( 'admin.php' ) ) ) . '">&raquo;</a>';
         echo '</span></div></div>';
     }
     echo '</div>';
