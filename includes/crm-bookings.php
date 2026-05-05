@@ -68,6 +68,86 @@ function simple_hotel_crm_distribute_amounts( $total, $count ) {
     return $values;
 }
 
+function simple_hotel_crm_get_room_pricing_for_occupancy( $room_id, $occupancy_adults ) {
+    global $wpdb;
+
+    $room_id = absint( $room_id );
+    $occupancy_adults = max( 0, (int) $occupancy_adults );
+    if ( $room_id <= 0 || $occupancy_adults <= 0 ) {
+        return null;
+    }
+
+    $pricing_table = simple_hotel_crm_room_pricing_table();
+    $row = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT id, room_id, occupancy_adults, price_amount
+             FROM {$pricing_table}
+             WHERE room_id = %d AND occupancy_adults = %d AND active = 1
+             LIMIT 1",
+            $room_id,
+            $occupancy_adults
+        ),
+        ARRAY_A
+    );
+
+    return is_array( $row ) ? $row : null;
+}
+
+function simple_hotel_crm_calculate_room_pricing( array $line, int $nights, int $crm_room_id = 0 ) {
+    $nights = max( 1, $nights );
+    $adults = max( 0, (int) ( $line['adults'] ?? 0 ) );
+    $children = max( 0, (int) ( $line['children'] ?? 0 ) );
+    $babies = max( 0, (int) ( $line['babies'] ?? 0 ) );
+    $guest_count = $adults + $children + $babies;
+    $occupancy_adults = $adults;
+    $pricing_row = $crm_room_id > 0 ? simple_hotel_crm_get_room_pricing_for_occupancy( $crm_room_id, $occupancy_adults ) : null;
+
+    $manual_room_rate_amount = max( 0, (float) simple_hotel_crm_normalize_decimal( $line['room_rate_amount'] ?? 0 ) );
+    $extras_amount = max( 0, (float) simple_hotel_crm_normalize_decimal( $line['extras_amount'] ?? 0 ) );
+    $discount_type = sanitize_key( (string) ( $line['discount_type'] ?? 'none' ) );
+    if ( ! in_array( $discount_type, [ 'none', 'percent', 'amount' ], true ) ) {
+        $discount_type = 'none';
+    }
+    $discount_value = max( 0, (float) simple_hotel_crm_normalize_decimal( $line['discount_value'] ?? 0 ) );
+
+    $base_price_amount = $pricing_row
+        ? round( (float) $pricing_row['price_amount'] * $nights, 2 )
+        : $manual_room_rate_amount;
+
+    if ( 'percent' === $discount_type ) {
+        $discount_value = min( 100, $discount_value );
+        $discount_amount = round( $base_price_amount * ( $discount_value / 100 ), 2 );
+    } elseif ( 'amount' === $discount_type ) {
+        $discount_amount = min( $base_price_amount, round( $discount_value, 2 ) );
+    } else {
+        $discount_amount = 0.00;
+        $discount_value = 0.00;
+    }
+
+    $subtotal_amount = max( 0, round( $base_price_amount - $discount_amount, 2 ) );
+    $tourist_tax_total = round( $adults * 0.80 * $nights, 2 );
+    $room_rate_amount = $subtotal_amount;
+    $total_amount = round( $room_rate_amount + $extras_amount + $tourist_tax_total, 2 );
+
+    return [
+        'pricing_room_id' => $pricing_row ? (int) $pricing_row['id'] : 0,
+        'occupancy_adults' => $occupancy_adults,
+        'adults' => $adults,
+        'children' => $children,
+        'babies' => $babies,
+        'guest_count' => $guest_count,
+        'base_price_amount' => $base_price_amount,
+        'discount_type' => $discount_type,
+        'discount_value' => $discount_value,
+        'discount_amount' => $discount_amount,
+        'subtotal_amount' => $subtotal_amount,
+        'room_rate_amount' => $room_rate_amount,
+        'extras_amount' => $extras_amount,
+        'tourist_tax_total' => $tourist_tax_total,
+        'total_amount' => $total_amount,
+    ];
+}
+
 function simple_hotel_crm_validate_booking_form_data( $data ) {
     $guest_name = trim( (string) ( $data['guest_name'] ?? '' ) );
     if ( '' === $guest_name ) {
@@ -119,20 +199,24 @@ function simple_hotel_crm_validate_booking_form_data( $data ) {
         if ( $guest_count <= 0 ) {
             return new WP_Error( 'invalid_guest_count', __( 'Each room line must have at least one guest.', 'simple-hotel-crm' ) );
         }
-        $room_rate_amount = max( 0, (float) simple_hotel_crm_normalize_decimal( $line['room_rate_amount'] ?? 0 ) );
-        $extras_amount = max( 0, (float) simple_hotel_crm_normalize_decimal( $line['extras_amount'] ?? 0 ) );
-        $tourist_tax_total = round( $adults * 0.80 * $nights, 2 );
-        $total_amount = round( $room_rate_amount + $extras_amount + $tourist_tax_total, 2 );
+        $discount_type = sanitize_key( (string) ( $line['discount_type'] ?? 'none' ) );
+        if ( ! in_array( $discount_type, [ 'none', 'percent', 'amount' ], true ) ) {
+            return new WP_Error( 'invalid_discount_type', __( 'Please select a valid discount type.', 'simple-hotel-crm' ) );
+        }
+        $discount_value = max( 0, (float) simple_hotel_crm_normalize_decimal( $line['discount_value'] ?? 0 ) );
+        if ( 'percent' === $discount_type && $discount_value > 100 ) {
+            return new WP_Error( 'invalid_discount_value', __( 'Percent discount cannot exceed 100.', 'simple-hotel-crm' ) );
+        }
         $validated_lines[] = [
             'room_sync_id' => $room_sync_id,
             'adults' => $adults,
             'children' => $children,
             'babies' => $babies,
             'guest_count' => $guest_count,
-            'room_rate_amount' => $room_rate_amount,
-            'extras_amount' => $extras_amount,
-            'tourist_tax_total' => $tourist_tax_total,
-            'total_amount' => $total_amount,
+            'room_rate_amount' => max( 0, (float) simple_hotel_crm_normalize_decimal( $line['room_rate_amount'] ?? 0 ) ),
+            'extras_amount' => max( 0, (float) simple_hotel_crm_normalize_decimal( $line['extras_amount'] ?? 0 ) ),
+            'discount_type' => $discount_type,
+            'discount_value' => $discount_value,
         ];
     }
     if ( empty( $validated_lines ) ) {
@@ -218,20 +302,37 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
 
     $external_booking_id = (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_id), 0) + 1 FROM {$bookings_table}" );
     $next_booking_room_id = (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_room_id), 0) + 1 FROM {$bookings_table}" );
-    $booking_adults = array_sum( array_column( $room_lines, 'adults' ) );
-    $booking_children = array_sum( array_column( $room_lines, 'children' ) );
-    $booking_babies = array_sum( array_column( $room_lines, 'babies' ) );
-    $booking_room_rate = round( array_sum( array_column( $room_lines, 'room_rate_amount' ) ), 2 );
-    $booking_extras = round( array_sum( array_column( $room_lines, 'extras_amount' ) ), 2 );
-    $booking_tax = round( array_sum( array_column( $room_lines, 'tourist_tax_total' ) ), 2 );
-    $booking_total = round( array_sum( array_column( $room_lines, 'total_amount' ) ), 2 );
+    $calculated_room_lines = [];
 
     foreach ( $room_lines as $line ) {
         $availability = simple_hotel_crm_check_wp_sync_room_availability( $line['room_sync_id'], $check_in, $check_out );
         if ( is_wp_error( $availability ) ) {
             return $availability;
         }
+
+        $crm_room_id = simple_hotel_crm_find_crm_room_id( $line['room_sync_id'] ?? 0 );
+        $room = $crm_room_id > 0 ? $wpdb->get_row( $wpdb->prepare( "SELECT id, sync_room_id, external_room_id, room_code, room_name FROM {$crm_rooms_table} WHERE id = %d LIMIT 1", $crm_room_id ), ARRAY_A ) : null;
+        if ( ! $room || $crm_room_id <= 0 ) {
+            return new WP_Error( 'invalid_room', __( 'Please select a valid room.', 'simple-hotel-crm' ) );
+        }
+
+        $calculated_room_lines[] = array_merge(
+            $line,
+            simple_hotel_crm_calculate_room_pricing( $line, $nights, $crm_room_id ),
+            [
+                'crm_room_id' => $crm_room_id,
+                'room' => $room,
+            ]
+        );
     }
+
+    $booking_adults = array_sum( array_column( $calculated_room_lines, 'adults' ) );
+    $booking_children = array_sum( array_column( $calculated_room_lines, 'children' ) );
+    $booking_babies = array_sum( array_column( $calculated_room_lines, 'babies' ) );
+    $booking_room_rate = round( array_sum( array_column( $calculated_room_lines, 'room_rate_amount' ) ), 2 );
+    $booking_extras = round( array_sum( array_column( $calculated_room_lines, 'extras_amount' ) ), 2 );
+    $booking_tax = round( array_sum( array_column( $calculated_room_lines, 'tourist_tax_total' ) ), 2 );
+    $booking_total = round( array_sum( array_column( $calculated_room_lines, 'total_amount' ) ), 2 );
 
     list( $first_name, $last_name ) = simple_hotel_crm_split_guest_name( $guest_name );
 
@@ -291,14 +392,9 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
     $booking_id = (int) $wpdb->insert_id;
 
     $last_booking_room_id = 0;
-    foreach ( $room_lines as $line ) {
-        $crm_room_id = simple_hotel_crm_find_crm_room_id( $line['room_sync_id'] ?? 0 );
-        $room = $crm_room_id > 0 ? $wpdb->get_row( $wpdb->prepare( "SELECT id, sync_room_id, external_room_id, room_code, room_name FROM {$crm_rooms_table} WHERE id = %d LIMIT 1", $crm_room_id ), ARRAY_A ) : null;
-        if ( ! $room || $crm_room_id <= 0 ) {
-            $wpdb->query( 'ROLLBACK' );
-            return new WP_Error( 'invalid_room', __( 'Please select a valid room.', 'simple-hotel-crm' ) );
-        }
-
+    foreach ( $calculated_room_lines as $line ) {
+        $crm_room_id = (int) $line['crm_room_id'];
+        $room = $line['room'];
         $external_booking_room_id = $next_booking_room_id++;
         $booking_room_inserted = $wpdb->insert(
             $crm_booking_rooms_table,
@@ -306,16 +402,23 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
                 'booking_id' => $booking_id,
                 'room_id' => $crm_room_id,
                 'legacy_reserved_room_id' => $external_booking_room_id,
+                'pricing_room_id' => $line['pricing_room_id'] > 0 ? $line['pricing_room_id'] : null,
+                'occupancy_adults' => $line['occupancy_adults'],
                 'guest_count' => $line['guest_count'],
                 'adults' => $line['adults'],
                 'children' => $line['children'],
                 'babies' => $line['babies'],
+                'base_price_amount' => $line['base_price_amount'],
+                'discount_type' => $line['discount_type'],
+                'discount_value' => $line['discount_value'],
+                'discount_amount' => $line['discount_amount'],
+                'subtotal_amount' => $line['subtotal_amount'],
                 'room_rate_amount' => $line['room_rate_amount'],
                 'extras_amount' => $line['extras_amount'],
                 'tourist_tax_amount' => $line['tourist_tax_total'],
                 'total_amount' => $line['total_amount'],
             ],
-            [ '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f' ]
+            [ '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%f', '%s', '%f', '%f', '%f', '%f', '%f', '%f' ]
         );
         if ( false === $booking_room_inserted ) {
             $wpdb->query( 'ROLLBACK' );
@@ -324,6 +427,9 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
 
         $crm_booking_room_id = (int) $wpdb->insert_id;
         $last_booking_room_id = $crm_booking_room_id;
+        $base_price_nightly = simple_hotel_crm_distribute_amounts( $line['base_price_amount'], $nights );
+        $discount_nightly = simple_hotel_crm_distribute_amounts( $line['discount_amount'], $nights );
+        $subtotal_nightly = simple_hotel_crm_distribute_amounts( $line['subtotal_amount'], $nights );
         $room_rate_nightly = simple_hotel_crm_distribute_amounts( $line['room_rate_amount'], $nights );
         $extras_nightly = simple_hotel_crm_distribute_amounts( $line['extras_amount'], $nights );
         $tax_nightly = simple_hotel_crm_distribute_amounts( $line['tourist_tax_total'], $nights );
@@ -341,12 +447,15 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
                     'adults' => $line['adults'],
                     'children' => $line['children'],
                     'babies' => $line['babies'],
+                    'base_price_amount' => $base_price_nightly[ $i ],
+                    'discount_amount' => $discount_nightly[ $i ],
+                    'subtotal_amount' => $subtotal_nightly[ $i ],
                     'room_rate_amount' => $room_rate_nightly[ $i ],
                     'extras_amount' => $extras_nightly[ $i ],
                     'tourist_tax_amount' => $tax_nightly[ $i ],
                     'total_amount' => $night_total,
                 ],
-                [ '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f' ]
+                [ '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%f', '%f', '%f' ]
             );
             if ( false === $night_inserted ) {
                 $wpdb->query( 'ROLLBACK' );

@@ -705,8 +705,9 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
             $overlay_map[ $room_id ] = (int) $existing_room['legacy_reserved_room_id'];
         }
     }
+    $calculated_room_lines = [];
     foreach ( $room_lines as $line ) {
-        $crm_room_id = (int) $line['room_sync_id'];
+        $crm_room_id = simple_hotel_crm_find_crm_room_id( $line['room_sync_id'] ?? 0 );
         $availability = simple_hotel_crm_check_wp_sync_room_availability( $crm_room_id, $check_in, $check_out );
         if ( is_wp_error( $availability ) ) {
             $current_match = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$crm_booking_rooms_table} WHERE booking_id = %d AND room_id = %d", $booking_id, $crm_room_id ) );
@@ -714,6 +715,18 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
                 return $availability;
             }
         }
+        $room = $crm_room_id > 0 ? $wpdb->get_row( $wpdb->prepare( "SELECT id, sync_room_id, external_room_id, room_code, room_name FROM {$crm_rooms_table} WHERE id = %d LIMIT 1", $crm_room_id ), ARRAY_A ) : null;
+        if ( ! $room || $crm_room_id <= 0 ) {
+            return new WP_Error( 'invalid_room', __( 'Please select a valid room.', 'simple-hotel-crm' ) );
+        }
+        $calculated_room_lines[] = array_merge(
+            $line,
+            simple_hotel_crm_calculate_room_pricing( $line, $nights, $crm_room_id ),
+            [
+                'crm_room_id' => $crm_room_id,
+                'room' => $room,
+            ]
+        );
     }
 
     $wpdb->query( 'START TRANSACTION' );
@@ -731,21 +744,17 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
         $next_legacy_room_id = max( $next_legacy_room_id, max( array_map( 'intval', $overlay_map ) ) + 1 );
     }
     $external_booking_id = $existing_booking ? (int) $existing_booking['id'] : $booking_id;
-    $booking_adults = array_sum( array_column( $room_lines, 'adults' ) );
-    $booking_children = array_sum( array_column( $room_lines, 'children' ) );
-    $booking_babies = array_sum( array_column( $room_lines, 'babies' ) );
-    $booking_room_rate = round( array_sum( array_column( $room_lines, 'room_rate_amount' ) ), 2 );
-    $booking_extras = round( array_sum( array_column( $room_lines, 'extras_amount' ) ), 2 );
-    $booking_tax = round( array_sum( array_column( $room_lines, 'tourist_tax_total' ) ), 2 );
-    $booking_total = round( array_sum( array_column( $room_lines, 'total_amount' ) ), 2 );
+    $booking_adults = array_sum( array_column( $calculated_room_lines, 'adults' ) );
+    $booking_children = array_sum( array_column( $calculated_room_lines, 'children' ) );
+    $booking_babies = array_sum( array_column( $calculated_room_lines, 'babies' ) );
+    $booking_room_rate = round( array_sum( array_column( $calculated_room_lines, 'room_rate_amount' ) ), 2 );
+    $booking_extras = round( array_sum( array_column( $calculated_room_lines, 'extras_amount' ) ), 2 );
+    $booking_tax = round( array_sum( array_column( $calculated_room_lines, 'tourist_tax_total' ) ), 2 );
+    $booking_total = round( array_sum( array_column( $calculated_room_lines, 'total_amount' ) ), 2 );
 
-    foreach ( $room_lines as $line ) {
-        $crm_room_id = simple_hotel_crm_find_crm_room_id( $line['room_sync_id'] ?? 0 );
-        $room = $crm_room_id > 0 ? $wpdb->get_row( $wpdb->prepare( "SELECT id, sync_room_id, external_room_id, room_code, room_name FROM {$crm_rooms_table} WHERE id = %d LIMIT 1", $crm_room_id ), ARRAY_A ) : null;
-        if ( ! $room || $crm_room_id <= 0 ) {
-            $wpdb->query( 'ROLLBACK' );
-            return new WP_Error( 'invalid_room', __( 'Please select a valid room.', 'simple-hotel-crm' ) );
-        }
+    foreach ( $calculated_room_lines as $line ) {
+        $crm_room_id = (int) $line['crm_room_id'];
+        $room = $line['room'];
         $legacy_reserved_room_id = isset( $overlay_map[ $crm_room_id ] ) ? (int) $overlay_map[ $crm_room_id ] : $next_legacy_room_id++;
         $inserted = $wpdb->insert(
             $crm_booking_rooms_table,
@@ -753,16 +762,23 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
                 'booking_id' => $booking_id,
                 'room_id' => $crm_room_id,
                 'legacy_reserved_room_id' => $legacy_reserved_room_id,
+                'pricing_room_id' => $line['pricing_room_id'] > 0 ? $line['pricing_room_id'] : null,
+                'occupancy_adults' => $line['occupancy_adults'],
                 'guest_count' => $line['guest_count'],
                 'adults' => $line['adults'],
                 'children' => $line['children'],
                 'babies' => $line['babies'],
+                'base_price_amount' => $line['base_price_amount'],
+                'discount_type' => $line['discount_type'],
+                'discount_value' => $line['discount_value'],
+                'discount_amount' => $line['discount_amount'],
+                'subtotal_amount' => $line['subtotal_amount'],
                 'room_rate_amount' => $line['room_rate_amount'],
                 'extras_amount' => $line['extras_amount'],
                 'tourist_tax_amount' => $line['tourist_tax_total'],
                 'total_amount' => $line['total_amount'],
             ],
-            [ '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f' ]
+            [ '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%f', '%s', '%f', '%f', '%f', '%f', '%f', '%f' ]
         );
         if ( false === $inserted ) {
             $wpdb->query( 'ROLLBACK' );
@@ -772,6 +788,9 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
             simple_hotel_crm_copy_booking_overlay( (int) $overlay_map[ $crm_room_id ], $legacy_reserved_room_id, $booking_id, $crm_room_id );
         }
         $crm_booking_room_id = (int) $wpdb->insert_id;
+        $base_price_nightly = simple_hotel_crm_distribute_amounts( $line['base_price_amount'], $nights );
+        $discount_nightly = simple_hotel_crm_distribute_amounts( $line['discount_amount'], $nights );
+        $subtotal_nightly = simple_hotel_crm_distribute_amounts( $line['subtotal_amount'], $nights );
         $room_rate_nightly = simple_hotel_crm_distribute_amounts( $line['room_rate_amount'], $nights );
         $extras_nightly = simple_hotel_crm_distribute_amounts( $line['extras_amount'], $nights );
         $tax_nightly = simple_hotel_crm_distribute_amounts( $line['tourist_tax_total'], $nights );
@@ -787,12 +806,15 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
                     'adults' => $line['adults'],
                     'children' => $line['children'],
                     'babies' => $line['babies'],
+                    'base_price_amount' => $base_price_nightly[ $i ],
+                    'discount_amount' => $discount_nightly[ $i ],
+                    'subtotal_amount' => $subtotal_nightly[ $i ],
                     'room_rate_amount' => $room_rate_nightly[ $i ],
                     'extras_amount' => $extras_nightly[ $i ],
                     'tourist_tax_amount' => $tax_nightly[ $i ],
                     'total_amount' => $night_total,
                 ],
-                [ '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f' ]
+                [ '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%f', '%f', '%f' ]
             );
             $wpdb->insert(
                 $sync_bookings_table,
