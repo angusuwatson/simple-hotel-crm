@@ -190,7 +190,7 @@
 
         $(document).on('click', '.simple-hotel-crm-container .calendar-nav .button, .simple-hotel-crm-container .calendar-month-tab', function(e) {
             var href = $(this).attr('href');
-            if (!href || simpleHotelCrm.context === 'admin') return;
+            if (!href) return;
             e.preventDefault();
             var url = new URL(href, window.location.origin);
             var month = url.searchParams.get('month');
