@@ -10,8 +10,10 @@ $daily_notes = $calendar_data['daily_notes'] ?? [];
 $summary = simple_hotel_crm_build_daily_summary( $calendar_data );
 $month_tabs = simple_hotel_crm_get_month_tabs( $month, $year );
 $calendar_base_url = $calendar_base_url ?? '';
+$today = current_time( 'Y-m-d' );
+$scroll_to_today = false;
 ?>
-<div class="simple-hotel-crm-container">
+<div class="simple-hotel-crm-container" data-scroll-to-today="<?php echo esc_attr( $scroll_to_today ? '1' : '0' ); ?>" data-today-date="<?php echo esc_attr( $today ); ?>">
     <div class="calendar-month-tabs" role="tablist" aria-label="Calendar months">
         <?php foreach ( $month_tabs as $tab ) : ?>
             <a class="calendar-month-tab<?php echo $tab['current'] ? ' is-current' : ''; ?>" href="<?php echo esc_url( add_query_arg( [ 'month' => $tab['month'], 'year' => $tab['year'] ], $calendar_base_url ) ); ?>" data-month="<?php echo esc_attr( $tab['month'] ); ?>" data-year="<?php echo esc_attr( $tab['year'] ); ?>"><?php echo esc_html( $tab['label'] ); ?></a>
@@ -24,7 +26,7 @@ $calendar_base_url = $calendar_base_url ?? '';
                 <tr class="header-row month-row">
                     <th class="label sticky-col room-header-spacer"><span class="calendar-corner-month"><?php echo esc_html( date_i18n( 'F', mktime( 0, 0, 0, $month, 1, $year ) ) ); ?></span></th>
                     <?php foreach ( $days as $day ) : ?>
-                        <th>
+                        <th data-date="<?php echo esc_attr( sprintf( '%04d-%02d-%02d', $year, $month, $day ) ); ?>">
                             <span class="calendar-day-number"><?php echo esc_html( $day ); ?></span>
                         </th>
                     <?php endforeach; ?>

@@ -215,6 +215,19 @@
             }
         });
 
+        function scrollToTodayIfVisible() {
+            var today = new Date();
+            var month = String(today.getMonth() + 1);
+            var year = String(today.getFullYear());
+            var selector = '.simple-hotel-crm-container [data-date="' + year + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0') + '"]';
+            var $cell = $(selector).first();
+            if (!$cell.length) return;
+            var $scroller = $('.simple-hotel-crm');
+            if (!$scroller.length) return;
+            var left = Math.max(0, $cell.position().left - 300);
+            $scroller.animate({ scrollLeft: left }, 250);
+        }
+
         (function() {
             var params = new URLSearchParams(window.location.search);
             var month = params.get('month');
@@ -222,6 +235,7 @@
             if (month && year) {
                 window.history.replaceState({ month: month, year: year }, '', window.location.href);
             }
+            setTimeout(scrollToTodayIfVisible, 100);
         })();
     });
 })(jQuery);
