@@ -56,6 +56,8 @@ $scroll_to_today = ( (int) $month === $today_month && (int) $year === $today_yea
                         $room_id = $room->id;
                         $color = $room->color ?? '#ccc';
                         $room_number = simple_hotel_crm_get_room_display_number( $room->code ?? '', $index + 1 );
+                        $room_color = $color;
+                        $room_detail_color = simple_hotel_crm_adjust_color_brightness( $color, -14 );
                         $rows = [
                             [ 'label' => $room_number . ' - ' . $room->title, 'class' => 'room-name-row', 'type' => 'title', 'field' => 'booking_note' ],
                             [ 'label' => 'Name', 'class' => 'guest-row', 'type' => 'detail', 'field' => 'manual_guest_name', 'display_fn' => function( $b ) { return $b->guest_name ?? ''; } ],
@@ -69,12 +71,13 @@ $scroll_to_today = ( (int) $month === $today_month && (int) $year === $today_yea
                         foreach ( $rows as $row_index => $row ) :
                             $row_classes = [ $row['class'] ];
                             $row_classes[] = 0 === $row_index ? 'room-block-start' : 'room-block-detail';
+                            $row_color = 0 === $row_index ? $room_color : ( 'commission-row' === $row['class'] ? '#2b2f36' : $room_detail_color );
                             if ( count( $rows ) - 1 === $row_index ) {
                                 $row_classes[] = 'room-block-end';
                             }
                     ?>
                         <tr class="<?php echo esc_attr( implode( ' ', $row_classes ) ); ?>">
-                            <td class="label sticky-col room-label-cell <?php echo esc_attr( $row['type'] ); ?>" data-room-color="<?php echo esc_attr( $color ); ?>" style="--room-fill: <?php echo esc_attr( $color ); ?>;"><span class="room-label-text"><?php echo esc_html( $row['label'] ); ?></span></td>
+                            <td class="label sticky-col room-label-cell <?php echo esc_attr( $row['type'] ); ?>" data-room-color="<?php echo esc_attr( $row_color ); ?>" style="--room-fill: <?php echo esc_attr( $row_color ); ?>;"><span class="room-label-text"><?php echo esc_html( $row['label'] ); ?></span></td>
                             <?php foreach ( $days as $day ) :
                                 $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
                                 $entry = $matrix[ $room_id ][ $date_str ] ?? null;
@@ -90,7 +93,7 @@ $scroll_to_today = ( (int) $month === $today_month && (int) $year === $today_yea
                                     $cell_classes[] = 'has-booking';
                                 }
                             ?>
-                                <td class="<?php echo esc_attr( implode( ' ', $cell_classes ) ); ?>" data-room-color="<?php echo esc_attr( $color ); ?>" style="--room-fill: <?php echo esc_attr( $color ); ?>;">
+                                <td class="<?php echo esc_attr( implode( ' ', $cell_classes ) ); ?>" data-room-color="<?php echo esc_attr( $row_color ); ?>" style="--room-fill: <?php echo esc_attr( $row_color ); ?>;">
                                     <?php if ( $booking && 'room-name-row' === $row['class'] ) : ?>
                                         <?php echo esc_html( $booking->booking_note ?? '' ); ?>
                                     <?php elseif ( $booking && 'guest-row' === $row['class'] ) : ?>

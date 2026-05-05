@@ -185,7 +185,7 @@
 
 .simple-hotel-crm .calendar-grid .room-name-row .room-label-cell,
 .simple-hotel-crm .calendar-grid .room-name-row td.calendar-cell {
-    background: #262626;
+    background: var(--room-fill, #262626);
     color: #fff;
     font-weight: 700;
 }
@@ -211,7 +211,7 @@
 .simple-hotel-crm .calendar-grid .commission-row td,
 .simple-hotel-crm .calendar-grid .commission-row td.calendar-cell.detail,
 .simple-hotel-crm .calendar-grid .commission-row .room-label-cell.detail {
-    background: #111318 !important;
+    background: #2b2f36 !important;
 }
 
 .simple-hotel-crm .calendar-grid .room-label-text { display: block; font-weight: 700; }
