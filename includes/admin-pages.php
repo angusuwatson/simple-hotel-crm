@@ -7,7 +7,7 @@ function simple_hotel_crm_register_admin_menu() {
         return;
     }
 
-    add_menu_page( __( 'LGF Bookings & CRM', 'simple-hotel-crm' ), __( 'LGF Bookings & CRM', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm', 'simple_hotel_crm_render_admin_page', 'dashicons-calendar-alt', 58 );
+    add_menu_page( __( 'LGF Bookings', 'simple-hotel-crm' ), __( 'LGF Bookings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm', 'simple_hotel_crm_render_admin_page', 'dashicons-calendar-alt', 58 );
     add_submenu_page( 'simple-hotel-crm', __( 'Calendar', 'simple-hotel-crm' ), __( 'Calendar', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm', 'simple_hotel_crm_render_admin_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Bookings', 'simple-hotel-crm' ), __( 'Bookings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-bookings', 'simple_hotel_crm_render_bookings_page' );
     add_submenu_page( null, __( 'Add Booking', 'simple-hotel-crm' ), __( 'Add Booking', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-add-booking', 'simple_hotel_crm_render_add_booking_page' );
@@ -192,12 +192,21 @@ function simple_hotel_crm_render_bookings_page() {
     }
     echo '</tbody></table></form>';
     if ( $page_count > 1 ) {
+        $base_args = [ 'page' => 'simple-hotel-crm-bookings', 'view' => $view, 's' => $search, 'orderby' => $orderby_key, 'order' => strtolower( $order ) ];
         echo '<div class="tablenav"><div class="tablenav-pages">';
-        for ( $i = 1; $i <= $page_count; $i++ ) {
-            $url = add_query_arg( [ 'page' => 'simple-hotel-crm-bookings', 'view' => $view, 's' => $search, 'orderby' => $orderby_key, 'order' => strtolower( $order ), 'paged' => $i ], admin_url( 'admin.php' ) );
-            echo '<a class="page-numbers' . ( $i === $paged ? ' current' : '' ) . '" href="' . esc_url( $url ) . '">' . esc_html( (string) $i ) . '</a> ';
+        echo '<span class="pagination-links">';
+        if ( $paged > 1 ) {
+            echo '<a class="prev-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged - 1 ] ), admin_url( 'admin.php' ) ) ) . '">&lsaquo;</a> ';
+        } else {
+            echo '<span class="tablenav-pages-navspan button disabled">&lsaquo;</span> ';
         }
-        echo '</div></div>';
+        echo '<span class="paging-input">' . esc_html( sprintf( __( 'Page %1$d of %2$d', 'simple-hotel-crm' ), $paged, $page_count ) ) . '</span> ';
+        if ( $paged < $page_count ) {
+            echo '<a class="next-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged + 1 ] ), admin_url( 'admin.php' ) ) ) . '">&rsaquo;</a>';
+        } else {
+            echo '<span class="tablenav-pages-navspan button disabled">&rsaquo;</span>';
+        }
+        echo '</span></div></div>';
     }
     echo '</div>';
 }
@@ -454,12 +463,21 @@ function simple_hotel_crm_render_guests_page() {
     }
     echo '</tbody></table></form>';
     if ( $page_count > 1 ) {
+        $base_args = [ 'page' => 'simple-hotel-crm-guests', 'view' => $view, 's' => $search, 'orderby' => $orderby_key, 'order' => strtolower( $order ) ];
         echo '<div class="tablenav"><div class="tablenav-pages">';
-        for ( $i = 1; $i <= $page_count; $i++ ) {
-            $url = add_query_arg( [ 'page' => 'simple-hotel-crm-bookings', 'view' => $view, 's' => $search, 'orderby' => $orderby_key, 'order' => strtolower( $order ), 'paged' => $i ], admin_url( 'admin.php' ) );
-            echo '<a class="page-numbers' . ( $i === $paged ? ' current' : '' ) . '" href="' . esc_url( $url ) . '">' . esc_html( (string) $i ) . '</a> ';
+        echo '<span class="pagination-links">';
+        if ( $paged > 1 ) {
+            echo '<a class="prev-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged - 1 ] ), admin_url( 'admin.php' ) ) ) . '">&lsaquo;</a> ';
+        } else {
+            echo '<span class="tablenav-pages-navspan button disabled">&lsaquo;</span> ';
         }
-        echo '</div></div>';
+        echo '<span class="paging-input">' . esc_html( sprintf( __( 'Page %1$d of %2$d', 'simple-hotel-crm' ), $paged, $page_count ) ) . '</span> ';
+        if ( $paged < $page_count ) {
+            echo '<a class="next-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged + 1 ] ), admin_url( 'admin.php' ) ) ) . '">&rsaquo;</a>';
+        } else {
+            echo '<span class="tablenav-pages-navspan button disabled">&rsaquo;</span>';
+        }
+        echo '</span></div></div>';
     }
     echo '</div>';
 }
@@ -1769,8 +1787,8 @@ function simple_hotel_crm_render_settings_page() {
     $api_token = get_option( 'simple_hotel_crm_invoice_ninja_token', '' );
 
     echo '<div class="wrap">';
-    echo '<h1>' . esc_html__( 'LGF Bookings & CRM Settings', 'simple-hotel-crm' ) . '</h1>';
-    echo '<p>' . esc_html__( 'LGF Bookings & CRM now uses the WordPress CRM tables as the main booking source.', 'simple-hotel-crm' ) . '</p>';
+    echo '<h1>' . esc_html__( 'LGF Bookings Settings', 'simple-hotel-crm' ) . '</h1>';
+    echo '<p>' . esc_html__( 'LGF Bookings now uses the WordPress CRM tables as the main booking source.', 'simple-hotel-crm' ) . '</p>';
     echo '<nav class="nav-tab-wrapper">';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=motopress' ) ) . '" class="nav-tab ' . ( 'motopress' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'MotoPress Sync', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=invoice-ninja' ) ) . '" class="nav-tab ' . ( 'invoice-ninja' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Invoice Ninja', 'simple-hotel-crm' ) . '</a>';

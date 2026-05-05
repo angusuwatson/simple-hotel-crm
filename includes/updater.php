@@ -129,7 +129,7 @@ function simple_hotel_crm_render_update_debug_notice() {
 
     $metadata = simple_hotel_crm_get_update_metadata();
     $remote_version = is_array( $metadata ) && ! empty( $metadata['version'] ) ? (string) $metadata['version'] : 'unavailable';
-    echo '<div class="notice notice-info"><p>' . esc_html( sprintf( 'LGF Bookings & CRM updater checked. Installed: %s. Remote: %s. Plugin key: %s', SIMPLE_HOTEL_CRM_VERSION, $remote_version, SIMPLE_HOTEL_CRM_PLUGIN_BASENAME ) ) . '</p></div>';
+    echo '<div class="notice notice-info"><p>' . esc_html( sprintf( 'LGF Bookings updater checked. Installed: %s. Remote: %s. Plugin key: %s', SIMPLE_HOTEL_CRM_VERSION, $remote_version, SIMPLE_HOTEL_CRM_PLUGIN_BASENAME ) ) . '</p></div>';
 }
 
 function simple_hotel_crm_fix_update_source_dir( $source, $remote_source, $upgrader, $hook_extra ) {
