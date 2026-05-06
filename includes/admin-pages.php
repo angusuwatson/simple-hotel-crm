@@ -1156,6 +1156,8 @@ function simple_hotel_crm_render_add_booking_page() {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
 
+    global $wpdb;
+    $room_pricing_table = simple_hotel_crm_room_pricing_table();
     $error_message = '';
     $defaults = [
         'guest_name' => '',
@@ -1211,6 +1213,11 @@ function simple_hotel_crm_render_add_booking_page() {
     if ( is_wp_error( $rooms ) ) {
         $error_message = $rooms->get_error_message();
         $rooms = [];
+    }
+    $room_pricing_rows = $wpdb->get_results( "SELECT room_id, occupancy_adults, price_amount, active FROM {$room_pricing_table} WHERE active = 1 ORDER BY room_id ASC, occupancy_adults ASC", ARRAY_A );
+    $room_pricing_map = [];
+    foreach ( $room_pricing_rows as $pricing_row ) {
+        $room_pricing_map[ (int) $pricing_row['room_id'] ][ (int) $pricing_row['occupancy_adults'] ] = (float) $pricing_row['price_amount'];
     }
     $channels = simple_hotel_crm_get_booking_channel_options();
     $statuses = simple_hotel_crm_get_booking_status_options();
@@ -1271,7 +1278,8 @@ function simple_hotel_crm_render_add_booking_page() {
         echo '<p><label>' . esc_html__( 'Room rate total', 'simple-hotel-crm' ) . ' <input type="text" name="room_lines[' . esc_attr( $line_index ) . '][room_rate_amount]" value="' . esc_attr( (string) ( $line['room_rate_amount'] ?? '0.00' ) ) . '" /></label> ';
         echo '<label>' . esc_html__( 'Discount', 'simple-hotel-crm' ) . ' <select name="room_lines[' . esc_attr( $line_index ) . '][discount_type]"><option value="none"' . selected( (string) ( $line['discount_type'] ?? 'none' ), 'none', false ) . '>None</option><option value="percent"' . selected( (string) ( $line['discount_type'] ?? 'none' ), 'percent', false ) . '>Percent</option><option value="amount"' . selected( (string) ( $line['discount_type'] ?? 'none' ), 'amount', false ) . '>Amount</option></select></label> ';
         echo '<label>' . esc_html__( 'Discount value', 'simple-hotel-crm' ) . ' <input type="text" name="room_lines[' . esc_attr( $line_index ) . '][discount_value]" value="' . esc_attr( (string) ( $line['discount_value'] ?? '0.00' ) ) . '" /></label> ';
-        echo '<label>' . esc_html__( 'Extras total', 'simple-hotel-crm' ) . ' <input type="text" name="room_lines[' . esc_attr( $line_index ) . '][extras_amount]" value="' . esc_attr( (string) ( $line['extras_amount'] ?? '0.00' ) ) . '" /></label></p>';
+        echo '<label>' . esc_html__( 'Extras total', 'simple-hotel-crm' ) . ' <input type="text" name="room_lines[' . esc_attr( $line_index ) . '][extras_amount]" value="' . esc_attr( (string) ( $line['extras_amount'] ?? '0.00' ) ) . '" /></label> ';
+        echo '<span class="description simple-hotel-crm-price-preview" style="display:inline-block;min-width:180px;">' . esc_html__( 'Total preview updates below.', 'simple-hotel-crm' ) . '</span></p>';
         echo '</fieldset>';
     }
     if ( $dates_ready && empty( $rooms ) ) {
@@ -1303,6 +1311,49 @@ function simple_hotel_crm_render_add_booking_page() {
     echo '</table>';
     submit_button( __( 'Create Booking', 'simple-hotel-crm' ), 'primary', 'lgf_add_booking_submit' );
     echo '</form>';
+    $pricing_json = wp_json_encode( $room_pricing_map );
+    $pricing_script = <<<'JS'
+(function(){
+    function num(v){
+        v=(v||"0").toString().replace(/,/g, ".");
+        var n=parseFloat(v);
+        return isNaN(n)?0:n;
+    }
+    function upd(){
+        var form=document.querySelector(".wrap form");
+        if(!form) return;
+        var ci=form.querySelector("#check_in");
+        var co=form.querySelector("#check_out");
+        var nights=1;
+        if(ci&&co&&ci.value&&co.value){
+            nights=Math.max(1,Math.round((new Date(co.value)-new Date(ci.value))/86400000));
+        }
+        form.querySelectorAll("fieldset").forEach(function(fs){
+            var room=fs.querySelector("select[name*='[room_sync_id]']");
+            var adults=fs.querySelector("input[name*='[adults]']");
+            var rate=fs.querySelector("input[name*='[room_rate_amount]']");
+            var dtype=fs.querySelector("select[name*='[discount_type]']");
+            var dval=fs.querySelector("input[name*='[discount_value]']");
+            var extras=fs.querySelector("input[name*='[extras_amount]']");
+            var preview=fs.querySelector(".simple-hotel-crm-price-preview");
+            if(!room||!adults||!rate||!preview) return;
+            var base=((window.simpleHotelCrmRoomPricing||{})[room.value]||{})[parseInt(adults.value||0,10)]||0;
+            if(base>0) rate.value=(base*nights).toFixed(2);
+            var roomRate=num(rate.value);
+            var discount=0;
+            if(dtype&&dtype.value==="percent") discount=roomRate*(Math.min(100,num(dval&&dval.value))/100);
+            if(dtype&&dtype.value==="amount") discount=Math.min(roomRate,num(dval&&dval.value));
+            var tax=(parseInt(adults.value||0,10)*0.8*nights);
+            var total=Math.max(0,roomRate-discount)+num(extras&&extras.value)+tax;
+            preview.textContent="Preview: room " + Math.max(0,roomRate-discount).toFixed(2) + " € + extras " + num(extras&&extras.value).toFixed(2) + " € + tax " + tax.toFixed(2) + " € = " + total.toFixed(2) + " €";
+        });
+    }
+    document.addEventListener("input", upd);
+    document.addEventListener("change", upd);
+    upd();
+})();
+JS;
+    echo '<script>window.simpleHotelCrmRoomPricing=' . $pricing_json . ';' . $pricing_script . '</script>';
     echo '</div>';
 }
 
