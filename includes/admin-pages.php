@@ -1736,13 +1736,20 @@ function simple_hotel_crm_import_booking_rooms_csv( $rows, $dry_run = false ) {
         $check_in = sanitize_text_field( $row['check_in'] ?? '' );
         $check_out = sanitize_text_field( $row['check_out'] ?? '' );
         $room_code = strtoupper( sanitize_text_field( $row['room_code'] ?? '' ) );
+        $room_id_input = absint( $row['room_id'] ?? 0 );
         $guest = simple_hotel_crm_find_guest_for_import_row( [ 'email' => $guest_email, 'guest_name' => $row['guest_name'] ?? '' ] );
         if ( ! $guest ) {
             $summary['errors'][] = sprintf( __( 'Room row %d: guest not found.', 'simple-hotel-crm' ), $index + 2 );
             continue;
         }
         $booking = simple_hotel_crm_find_booking_for_import_row( $row, (int) $guest['id'] );
-        $room = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE room_code = %s LIMIT 1", $room_code ), ARRAY_A );
+        $room = null;
+        if ( $room_id_input > 0 ) {
+            $room = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE id = %d LIMIT 1", $room_id_input ), ARRAY_A );
+        }
+        if ( ! $room && '' !== $room_code ) {
+            $room = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE room_code = %s LIMIT 1", $room_code ), ARRAY_A );
+        }
         if ( ! $booking || ! $room ) {
             $summary['errors'][] = sprintf( __( 'Room row %d: booking or room not found.', 'simple-hotel-crm' ), $index + 2 );
             continue;
@@ -2005,15 +2012,33 @@ function simple_hotel_crm_map_motopress_room_candidates( $row ) {
     return $mapped;
 }
 
-function simple_hotel_crm_build_motopress_room_import_rows( $mapped_booking_row, $mapped_room_rows ) {
+function simple_hotel_crm_build_motopress_room_import_rows( $mapped_booking_row, $mapped_room_rows, $raw_booking_row = [] ) {
     $mapped_booking_row = is_array( $mapped_booking_row ) ? $mapped_booking_row : [];
     $mapped_room_rows   = is_array( $mapped_room_rows ) ? $mapped_room_rows : [];
+    $raw_booking_row    = is_array( $raw_booking_row ) ? $raw_booking_row : [];
+    $raw_reserved_rooms = ! empty( $raw_booking_row['reserved_accommodations'] ) && is_array( $raw_booking_row['reserved_accommodations'] ) ? array_values( $raw_booking_row['reserved_accommodations'] ) : [];
     $rows = [];
 
-    foreach ( $mapped_room_rows as $room_row ) {
+    foreach ( $mapped_room_rows as $index => $room_row ) {
         if ( ! is_array( $room_row ) ) {
             continue;
         }
+        $raw_room_row = $raw_reserved_rooms[ $index ] ?? [];
+        $room_rate_amount = 0.0;
+        $tourist_tax_amount = 0.0;
+        $extras_amount = 0.0;
+
+        if ( ! empty( $raw_room_row['accommodation_price_per_days'] ) && is_array( $raw_room_row['accommodation_price_per_days'] ) ) {
+            foreach ( $raw_room_row['accommodation_price_per_days'] as $day_row ) {
+                $room_rate_amount += (float) simple_hotel_crm_normalize_decimal( $day_row['price'] ?? 0 );
+            }
+        }
+        if ( ! empty( $raw_room_row['taxes']['accommodation'] ) && is_array( $raw_room_row['taxes']['accommodation'] ) ) {
+            foreach ( $raw_room_row['taxes']['accommodation'] as $tax_row ) {
+                $tourist_tax_amount += (float) simple_hotel_crm_normalize_decimal( $tax_row['value'] ?? 0 );
+            }
+        }
+
         $rows[] = [
             'external_booking_id' => (string) ( $mapped_booking_row['external_booking_id'] ?? '' ),
             'guest_name'          => (string) ( $mapped_booking_row['guest_name'] ?? '' ),
@@ -2026,9 +2051,9 @@ function simple_hotel_crm_build_motopress_room_import_rows( $mapped_booking_row,
             'adults'              => (int) ( $room_row['adults'] ?? 0 ),
             'children'            => (int) ( $room_row['children'] ?? 0 ),
             'babies'              => (int) ( $room_row['babies'] ?? 0 ),
-            'room_rate_amount'    => 0,
-            'extras_amount'       => 0,
-            'tourist_tax_amount'  => 0,
+            'room_rate_amount'    => round( $room_rate_amount, 2 ),
+            'extras_amount'       => round( $extras_amount, 2 ),
+            'tourist_tax_amount'  => round( $tourist_tax_amount, 2 ),
         ];
     }
 
@@ -2158,6 +2183,7 @@ function simple_hotel_crm_render_motopress_sync_page() {
     $preview_summary = [ 'new' => 0, 'duplicate' => 0, 'incomplete' => 0, 'room_unmatched' => 0, 'room_ready' => 0, 'room_duplicate' => 0, 'room_error' => 0 ];
     $preview_message = '';
     $import_result = null;
+    $room_import_result = null;
 
     if ( isset( $_POST['simple_hotel_crm_motopress_test'] ) ) {
         check_admin_referer( 'simple_hotel_crm_motopress_test' );
@@ -2194,8 +2220,8 @@ function simple_hotel_crm_render_motopress_sync_page() {
         echo '<div class="notice notice-success"><p>' . esc_html__( 'MotoPress API credentials saved.', 'simple-hotel-crm' ) . '</p></div>';
     }
 
-    if ( isset( $_POST['simple_hotel_crm_motopress_preview'] ) || isset( $_POST['simple_hotel_crm_motopress_import'] ) ) {
-        check_admin_referer( isset( $_POST['simple_hotel_crm_motopress_import'] ) ? 'simple_hotel_crm_motopress_import' : 'simple_hotel_crm_motopress_preview' );
+    if ( isset( $_POST['simple_hotel_crm_motopress_preview'] ) || isset( $_POST['simple_hotel_crm_motopress_import'] ) || isset( $_POST['simple_hotel_crm_motopress_room_import'] ) ) {
+        check_admin_referer( isset( $_POST['simple_hotel_crm_motopress_import'] ) ? 'simple_hotel_crm_motopress_import' : ( isset( $_POST['simple_hotel_crm_motopress_room_import'] ) ? 'simple_hotel_crm_motopress_room_import' : 'simple_hotel_crm_motopress_preview' ) );
         $consumer_key = sanitize_text_field( wp_unslash( $_POST['consumer_key'] ?? $consumer_key ) );
         $consumer_secret = sanitize_text_field( wp_unslash( $_POST['consumer_secret'] ?? $consumer_secret ) );
         $per_page = max( 1, min( 50, absint( $_POST['preview_limit'] ?? 10 ) ) );
@@ -2216,7 +2242,7 @@ function simple_hotel_crm_render_motopress_sync_page() {
                 $preview_room_rows = array_map( 'simple_hotel_crm_map_motopress_room_candidates', $preview_rows );
                 $preview_analysis_rows = array_map( 'simple_hotel_crm_analyze_motopress_booking_preview_row', $preview_mapped_rows );
                 foreach ( $preview_mapped_rows as $preview_index => $mapped_booking_row ) {
-                    $preview_room_import_rows[ $preview_index ] = simple_hotel_crm_build_motopress_room_import_rows( $mapped_booking_row, $preview_room_rows[ $preview_index ] ?? [] );
+                    $preview_room_import_rows[ $preview_index ] = simple_hotel_crm_build_motopress_room_import_rows( $mapped_booking_row, $preview_room_rows[ $preview_index ] ?? [], $preview_rows[ $preview_index ] ?? [] );
                     $preview_room_import_analysis[ $preview_index ] = array_map( 'simple_hotel_crm_analyze_motopress_room_import_row', $preview_room_import_rows[ $preview_index ] );
                 }
                 foreach ( $preview_analysis_rows as $analysis_index => $analysis_row ) {
@@ -2252,6 +2278,20 @@ function simple_hotel_crm_render_motopress_sync_page() {
                     }
                     $import_result = simple_hotel_crm_import_bookings_csv( $import_rows, false );
                     $preview_message = sprintf( __( 'Fetched %1$d MotoPress rows. Attempted header-only import for %2$d new rows.', 'simple-hotel-crm' ), count( $preview_rows ), count( $import_rows ) );
+                }
+
+                if ( isset( $_POST['simple_hotel_crm_motopress_room_import'] ) ) {
+                    $room_import_rows = [];
+                    foreach ( $preview_room_import_rows as $index => $room_rows ) {
+                        foreach ( (array) $room_rows as $room_row_index => $room_import_row ) {
+                            $room_analysis_row = $preview_room_import_analysis[ $index ][ $room_row_index ] ?? [];
+                            if ( 'ready' === ( $room_analysis_row['status'] ?? '' ) ) {
+                                $room_import_rows[] = $room_import_row;
+                            }
+                        }
+                    }
+                    $room_import_result = simple_hotel_crm_import_booking_rooms_csv( $room_import_rows, false );
+                    $preview_message = sprintf( __( 'Fetched %1$d MotoPress rows. Attempted room-line import for %2$d ready rows.', 'simple-hotel-crm' ), count( $preview_rows ), count( $room_import_rows ) );
                 }
             } else {
                 $preview_message = __( 'Could not fetch preview rows from MotoPress.', 'simple-hotel-crm' );
@@ -2319,6 +2359,16 @@ function simple_hotel_crm_render_motopress_sync_page() {
             echo '</ul></div>';
         }
     }
+    if ( is_array( $room_import_result ) ) {
+        echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'MotoPress room-line import — Created: %1$d, Skipped: %2$d', 'simple-hotel-crm' ), (int) $room_import_result['created'], (int) $room_import_result['skipped'] ) ) . '</p></div>';
+        if ( ! empty( $room_import_result['errors'] ) ) {
+            echo '<div class="notice notice-warning"><ul>';
+            foreach ( $room_import_result['errors'] as $error ) {
+                echo '<li>' . esc_html( $error ) . '</li>';
+            }
+            echo '</ul></div>';
+        }
+    }
     if ( ! empty( $preview_rows ) ) {
         echo '<div class="notice notice-info"><p><strong>' . esc_html__( 'Dry-run summary', 'simple-hotel-crm' ) . '</strong>: ' . esc_html__( 'New', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $preview_summary['new'] ) . ' · ' . esc_html__( 'Duplicate', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $preview_summary['duplicate'] ) . ' · ' . esc_html__( 'Incomplete', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $preview_summary['incomplete'] ) . ' · ' . esc_html__( 'Unmatched rooms', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $preview_summary['room_unmatched'] ) . ' · ' . esc_html__( 'Room lines ready', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $preview_summary['room_ready'] ) . ' · ' . esc_html__( 'Room lines duplicate', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $preview_summary['room_duplicate'] ) . ' · ' . esc_html__( 'Room lines error', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $preview_summary['room_error'] ) . '</p></div>';
         echo '<form method="post" style="margin:12px 0;">';
@@ -2329,7 +2379,14 @@ function simple_hotel_crm_render_motopress_sync_page() {
         submit_button( __( 'Import New Booking Headers', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_motopress_import', false );
         echo ' <span class="description">' . esc_html__( 'Current step imports booking headers only. Room-line write step still disabled below.', 'simple-hotel-crm' ) . '</span>';
         echo '</form>';
-        echo '<p><button type="button" class="button" disabled>' . esc_html__( 'Import Ready Room Lines (next step)', 'simple-hotel-crm' ) . '</button> <span class="description">' . esc_html__( 'Dry-run reconcile is now shown below; write step not wired yet.', 'simple-hotel-crm' ) . '</span></p>';
+        echo '<form method="post" style="margin:12px 0;">';
+        wp_nonce_field( 'simple_hotel_crm_motopress_room_import' );
+        echo '<input type="hidden" name="consumer_key" value="' . esc_attr( $consumer_key ) . '" />';
+        echo '<input type="hidden" name="consumer_secret" value="' . esc_attr( $consumer_secret ) . '" />';
+        echo '<input type="hidden" name="preview_limit" value="' . esc_attr( (string) max( 1, min( 50, absint( $_POST['preview_limit'] ?? 10 ) ) ) ) . '" />';
+        submit_button( __( 'Import Ready Room Lines', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_motopress_room_import', false );
+        echo ' <span class="description">' . esc_html__( 'Imports matched non-duplicate room lines only.', 'simple-hotel-crm' ) . '</span>';
+        echo '</form>';
         echo '<table class="widefat striped"><thead><tr><th>ID</th><th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Remote status', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Import readiness', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Room mapping preview', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Room-line dry run', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Mapped CRM import shape', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Raw sample', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
         foreach ( $preview_rows as $index => $preview_row ) {
             $mapped_row = $preview_mapped_rows[ $index ] ?? [];
