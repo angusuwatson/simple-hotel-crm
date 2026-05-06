@@ -98,8 +98,8 @@
 
 .simple-hotel-crm .calendar-grid th,
 .simple-hotel-crm .calendar-grid td {
-    border-left: 1px solid #bfc2ca;
-    border-right: 1px solid #bfc2ca;
+    border-left: 1px solid #d7dae1;
+    border-right: 1px solid #d7dae1;
     border-top: 0;
     border-bottom: 0;
     padding: 0 3px;
@@ -114,7 +114,7 @@
     color: #161616;
 }
 
-.simple-hotel-crm .calendar-grid th { background: #f4f4f6; text-align: center; font-weight: 400; color: #161616; border-top: 1px solid #bfc2ca; border-bottom: 1px solid #bfc2ca; }
+.simple-hotel-crm .calendar-grid th { background: #f4f4f6; text-align: center; font-weight: 400; color: #161616; border-top: 1px solid #d7dae1; border-bottom: 1px solid #d7dae1; }
 
 .simple-hotel-crm .calendar-grid .sticky-col {
     position: sticky;
@@ -246,7 +246,7 @@
 
 .simple-hotel-crm .calendar-grid .tarif-row td,
 .simple-hotel-crm .calendar-grid .tarif-row th {
-    border-top: 2px solid #2e2e33 !important;
+    border-top: 1px solid rgba(46, 46, 51, 0.7) !important;
     border-bottom: 0 !important;
 }
 

@@ -1,7 +1,7 @@
 {
   "name": "LGF Bookings",
   "slug": "simple-hotel-crm",
-  "version": "1.8.8.32",
+  "version": "1.8.8.33",
   "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
   "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
   "requires": "6.0",
@@ -10,6 +10,6 @@
   "last_updated": "2026-05-05",
   "sections": {
     "description": "WordPress-native bookings CRM with calendar, bookings, guests, importer, room management, and GitHub-based updating.",
-    "changelog": "<ul><li>1.8.8.32: Add pricing discount fields to booking forms and remove calendar horizontal lines except above Room rate.</li><li>1.8.8.31: Tune calendar colours closer to booking sheet with pastel room bands and light grid.</li><li>1.8.8.30: Add occupancy pricing calculator and wire pricing fields into booking create/edit flows.</li><li>1.8.8.29: Add occupancy pricing schema foundation and show plugin version in Settings.</li><li>1.8.8.28: Safe LGF Bookings branding cleanup, add [lgf_bookings] shortcode alias, add occupancy pricing roadmap.</li><li>1.8.8.27: Add loading spinner and scroll calendar to today.</li><li>1.8.8.23: Make calendar month navigation AJAX in admin/frontend.</li><li>1.8.8.22: Improve calendar quick edit layout and remember page size.</li><li>1.8.8.20: Rename plugin to LGF Bookings; improve pagination UI.</li><li>1.8.8.19: Move MotoPress Sync tab to first spot in Settings.</li></ul>"
+    "changelog": "<ul><li>1.8.8.33: Add room occupancy pricing admin UI and make calendar grid lines thinner/subtler.</li><li>1.8.8.32: Add pricing discount fields to booking forms and remove calendar horizontal lines except above Room rate.</li><li>1.8.8.31: Tune calendar colours closer to booking sheet with pastel room bands and light grid.</li><li>1.8.8.30: Add occupancy pricing calculator and wire pricing fields into booking create/edit flows.</li><li>1.8.8.29: Add occupancy pricing schema foundation and show plugin version in Settings.</li><li>1.8.8.28: Safe LGF Bookings branding cleanup, add [lgf_bookings] shortcode alias, add occupancy pricing roadmap.</li><li>1.8.8.27: Add loading spinner and scroll calendar to today.</li><li>1.8.8.23: Make calendar month navigation AJAX in admin/frontend.</li><li>1.8.8.22: Improve calendar quick edit layout and remember page size.</li><li>1.8.8.20: Rename plugin to LGF Bookings; improve pagination UI.</li></ul>"
   }
 }
