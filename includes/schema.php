@@ -535,44 +535,25 @@ function simple_hotel_crm_get_repair_scan_counts() {
     return $counts;
 }
 
-function simple_hotel_crm_maybe_migrate_sync_data_to_crm() {
+function simple_hotel_crm_import_sync_data_to_crm() {
     global $wpdb;
 
     $crm_bookings_table = simple_hotel_crm_bookings_table();
     $crm_booking_rooms_table = simple_hotel_crm_booking_rooms_table();
     $crm_booking_nights_table = simple_hotel_crm_booking_room_nights_table();
-    $crm_guests_table = simple_hotel_crm_guests_table();
-    $crm_rooms_table = simple_hotel_crm_rooms_table();
     $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
 
-    $crm_booking_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$crm_bookings_table}" );
     $sync_booking_count = (int) $wpdb->get_var( "SELECT COUNT(DISTINCT external_booking_id) FROM {$sync_bookings_table}" );
-    if ( $crm_booking_count > 0 || $sync_booking_count <= 0 ) {
+    if ( $sync_booking_count <= 0 ) {
         return;
     }
 
     $booking_groups = $wpdb->get_results( "SELECT external_booking_id, MIN(guest_name) AS guest_name, MIN(phone) AS phone, MIN(source_channel) AS source_channel, MIN(status_code) AS status_code, MIN(check_in) AS check_in_date, MIN(check_out) AS check_out_date, MIN(source_created_at) AS source_created_at, MIN(import_notes) AS import_notes, MIN(invoice_ninja_client_id) AS invoice_ninja_client_id, MIN(invoice_ninja_invoice_id) AS invoice_ninja_invoice_id FROM {$sync_bookings_table} GROUP BY external_booking_id ORDER BY external_booking_id ASC", ARRAY_A );
 
     foreach ( $booking_groups as $booking_group ) {
-        list( $first_name, $last_name ) = simple_hotel_crm_split_guest_name( $booking_group['guest_name'] );
-
-        $guest_inserted = $wpdb->insert(
-            $crm_guests_table,
-            [
-                'first_name' => $first_name,
-                'last_name' => $last_name,
-                'phone' => (string) $booking_group['phone'],
-            ],
-            [ '%s', '%s', '%s' ]
-        );
-        if ( false === $guest_inserted ) {
-            continue;
-        }
-        $guest_id = (int) $wpdb->insert_id;
-
         $room_groups = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT external_booking_room_id, room_sync_id, MIN(adults) AS adults, MIN(children) AS children, MIN(babies) AS babies, MIN(guest_count) AS guest_count, SUM(room_amount) AS room_rate_amount, SUM(COALESCE(extras_amount, 0)) AS extras_amount, SUM(COALESCE(tourist_tax_amount, 0)) AS tourist_tax_amount, SUM(total_amount) AS total_amount FROM {$sync_bookings_table} WHERE external_booking_id = %d GROUP BY external_booking_room_id, room_sync_id ORDER BY external_booking_room_id ASC",
+                "SELECT external_booking_room_id, room_sync_id, external_room_id, MIN(adults) AS adults, MIN(children) AS children, MIN(babies) AS babies, MIN(guest_count) AS guest_count, SUM(room_amount) AS room_rate_amount, SUM(COALESCE(extras_amount, 0)) AS extras_amount, SUM(COALESCE(tourist_tax_amount, 0)) AS tourist_tax_amount, SUM(total_amount) AS total_amount FROM {$sync_bookings_table} WHERE external_booking_id = %d GROUP BY external_booking_room_id, room_sync_id, external_room_id ORDER BY external_booking_room_id ASC",
                 $booking_group['external_booking_id']
             ),
             ARRAY_A
@@ -581,54 +562,97 @@ function simple_hotel_crm_maybe_migrate_sync_data_to_crm() {
             continue;
         }
 
-        $booking_adults = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'adults' ) ) );
-        $booking_children = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'children' ) ) );
-        $booking_babies = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'babies' ) ) );
-        $booking_room_rate = round( array_sum( array_map( 'floatval', wp_list_pluck( $room_groups, 'room_rate_amount' ) ) ), 2 );
-        $booking_extras = round( array_sum( array_map( 'floatval', wp_list_pluck( $room_groups, 'extras_amount' ) ) ), 2 );
-        $booking_tax = round( array_sum( array_map( 'floatval', wp_list_pluck( $room_groups, 'tourist_tax_amount' ) ) ), 2 );
-        $booking_total = round( array_sum( array_map( 'floatval', wp_list_pluck( $room_groups, 'total_amount' ) ) ), 2 );
-
-        $booking_inserted = $wpdb->insert(
-            $crm_bookings_table,
-            [
-                'guest_id' => $guest_id,
-                'source_channel' => (string) $booking_group['source_channel'],
-                'source_booking_id' => '',
-                'status_code' => (string) $booking_group['status_code'],
-                'contacted_date' => ! empty( $booking_group['source_created_at'] ) ? substr( (string) $booking_group['source_created_at'], 0, 10 ) : null,
-                'check_in_date' => (string) $booking_group['check_in_date'],
-                'check_out_date' => (string) $booking_group['check_out_date'],
-                'adults' => $booking_adults,
-                'children' => $booking_children,
-                'babies' => $booking_babies,
-                'room_rate_amount' => $booking_room_rate,
-                'extras_amount' => $booking_extras,
-                'tourist_tax_amount' => $booking_tax,
-                'total_amount' => $booking_total,
-                'currency' => 'EUR',
-                'booking_note' => '',
-                'internal_notes' => (string) $booking_group['import_notes'],
-                'invoice_ninja_client_id' => (string) $booking_group['invoice_ninja_client_id'],
-                'invoice_ninja_invoice_id' => (string) $booking_group['invoice_ninja_invoice_id'],
-            ],
-            [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%s', '%s', '%s', '%s', '%s' ]
-        );
-        if ( false === $booking_inserted ) {
+        $guest = simple_hotel_crm_find_guest_for_import_row( [
+            'guest_name' => (string) $booking_group['guest_name'],
+            'phone' => (string) $booking_group['phone'],
+        ] );
+        if ( ! $guest ) {
+            list( $first_name, $last_name ) = simple_hotel_crm_split_guest_name( $booking_group['guest_name'] );
+            $guest_inserted = $wpdb->insert(
+                simple_hotel_crm_guests_table(),
+                [
+                    'first_name' => $first_name,
+                    'last_name' => $last_name,
+                    'phone' => (string) $booking_group['phone'],
+                ],
+                [ '%s', '%s', '%s' ]
+            );
+            if ( false === $guest_inserted ) {
+                continue;
+            }
+            $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE id = %d", (int) $wpdb->insert_id ), ARRAY_A );
+        }
+        if ( ! $guest ) {
             continue;
         }
-        $booking_id = (int) $wpdb->insert_id;
+
+        $booking = simple_hotel_crm_find_booking_for_import_row( [
+            'external_booking_id' => (string) $booking_group['external_booking_id'],
+            'check_in' => (string) $booking_group['check_in_date'],
+            'check_out' => (string) $booking_group['check_out_date'],
+        ], (int) $guest['id'] );
+
+        if ( ! $booking ) {
+            $booking_adults = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'adults' ) ) );
+            $booking_children = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'children' ) ) );
+            $booking_babies = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'babies' ) ) );
+            $booking_room_rate = round( array_sum( array_map( 'floatval', wp_list_pluck( $room_groups, 'room_rate_amount' ) ) ), 2 );
+            $booking_extras = round( array_sum( array_map( 'floatval', wp_list_pluck( $room_groups, 'extras_amount' ) ) ), 2 );
+            $booking_tax = round( array_sum( array_map( 'floatval', wp_list_pluck( $room_groups, 'tourist_tax_amount' ) ) ), 2 );
+            $booking_total = round( array_sum( array_map( 'floatval', wp_list_pluck( $room_groups, 'total_amount' ) ) ), 2 );
+
+            $booking_inserted = $wpdb->insert(
+                $crm_bookings_table,
+                [
+                    'guest_id' => (int) $guest['id'],
+                    'source_channel' => (string) $booking_group['source_channel'],
+                    'source_booking_id' => (string) $booking_group['external_booking_id'],
+                    'status_code' => (string) $booking_group['status_code'],
+                    'contacted_date' => ! empty( $booking_group['source_created_at'] ) ? substr( (string) $booking_group['source_created_at'], 0, 10 ) : null,
+                    'check_in_date' => (string) $booking_group['check_in_date'],
+                    'check_out_date' => (string) $booking_group['check_out_date'],
+                    'adults' => $booking_adults,
+                    'children' => $booking_children,
+                    'babies' => $booking_babies,
+                    'room_rate_amount' => $booking_room_rate,
+                    'extras_amount' => $booking_extras,
+                    'tourist_tax_amount' => $booking_tax,
+                    'total_amount' => $booking_total,
+                    'currency' => 'EUR',
+                    'booking_note' => '',
+                    'internal_notes' => (string) $booking_group['import_notes'],
+                    'invoice_ninja_client_id' => (string) $booking_group['invoice_ninja_client_id'],
+                    'invoice_ninja_invoice_id' => (string) $booking_group['invoice_ninja_invoice_id'],
+                ],
+                [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%s', '%s', '%s', '%s', '%s' ]
+            );
+            if ( false === $booking_inserted ) {
+                continue;
+            }
+            $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$crm_bookings_table} WHERE id = %d", (int) $wpdb->insert_id ), ARRAY_A );
+        }
+        if ( ! $booking ) {
+            continue;
+        }
 
         foreach ( $room_groups as $room_group ) {
             $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $room_group['room_sync_id'] );
             if ( $crm_room_id <= 0 ) {
+                $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $room_group['external_room_id'] );
+            }
+            if ( $crm_room_id <= 0 ) {
+                continue;
+            }
+
+            $existing_booking_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$crm_booking_rooms_table} WHERE legacy_reserved_room_id = %d OR (booking_id = %d AND room_id = %d) LIMIT 1", (int) $room_group['external_booking_room_id'], (int) $booking['id'], $crm_room_id ) );
+            if ( $existing_booking_room_id > 0 ) {
                 continue;
             }
 
             $booking_room_inserted = $wpdb->insert(
                 $crm_booking_rooms_table,
                 [
-                    'booking_id' => $booking_id,
+                    'booking_id' => (int) $booking['id'],
                     'room_id' => $crm_room_id,
                     'legacy_reserved_room_id' => (int) $room_group['external_booking_room_id'],
                     'guest_count' => (int) $room_group['guest_count'],
@@ -656,6 +680,10 @@ function simple_hotel_crm_maybe_migrate_sync_data_to_crm() {
             );
 
             foreach ( $night_rows as $night_row ) {
+                $exists_night = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$crm_booking_nights_table} WHERE booking_room_id = %d AND stay_date = %s LIMIT 1", $crm_booking_room_id, (string) $night_row['stay_date'] ) );
+                if ( $exists_night > 0 ) {
+                    continue;
+                }
                 $wpdb->insert(
                     $crm_booking_nights_table,
                     [
@@ -675,5 +703,9 @@ function simple_hotel_crm_maybe_migrate_sync_data_to_crm() {
             }
         }
     }
+}
+
+function simple_hotel_crm_maybe_migrate_sync_data_to_crm() {
+    simple_hotel_crm_import_sync_data_to_crm();
 }
 
