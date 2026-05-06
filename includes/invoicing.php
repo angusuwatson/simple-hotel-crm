@@ -68,12 +68,15 @@ function simple_hotel_crm_rest_create_invoice( WP_REST_Request $request ) {
         $total += $tourist_tax;
     }
 
+    $commission = null;
     if ( isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission'] && null !== $overlay['manual_commission'] ) {
         $commission = (float) $overlay['manual_commission'];
-        if ( $commission != 0.0 ) {
-            $invoice_lines[] = [ 'product_key' => 'booking-commission', 'quantity' => 1, 'rate' => -round( $commission, 2 ) ];
-            $total -= $commission;
-        }
+    } elseif ( null !== $tarif ) {
+        $commission = simple_hotel_crm_calculate_channel_commission( (string) $wpdb->get_var( $wpdb->prepare( "SELECT source_channel FROM {$crm_bookings_table} WHERE id = %d LIMIT 1", $booking_id ) ), (float) $tarif );
+    }
+    if ( null !== $commission && $commission != 0.0 ) {
+        $invoice_lines[] = [ 'product_key' => 'booking-commission', 'quantity' => 1, 'rate' => -round( $commission, 2 ) ];
+        $total -= $commission;
     }
 
     if ( empty( $invoice_lines ) ) {

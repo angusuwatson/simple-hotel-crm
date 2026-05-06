@@ -2039,9 +2039,11 @@ function simple_hotel_crm_render_settings_page() {
 
         $api_url = isset( $_POST['simple_hotel_crm_invoice_ninja_url'] ) ? esc_url_raw( trim( wp_unslash( $_POST['simple_hotel_crm_invoice_ninja_url'] ) ) ) : '';
         $api_token = isset( $_POST['simple_hotel_crm_invoice_ninja_token'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_invoice_ninja_token'] ) ) ) : '';
+        $booking_com_commission_percent = isset( $_POST['simple_hotel_crm_booking_com_commission_percent'] ) ? max( 0, min( 100, (float) str_replace( ',', '.', wp_unslash( $_POST['simple_hotel_crm_booking_com_commission_percent'] ) ) ) ) : 15;
 
         update_option( 'simple_hotel_crm_invoice_ninja_url', $api_url );
         update_option( 'simple_hotel_crm_invoice_ninja_token', $api_token );
+        update_option( 'simple_hotel_crm_booking_com_commission_percent', $booking_com_commission_percent );
         update_option( 'simple_hotel_crm_booking_source', 'wp_sync' );
 
         simple_hotel_crm_clear_calendar_cache();
@@ -2050,6 +2052,7 @@ function simple_hotel_crm_render_settings_page() {
 
     $api_url = get_option( 'simple_hotel_crm_invoice_ninja_url', '' );
     $api_token = get_option( 'simple_hotel_crm_invoice_ninja_token', '' );
+    $booking_com_commission_percent = get_option( 'simple_hotel_crm_booking_com_commission_percent', 15 );
 
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( 'LGF Bookings Settings', 'simple-hotel-crm' ) . '</h1>';
@@ -2077,6 +2080,8 @@ function simple_hotel_crm_render_settings_page() {
         echo '<td><input type="url" id="simple_hotel_crm_invoice_ninja_url" name="simple_hotel_crm_invoice_ninja_url" value="' . esc_attr( $api_url ) . '" class="regular-text" placeholder="https://your-invoice-ninja.com" /></td></tr>';
         echo '<tr><th scope="row"><label for="simple_hotel_crm_invoice_ninja_token">' . esc_html__( 'API Token', 'simple-hotel-crm' ) . '</label></th>';
         echo '<td><input type="password" id="simple_hotel_crm_invoice_ninja_token" name="simple_hotel_crm_invoice_ninja_token" value="' . esc_attr( $api_token ) . '" class="regular-text" /></td></tr>';
+        echo '<tr><th scope="row"><label for="simple_hotel_crm_booking_com_commission_percent">' . esc_html__( 'Booking.com commission %', 'simple-hotel-crm' ) . '</label></th>';
+        echo '<td><input type="number" step="0.01" min="0" max="100" id="simple_hotel_crm_booking_com_commission_percent" name="simple_hotel_crm_booking_com_commission_percent" value="' . esc_attr( (string) $booking_com_commission_percent ) . '" class="small-text" /> <p class="description">' . esc_html__( 'Used for automatic commission calculation on Booking.com channel. Applied to discounted room charge only, not extras or tax.', 'simple-hotel-crm' ) . '</p></td></tr>';
         echo '</table>';
         submit_button( __( 'Save Settings', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_submit' );
         echo '</form>';

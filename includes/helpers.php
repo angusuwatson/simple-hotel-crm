@@ -304,6 +304,25 @@ function simple_hotel_crm_find_crm_room_id( $room_identifier = 0, $fallbacks = [
     return 0;
 }
 
+function simple_hotel_crm_get_channel_commission_percent( $source_channel ) {
+    $source_channel = (string) $source_channel;
+    if ( 'booking_com' === $source_channel ) {
+        return max( 0, min( 100, (float) get_option( 'simple_hotel_crm_booking_com_commission_percent', 15 ) ) );
+    }
+
+    return 0.0;
+}
+
+function simple_hotel_crm_calculate_channel_commission( $source_channel, $room_rate_amount ) {
+    $room_rate_amount = max( 0, (float) $room_rate_amount );
+    $percent = simple_hotel_crm_get_channel_commission_percent( $source_channel );
+    if ( $percent <= 0 || $room_rate_amount <= 0 ) {
+        return 0.0;
+    }
+
+    return round( $room_rate_amount * ( $percent / 100 ), 2 );
+}
+
 function simple_hotel_crm_format_channel_code( $source_channel, $created_date = '' ) {
     $source_channel = (string) $source_channel;
     $created_date   = (string) $created_date;
