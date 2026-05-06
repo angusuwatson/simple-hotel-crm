@@ -93,7 +93,7 @@ function simple_hotel_crm_get_room_pricing_for_occupancy( $room_id, $occupancy_a
     return is_array( $row ) ? $row : null;
 }
 
-function simple_hotel_crm_calculate_room_pricing( array $line, int $nights, int $crm_room_id = 0 ) {
+function simple_hotel_crm_calculate_room_pricing( array $line, int $nights, int $crm_room_id = 0, string $source_channel = 'direct' ) {
     $nights = max( 1, $nights );
     $adults = max( 0, (int) ( $line['adults'] ?? 0 ) );
     $children = max( 0, (int) ( $line['children'] ?? 0 ) );
@@ -125,6 +125,7 @@ function simple_hotel_crm_calculate_room_pricing( array $line, int $nights, int 
     }
 
     $subtotal_amount = max( 0, round( $base_price_amount - $discount_amount, 2 ) );
+    $commission_amount = simple_hotel_crm_calculate_channel_commission( $source_channel, $subtotal_amount );
     $tourist_tax_total = round( $adults * 0.80 * $nights, 2 );
     $room_rate_amount = $subtotal_amount;
     $total_amount = round( $room_rate_amount + $extras_amount + $tourist_tax_total, 2 );
@@ -141,6 +142,7 @@ function simple_hotel_crm_calculate_room_pricing( array $line, int $nights, int 
         'discount_value' => $discount_value,
         'discount_amount' => $discount_amount,
         'subtotal_amount' => $subtotal_amount,
+        'commission_amount' => $commission_amount,
         'room_rate_amount' => $room_rate_amount,
         'extras_amount' => $extras_amount,
         'tourist_tax_total' => $tourist_tax_total,
@@ -318,7 +320,7 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
 
         $calculated_room_lines[] = array_merge(
             $line,
-            simple_hotel_crm_calculate_room_pricing( $line, $nights, $crm_room_id ),
+            simple_hotel_crm_calculate_room_pricing( $line, $nights, $crm_room_id, $source_channel ),
             [
                 'crm_room_id' => $crm_room_id,
                 'room' => $room,
@@ -413,6 +415,7 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
                 'discount_value' => $line['discount_value'],
                 'discount_amount' => $line['discount_amount'],
                 'subtotal_amount' => $line['subtotal_amount'],
+                'commission_amount' => $line['commission_amount'],
                 'room_rate_amount' => $line['room_rate_amount'],
                 'extras_amount' => $line['extras_amount'],
                 'tourist_tax_amount' => $line['tourist_tax_total'],
@@ -430,6 +433,7 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
         $base_price_nightly = simple_hotel_crm_distribute_amounts( $line['base_price_amount'], $nights );
         $discount_nightly = simple_hotel_crm_distribute_amounts( $line['discount_amount'], $nights );
         $subtotal_nightly = simple_hotel_crm_distribute_amounts( $line['subtotal_amount'], $nights );
+        $commission_nightly = simple_hotel_crm_distribute_amounts( $line['commission_amount'], $nights );
         $room_rate_nightly = simple_hotel_crm_distribute_amounts( $line['room_rate_amount'], $nights );
         $extras_nightly = simple_hotel_crm_distribute_amounts( $line['extras_amount'], $nights );
         $tax_nightly = simple_hotel_crm_distribute_amounts( $line['tourist_tax_total'], $nights );
@@ -450,6 +454,7 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
                     'base_price_amount' => $base_price_nightly[ $i ],
                     'discount_amount' => $discount_nightly[ $i ],
                     'subtotal_amount' => $subtotal_nightly[ $i ],
+                    'commission_amount' => $commission_nightly[ $i ],
                     'room_rate_amount' => $room_rate_nightly[ $i ],
                     'extras_amount' => $extras_nightly[ $i ],
                     'tourist_tax_amount' => $tax_nightly[ $i ],

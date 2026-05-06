@@ -50,7 +50,7 @@ function simple_hotel_crm_render_bookings_page() {
     $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
     $view = ( isset( $_GET['view'] ) && 'trash' === $_GET['view'] ) ? 'trash' : 'active';
     $is_deleted = 'trash' === $view ? 1 : 0;
-    $sortable = [ 'id' => 'b.id', 'guest' => 'guest_name', 'check_in' => 'b.check_in_date', 'check_out' => 'b.check_out_date', 'rooms' => 'room_count', 'status' => 'b.status_code', 'channel' => 'b.source_channel', 'total' => 'b.total_amount' ];
+    $sortable = [ 'id' => 'b.id', 'guest' => 'guest_name', 'check_in' => 'b.check_in_date', 'check_out' => 'b.check_out_date', 'rooms' => 'room_count', 'status' => 'b.status_code', 'channel' => 'b.source_channel', 'commission' => 'commission_amount', 'total' => 'b.total_amount' ];
     $search = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
     $orderby_key = isset( $_GET['orderby'] ) && isset( $sortable[ $_GET['orderby'] ] ) ? $_GET['orderby'] : 'check_in';
     $order = isset( $_GET['order'] ) && 'asc' === strtolower( (string) $_GET['order'] ) ? 'ASC' : 'DESC';
@@ -118,7 +118,8 @@ function simple_hotel_crm_render_bookings_page() {
         $wpdb->prepare(
             "SELECT b.id, b.guest_id, b.status_code, b.check_in_date, b.check_out_date, b.source_channel, b.total_amount, b.created_at,
                     CONCAT(g.first_name, ' ', g.last_name) AS guest_name,
-                    COUNT(br.id) AS room_count
+                    COUNT(br.id) AS room_count,
+                    COALESCE(SUM(br.commission_amount), 0) AS commission_amount
              FROM {$bookings_table} b
              JOIN {$guests_table} g ON g.id = b.guest_id
              LEFT JOIN {$booking_rooms_table} br ON br.booking_id = b.id
@@ -145,6 +146,16 @@ function simple_hotel_crm_render_bookings_page() {
             array_merge( [ $is_deleted ], $search_params )
         ),
         ARRAY_A
+    );
+    $totals_row['commission_amount'] = (float) $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT COALESCE(SUM(br.commission_amount), 0)
+             FROM {$booking_rooms_table} br
+             JOIN {$bookings_table} b ON b.id = br.booking_id
+             JOIN {$guests_table} g ON g.id = b.guest_id
+             WHERE b.is_deleted = %d {$search_sql}",
+            array_merge( [ $is_deleted ], $search_params )
+        )
     );
     $page_count = (int) ceil( $total_bookings / $per_page );
 
@@ -186,11 +197,12 @@ function simple_hotel_crm_render_bookings_page() {
     echo '<th>' . $header_link( 'rooms', __( 'Rooms', 'simple-hotel-crm' ) ) . '</th>';
     echo '<th>' . $header_link( 'status', __( 'Status', 'simple-hotel-crm' ) ) . '</th>';
     echo '<th>' . $header_link( 'channel', __( 'Channel', 'simple-hotel-crm' ) ) . '</th>';
+    echo '<th>' . $header_link( 'commission', __( 'Commission', 'simple-hotel-crm' ) ) . '</th>';
     echo '<th>' . $header_link( 'total', __( 'Total', 'simple-hotel-crm' ) ) . '</th>';
     echo '<th>' . esc_html__( 'Actions', 'simple-hotel-crm' ) . '</th>';
     echo '</tr></thead><tbody>';
     if ( empty( $rows ) ) {
-        echo '<tr><td colspan="10">' . esc_html__( 'No bookings found.', 'simple-hotel-crm' ) . '</td></tr>';
+        echo '<tr><td colspan="11">' . esc_html__( 'No bookings found.', 'simple-hotel-crm' ) . '</td></tr>';
     } else {
         foreach ( $rows as $row ) {
             $detail_url = admin_url( 'admin.php?page=simple-hotel-crm-booking-detail&booking_id=' . absint( $row['id'] ) );
@@ -205,6 +217,7 @@ function simple_hotel_crm_render_bookings_page() {
             echo '<td>' . esc_html( (string) $row['room_count'] ) . '</td>';
             echo '<td>' . esc_html( (string) $row['status_code'] ) . '</td>';
             echo '<td>' . esc_html( (string) $row['source_channel'] ) . '</td>';
+            echo '<td>' . esc_html( number_format( (float) $row['commission_amount'], 2, '.', '' ) ) . '</td>';
             echo '<td>' . esc_html( number_format( (float) $row['total_amount'], 2, '.', '' ) ) . '</td>';
             echo '<td><a class="button button-small" href="' . esc_url( $detail_url ) . '">' . esc_html__( 'View / Edit', 'simple-hotel-crm' ) . '</a> ' . ( 'trash' === $view ? '<a class="button button-small" href="' . esc_url( $restore_url ) . '">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</a> <a class="button button-small button-link-delete" href="' . esc_url( $delete_url ) . '" onclick="return confirm(' . wp_json_encode( __( 'Permanently delete this booking?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Delete Permanently', 'simple-hotel-crm' ) . '</a>' : '<a class="button button-small" href="' . esc_url( $delete_url ) . '" onclick="return confirm(' . wp_json_encode( __( 'Delete this booking?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</a>' ) . '</td>';
             echo '</tr>';
@@ -214,7 +227,8 @@ function simple_hotel_crm_render_bookings_page() {
     echo '<td></td>';
     echo '<td colspan="4"><strong>' . esc_html__( 'Totals', 'simple-hotel-crm' ) . '</strong></td>';
     echo '<td><strong>' . esc_html( (string) (int) ( $totals_row['booking_count'] ?? 0 ) ) . '</strong></td>';
-    echo '<td colspan="2"></td>';
+    echo '<td></td>';
+    echo '<td><strong>' . esc_html( number_format( (float) ( $totals_row['commission_amount'] ?? 0 ), 2, '.', '' ) ) . '</strong></td>';
     echo '<td><strong>' . esc_html( number_format( (float) ( $totals_row['total_amount'] ?? 0 ), 2, '.', '' ) ) . '</strong></td>';
     echo '<td></td>';
     echo '</tr></tfoot></table></form>';
@@ -796,7 +810,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
         }
         $calculated_room_lines[] = array_merge(
             $line,
-            simple_hotel_crm_calculate_room_pricing( $line, $nights, $crm_room_id ),
+            simple_hotel_crm_calculate_room_pricing( $line, $nights, $crm_room_id, $source_channel ),
             [
                 'crm_room_id' => $crm_room_id,
                 'room' => $room,
@@ -848,6 +862,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
                 'discount_value' => $line['discount_value'],
                 'discount_amount' => $line['discount_amount'],
                 'subtotal_amount' => $line['subtotal_amount'],
+                'commission_amount' => $line['commission_amount'],
                 'room_rate_amount' => $line['room_rate_amount'],
                 'extras_amount' => $line['extras_amount'],
                 'tourist_tax_amount' => $line['tourist_tax_total'],
@@ -866,6 +881,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
         $base_price_nightly = simple_hotel_crm_distribute_amounts( $line['base_price_amount'], $nights );
         $discount_nightly = simple_hotel_crm_distribute_amounts( $line['discount_amount'], $nights );
         $subtotal_nightly = simple_hotel_crm_distribute_amounts( $line['subtotal_amount'], $nights );
+        $commission_nightly = simple_hotel_crm_distribute_amounts( $line['commission_amount'], $nights );
         $room_rate_nightly = simple_hotel_crm_distribute_amounts( $line['room_rate_amount'], $nights );
         $extras_nightly = simple_hotel_crm_distribute_amounts( $line['extras_amount'], $nights );
         $tax_nightly = simple_hotel_crm_distribute_amounts( $line['tourist_tax_total'], $nights );
@@ -884,6 +900,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
                     'base_price_amount' => $base_price_nightly[ $i ],
                     'discount_amount' => $discount_nightly[ $i ],
                     'subtotal_amount' => $subtotal_nightly[ $i ],
+                    'commission_amount' => $commission_nightly[ $i ],
                     'room_rate_amount' => $room_rate_nightly[ $i ],
                     'extras_amount' => $extras_nightly[ $i ],
                     'tourist_tax_amount' => $tax_nightly[ $i ],
