@@ -421,7 +421,7 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
                 'tourist_tax_amount' => $line['tourist_tax_total'],
                 'total_amount' => $line['total_amount'],
             ],
-            [ '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%f', '%s', '%f', '%f', '%f', '%f', '%f', '%f' ]
+            [ '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%f', '%s', '%f', '%f', '%f', '%f', '%f', '%f', '%f', '%f' ]
         );
         if ( false === $booking_room_inserted ) {
             $wpdb->query( 'ROLLBACK' );
@@ -460,7 +460,7 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
                     'tourist_tax_amount' => $tax_nightly[ $i ],
                     'total_amount' => $night_total,
                 ],
-                [ '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%f', '%f', '%f' ]
+                [ '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%f', '%f', '%f', '%f' ]
             );
             if ( false === $night_inserted ) {
                 $wpdb->query( 'ROLLBACK' );

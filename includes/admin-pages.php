@@ -868,7 +868,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
                 'tourist_tax_amount' => $line['tourist_tax_total'],
                 'total_amount' => $line['total_amount'],
             ],
-            [ '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%f', '%s', '%f', '%f', '%f', '%f', '%f', '%f' ]
+            [ '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%d', '%f', '%s', '%f', '%f', '%f', '%f', '%f', '%f', '%f', '%f' ]
         );
         if ( false === $inserted ) {
             $wpdb->query( 'ROLLBACK' );
@@ -906,7 +906,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
                     'tourist_tax_amount' => $tax_nightly[ $i ],
                     'total_amount' => $night_total,
                 ],
-                [ '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%f', '%f', '%f' ]
+                [ '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%f', '%f', '%f', '%f' ]
             );
             $wpdb->insert(
                 $sync_bookings_table,
