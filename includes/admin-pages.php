@@ -1882,6 +1882,8 @@ function simple_hotel_crm_render_motopress_sync_page() {
     $consumer_secret = get_option( 'simple_hotel_crm_motopress_consumer_secret', '' );
     $test_result = '';
     $test_message = '';
+    $preview_rows = [];
+    $preview_message = '';
 
     if ( isset( $_POST['simple_hotel_crm_motopress_test'] ) ) {
         check_admin_referer( 'simple_hotel_crm_motopress_test' );
@@ -1918,8 +1920,34 @@ function simple_hotel_crm_render_motopress_sync_page() {
         echo '<div class="notice notice-success"><p>' . esc_html__( 'MotoPress API credentials saved.', 'simple-hotel-crm' ) . '</p></div>';
     }
 
+    if ( isset( $_POST['simple_hotel_crm_motopress_preview'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_motopress_preview' );
+        $consumer_key = sanitize_text_field( wp_unslash( $_POST['consumer_key'] ?? $consumer_key ) );
+        $consumer_secret = sanitize_text_field( wp_unslash( $_POST['consumer_secret'] ?? $consumer_secret ) );
+        $per_page = max( 1, min( 20, absint( $_POST['preview_limit'] ?? 10 ) ) );
+        $response = wp_remote_get( 'https://lagrangefleurie.fr/wp-json/mphb/v1/bookings?per_page=' . $per_page, [
+            'headers' => [
+                'Authorization' => 'Basic ' . base64_encode( $consumer_key . ':' . $consumer_secret ),
+            ],
+            'timeout' => 20,
+        ] );
+        if ( is_wp_error( $response ) ) {
+            $preview_message = $response->get_error_message();
+        } else {
+            $code = wp_remote_retrieve_response_code( $response );
+            $data = json_decode( wp_remote_retrieve_body( $response ), true );
+            if ( 200 === $code && is_array( $data ) ) {
+                $preview_rows = $data;
+                $preview_message = sprintf( __( 'Fetched %d MotoPress booking rows for preview.', 'simple-hotel-crm' ), count( $preview_rows ) );
+            } else {
+                $preview_message = __( 'Could not fetch preview rows from MotoPress.', 'simple-hotel-crm' );
+            }
+        }
+    }
+
     echo '<div class="wrap">';
     echo '<h2>' . esc_html__( 'MotoPress Sync', 'simple-hotel-crm' ) . '</h2>';
+    echo '<p>' . esc_html__( 'WordPress CRM tables remain the source of truth here. MotoPress is treated as an external source for preview/import, not the primary live datastore.', 'simple-hotel-crm' ) . '</p>';
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_motopress_save' );
     echo '<table class="form-table">
@@ -1953,6 +1981,32 @@ function simple_hotel_crm_render_motopress_sync_page() {
 
     if ( ! empty( $test_result ) ) {
         echo '<div class="notice notice-' . esc_attr( $test_result ) . '"><p>' . esc_html( $test_message ) . '</p></div>';
+    }
+
+    echo '<h2>' . esc_html__( 'Preview Remote Bookings', 'simple-hotel-crm' ) . '</h2>';
+    echo '<p>' . esc_html__( 'This fetches a small sample from MotoPress so you can inspect the remote data shape before we wire full import/reconcile actions.', 'simple-hotel-crm' ) . '</p>';
+    echo '<form method="post">';
+    wp_nonce_field( 'simple_hotel_crm_motopress_preview' );
+    echo '<input type="hidden" name="consumer_key" value="' . esc_attr( $consumer_key ) . '" />';
+    echo '<input type="hidden" name="consumer_secret" value="' . esc_attr( $consumer_secret ) . '" />';
+    echo '<p><label for="preview_limit">' . esc_html__( 'Preview rows', 'simple-hotel-crm' ) . '</label> <input type="number" min="1" max="20" name="preview_limit" id="preview_limit" value="10" class="small-text" /></p>';
+    submit_button( __( 'Fetch Preview', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_motopress_preview', false );
+    echo '</form>';
+    if ( '' !== $preview_message ) {
+        echo '<p><strong>' . esc_html( $preview_message ) . '</strong></p>';
+    }
+    if ( ! empty( $preview_rows ) ) {
+        echo '<table class="widefat striped"><thead><tr><th>ID</th><th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Raw sample', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
+        foreach ( $preview_rows as $preview_row ) {
+            echo '<tr>';
+            echo '<td>' . esc_html( (string) ( $preview_row['id'] ?? '' ) ) . '</td>';
+            echo '<td>' . esc_html( (string) ( $preview_row['check_in_date'] ?? $preview_row['checkInDate'] ?? '' ) ) . '</td>';
+            echo '<td>' . esc_html( (string) ( $preview_row['check_out_date'] ?? $preview_row['checkOutDate'] ?? '' ) ) . '</td>';
+            echo '<td>' . esc_html( (string) ( $preview_row['status'] ?? $preview_row['status_code'] ?? '' ) ) . '</td>';
+            echo '<td><code style="white-space:pre-wrap;display:block;max-width:640px;">' . esc_html( wp_json_encode( $preview_row ) ) . '</code></td>';
+            echo '</tr>';
+        }
+        echo '</tbody></table>';
     }
 
     echo '<h2>' . esc_html__( 'How to Get API Credentials', 'simple-hotel-crm' ) . '</h2>';
