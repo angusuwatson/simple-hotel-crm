@@ -114,12 +114,15 @@ function simple_hotel_crm_render_bookings_page() {
         }
     }
 
+    $has_commission_amount = simple_hotel_crm_table_has_column( $booking_rooms_table, 'commission_amount' );
+    $commission_select = $has_commission_amount ? 'COALESCE(SUM(br.commission_amount), 0)' : '0';
+
     $rows = $wpdb->get_results(
         $wpdb->prepare(
             "SELECT b.id, b.guest_id, b.status_code, b.check_in_date, b.check_out_date, b.source_channel, b.total_amount, b.created_at,
                     CONCAT(g.first_name, ' ', g.last_name) AS guest_name,
                     COUNT(br.id) AS room_count,
-                    COALESCE(SUM(br.commission_amount), 0) AS commission_amount
+                    {$commission_select} AS commission_amount
              FROM {$bookings_table} b
              JOIN {$guests_table} g ON g.id = b.guest_id
              LEFT JOIN {$booking_rooms_table} br ON br.booking_id = b.id
@@ -147,7 +150,7 @@ function simple_hotel_crm_render_bookings_page() {
         ),
         ARRAY_A
     );
-    $totals_row['commission_amount'] = (float) $wpdb->get_var(
+    $totals_row['commission_amount'] = $has_commission_amount ? (float) $wpdb->get_var(
         $wpdb->prepare(
             "SELECT COALESCE(SUM(br.commission_amount), 0)
              FROM {$booking_rooms_table} br
@@ -156,7 +159,7 @@ function simple_hotel_crm_render_bookings_page() {
              WHERE b.is_deleted = %d {$search_sql}",
             array_merge( [ $is_deleted ], $search_params )
         )
-    );
+    ) : 0.0;
     $page_count = (int) ceil( $total_bookings / $per_page );
 
     $active_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE is_deleted = 0" );
@@ -2082,9 +2085,24 @@ function simple_hotel_crm_render_settings_page() {
         echo '<div class="notice notice-success"><p>' . esc_html__( 'Settings saved.', 'simple-hotel-crm' ) . '</p></div>';
     }
 
+    if ( isset( $_POST['simple_hotel_crm_run_repairs'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_run_repairs', 'simple_hotel_crm_run_repairs_nonce' );
+        simple_hotel_crm_install_tables();
+        simple_hotel_crm_clear_calendar_cache();
+        echo '<div class="notice notice-success"><p>' . esc_html__( 'Schema upgrade and repair routines completed.', 'simple-hotel-crm' ) . '</p></div>';
+    }
+
     $api_url = get_option( 'simple_hotel_crm_invoice_ninja_url', '' );
     $api_token = get_option( 'simple_hotel_crm_invoice_ninja_token', '' );
     $booking_com_commission_percent = get_option( 'simple_hotel_crm_booking_com_commission_percent', 15 );
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+    $schema_status = [
+        'booking_rooms_commission' => simple_hotel_crm_table_has_column( $booking_rooms_table, 'commission_amount' ),
+        'booking_rooms_subtotal'   => simple_hotel_crm_table_has_column( $booking_rooms_table, 'subtotal_amount' ),
+        'booking_nights_commission'=> simple_hotel_crm_table_has_column( $booking_nights_table, 'commission_amount' ),
+        'booking_nights_subtotal'  => simple_hotel_crm_table_has_column( $booking_nights_table, 'subtotal_amount' ),
+    ];
 
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( 'LGF Bookings Settings', 'simple-hotel-crm' ) . '</h1>';
@@ -2116,6 +2134,20 @@ function simple_hotel_crm_render_settings_page() {
         echo '<td><input type="number" step="0.01" min="0" max="100" id="simple_hotel_crm_booking_com_commission_percent" name="simple_hotel_crm_booking_com_commission_percent" value="' . esc_attr( (string) $booking_com_commission_percent ) . '" class="small-text" /> <p class="description">' . esc_html__( 'Used for automatic commission calculation on Booking.com channel. Applied to discounted room charge only, not extras or tax.', 'simple-hotel-crm' ) . '</p></td></tr>';
         echo '</table>';
         submit_button( __( 'Save Settings', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_submit' );
+        echo '</form>';
+
+        echo '<hr />';
+        echo '<h2>' . esc_html__( 'Repair Tools', 'simple-hotel-crm' ) . '</h2>';
+        echo '<p>' . esc_html__( 'Use this to upgrade database tables and run built-in backfills for pricing and commission fields.', 'simple-hotel-crm' ) . '</p>';
+        echo '<ul>';
+        echo '<li>booking_rooms.commission_amount: ' . esc_html( $schema_status['booking_rooms_commission'] ? 'OK' : 'Missing' ) . '</li>';
+        echo '<li>booking_rooms.subtotal_amount: ' . esc_html( $schema_status['booking_rooms_subtotal'] ? 'OK' : 'Missing' ) . '</li>';
+        echo '<li>booking_room_nights.commission_amount: ' . esc_html( $schema_status['booking_nights_commission'] ? 'OK' : 'Missing' ) . '</li>';
+        echo '<li>booking_room_nights.subtotal_amount: ' . esc_html( $schema_status['booking_nights_subtotal'] ? 'OK' : 'Missing' ) . '</li>';
+        echo '</ul>';
+        echo '<form method="post">';
+        wp_nonce_field( 'simple_hotel_crm_run_repairs', 'simple_hotel_crm_run_repairs_nonce' );
+        submit_button( __( 'Run Schema Upgrade + Repairs', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_run_repairs' );
         echo '</form>';
     }
     echo '</div>';

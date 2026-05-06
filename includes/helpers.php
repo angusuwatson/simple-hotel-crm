@@ -160,6 +160,19 @@ function simple_hotel_crm_format_occupancy( $adults, $children ) {
     return implode( ' ', $parts );
 }
 
+function simple_hotel_crm_table_has_column( $table, $column ) {
+    global $wpdb;
+
+    $table = preg_replace( '/[^A-Za-z0-9_]/', '', (string) $table );
+    $column = preg_replace( '/[^A-Za-z0-9_]/', '', (string) $column );
+    if ( '' === $table || '' === $column ) {
+        return false;
+    }
+
+    $result = $wpdb->get_var( $wpdb->prepare( "SHOW COLUMNS FROM {$table} LIKE %s", $column ) );
+    return ! empty( $result );
+}
+
 function simple_hotel_crm_normalize_decimal( $value ) {
     if ( '' === $value || null === $value ) {
         return null;
