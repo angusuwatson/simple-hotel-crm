@@ -1873,6 +1873,59 @@ function simple_hotel_crm_render_import_panel() {
     echo '</form>';
 }
 
+function simple_hotel_crm_resolve_motopress_local_accommodation_label( $accommodation_id = 0, $accommodation_type_id = 0 ) {
+    global $wpdb;
+
+    $accommodation_id = (int) $accommodation_id;
+    $accommodation_type_id = (int) $accommodation_type_id;
+    $post_ids = array_filter( [ $accommodation_id, $accommodation_type_id ] );
+    if ( empty( $post_ids ) ) {
+        return '';
+    }
+
+    $posts_table = $wpdb->posts;
+    $placeholders = implode( ',', array_fill( 0, count( $post_ids ), '%d' ) );
+    $rows = $wpdb->get_results( $wpdb->prepare( "SELECT ID, post_title, post_type FROM {$posts_table} WHERE ID IN ({$placeholders})", $post_ids ), ARRAY_A );
+    if ( empty( $rows ) ) {
+        return '';
+    }
+
+    $labels = [];
+    foreach ( $rows as $post_row ) {
+        $labels[ (int) $post_row['ID'] ] = trim( (string) ( $post_row['post_title'] ?? '' ) );
+    }
+
+    return (string) ( $labels[ $accommodation_id ] ?? $labels[ $accommodation_type_id ] ?? '' );
+}
+
+function simple_hotel_crm_guess_crm_room_id_from_motopress_label( $label ) {
+    global $wpdb;
+
+    $label = trim( (string) $label );
+    if ( '' === $label ) {
+        return 0;
+    }
+
+    $rooms_table = simple_hotel_crm_rooms_table();
+    $rooms = $wpdb->get_results( "SELECT id, room_code, room_name FROM {$rooms_table} WHERE active = 1 ORDER BY sort_order ASC, room_name ASC", ARRAY_A );
+    $normalized_label = simple_hotel_crm_normalize_import_name( preg_replace( '/\([^)]*\)/', ' ', $label ) );
+
+    foreach ( $rooms as $room ) {
+        $room_code = strtoupper( trim( (string) ( $room['room_code'] ?? '' ) ) );
+        $room_name = trim( (string) ( $room['room_name'] ?? '' ) );
+        $normalized_room_name = simple_hotel_crm_normalize_import_name( $room_name );
+
+        if ( '' !== $room_code && false !== strpos( strtoupper( $label ), $room_code ) ) {
+            return (int) $room['id'];
+        }
+        if ( '' !== $normalized_room_name && false !== strpos( $normalized_label, $normalized_room_name ) ) {
+            return (int) $room['id'];
+        }
+    }
+
+    return 0;
+}
+
 function simple_hotel_crm_extract_motopress_room_candidates( $row ) {
     $row = is_array( $row ) ? $row : [];
     $candidates = [];
@@ -1890,8 +1943,12 @@ function simple_hotel_crm_extract_motopress_room_candidates( $row ) {
                 continue;
             }
             $room_id = (int) ( $item['room_id'] ?? $item['roomId'] ?? $item['id'] ?? $item['accommodation'] ?? $item['accommodation_id'] ?? $item['accommodationId'] ?? 0 );
+            $accommodation_type = (int) ( $item['accommodation_type'] ?? 0 );
             $room_code = strtoupper( trim( (string) ( $item['room_code'] ?? $item['roomCode'] ?? $item['code'] ?? '' ) ) );
             $room_name = trim( (string) ( $item['room_name'] ?? $item['roomName'] ?? $item['name'] ?? $item['accommodation_title'] ?? $item['accommodationTitle'] ?? $item['accommodation_label'] ?? '' ) );
+            if ( '' === $room_name ) {
+                $room_name = simple_hotel_crm_resolve_motopress_local_accommodation_label( $room_id, $accommodation_type );
+            }
             $adults = max( 0, (int) ( $item['adults'] ?? $item['adult_count'] ?? $item['adultCount'] ?? $row['adults'] ?? 0 ) );
             $children = max( 0, (int) ( $item['children'] ?? $item['child_count'] ?? $item['childCount'] ?? $row['children'] ?? 0 ) );
             $babies = max( 0, (int) ( $item['babies'] ?? $item['infants'] ?? $row['babies'] ?? 0 ) );
@@ -1899,7 +1956,7 @@ function simple_hotel_crm_extract_motopress_room_candidates( $row ) {
                 'external_room_id' => $room_id,
                 'room_code' => $room_code,
                 'room_name' => $room_name,
-            'accommodation_type' => (int) ( $item['accommodation_type'] ?? 0 ),
+            'accommodation_type' => $accommodation_type,
             'guest_name' => (string) ( $item['guest_name'] ?? '' ),
                 'adults' => $adults,
                 'children' => $children,
@@ -1933,6 +1990,9 @@ function simple_hotel_crm_map_motopress_room_candidates( $row ) {
             'room_code' => $candidate['room_code'] ?? '',
             'room_name' => $candidate['room_name'] ?? '',
         ] );
+        if ( $crm_room_id <= 0 ) {
+            $crm_room_id = simple_hotel_crm_guess_crm_room_id_from_motopress_label( $candidate['room_name'] ?? '' );
+        }
         $mapped[] = array_merge( $candidate, [
             'crm_room_id' => $crm_room_id,
             'mapping_status' => $crm_room_id > 0 ? 'matched' : 'unmatched',
