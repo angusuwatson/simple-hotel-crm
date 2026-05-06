@@ -71,14 +71,14 @@
 .calendar-month-tab {
     color: #d9dbe6;
     text-decoration: none;
-    padding: 4px 14px;
+    padding: 2px 9px;
     font-weight: 500;
-    min-width: 82px;
+    min-width: 64px;
     text-align: center;
     border-bottom: 2px solid transparent;
     flex: 0 0 auto;
     letter-spacing: -0.02em;
-    font-size: 15px;
+    font-size: 13px;
     line-height: 1;
 }
 
@@ -98,8 +98,8 @@
 
 .simple-hotel-crm .calendar-grid th,
 .simple-hotel-crm .calendar-grid td {
-    border-left: 1px solid #eef0f4;
-    border-right: 1px solid #eef0f4;
+    border-left: 1px solid #f6f7fa;
+    border-right: 1px solid #f6f7fa;
     border-top: 0;
     border-bottom: 0;
     padding: 0 3px;
@@ -129,14 +129,14 @@
 .simple-hotel-crm .calendar-grid .room-header-spacer { background: #f4f4f6; }
 .simple-hotel-crm .calendar-grid .month-row th,
 .simple-hotel-crm .calendar-grid .weekday-row th { background: #f4f4f6; }
-.simple-hotel-crm .calendar-grid .month-row th { height: 13px; padding-top: 0; padding-bottom: 0; }
-.simple-hotel-crm .calendar-grid .weekday-row th { height: 15px; padding-top: 0; padding-bottom: 0; }
+.simple-hotel-crm .calendar-grid .month-row th { height: 10px; padding-top: 0; padding-bottom: 0; }
+.simple-hotel-crm .calendar-grid .weekday-row th { height: 12px; padding-top: 0; padding-bottom: 0; }
 .simple-hotel-crm .calendar-grid .calendar-day-number,
 .simple-hotel-crm .calendar-grid .calendar-weekday,
 .simple-hotel-crm .calendar-grid .calendar-corner-month { display: block; }
-.simple-hotel-crm .calendar-grid .calendar-corner-month { color: #232323; font-size: 11px; font-weight: 400; text-align: left; }
-.simple-hotel-crm .calendar-grid .calendar-day-number { color: #232323; font-size: 12px; font-weight: 400; }
-.simple-hotel-crm .calendar-grid .calendar-weekday { font-size: 11px; color: #232323; }
+.simple-hotel-crm .calendar-grid .calendar-corner-month { color: #232323; font-size: 10px; font-weight: 400; text-align: left; }
+.simple-hotel-crm .calendar-grid .calendar-day-number { color: #232323; font-size: 11px; font-weight: 400; }
+.simple-hotel-crm .calendar-grid .calendar-weekday { font-size: 10px; color: #232323; }
 .simple-hotel-crm .calendar-grid .room-label-cell,
 .simple-hotel-crm .calendar-grid td.calendar-cell { background: #ffffff; color: #161616; }
 

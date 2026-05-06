@@ -1085,6 +1085,7 @@ function simple_hotel_crm_render_booking_detail_page() {
         echo '</tr>';
     }
     echo '</tbody></table>';
+    echo '<p><strong>' . esc_html__( 'Booking total preview', 'simple-hotel-crm' ) . ':</strong> <span class="simple-hotel-crm-booking-total-preview">0.00</span></p>';
     submit_button( __( 'Add room line', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_add_booking_room', false );
     echo ' ';
     submit_button( __( 'Save Booking', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_save_booking', false );
@@ -1099,6 +1100,8 @@ window.simpleHotelCrmRoomPricing = {$room_pricing_json};
     var form=document.querySelector(".wrap form");if(!form)return;
     var ci=form.querySelector('[name="check_in_date"]');
     var co=form.querySelector('[name="check_out_date"]');
+    var totalPreview=form.querySelector('.simple-hotel-crm-booking-total-preview');
+    var bookingTotal=0;
     var nights=1;
     if(ci&&co&&ci.value&&co.value){nights=Math.max(1,Math.round((new Date(co.value)-new Date(ci.value))/86400000));}
     form.querySelectorAll("tbody tr").forEach(function(tr){
@@ -1118,8 +1121,10 @@ window.simpleHotelCrmRoomPricing = {$room_pricing_json};
       if(dtype&&dtype.value==='amount')discount=Math.min(roomRate,num(dval&&dval.value));
       var tax=(parseInt(adults.value||0,10)*0.8*nights);
       var total=Math.max(0,roomRate-discount)+num(extras&&extras.value)+tax;
+      bookingTotal+=total;
       preview.textContent=total.toFixed(2);
     });
+    if(totalPreview){totalPreview.textContent=bookingTotal.toFixed(2);}
   }
   document.addEventListener('input',upd);
   document.addEventListener('change',upd);
@@ -1356,6 +1361,7 @@ function simple_hotel_crm_render_add_booking_page() {
     echo '<tr><th><label for="booking_note">' . esc_html__( 'Booking note', 'simple-hotel-crm' ) . '</label></th><td><textarea name="booking_note" id="booking_note" rows="3" class="large-text">' . esc_textarea( (string) $form_data['booking_note'] ) . '</textarea></td></tr>';
     echo '<tr><th><label for="import_notes">' . esc_html__( 'Import / internal notes', 'simple-hotel-crm' ) . '</label></th><td><textarea name="import_notes" id="import_notes" rows="4" class="large-text">' . esc_textarea( (string) $form_data['import_notes'] ) . '</textarea></td></tr>';
     echo '</table>';
+    echo '<p><strong>' . esc_html__( 'Booking total preview', 'simple-hotel-crm' ) . ':</strong> <span class="simple-hotel-crm-booking-total-preview">0.00</span></p>';
     submit_button( __( 'Create Booking', 'simple-hotel-crm' ), 'primary', 'lgf_add_booking_submit' );
     echo '</form>';
     $pricing_json = wp_json_encode( $room_pricing_map );
@@ -1371,6 +1377,8 @@ function simple_hotel_crm_render_add_booking_page() {
         if(!form) return;
         var ci=form.querySelector("#check_in");
         var co=form.querySelector("#check_out");
+        var totalPreview=form.querySelector(".simple-hotel-crm-booking-total-preview");
+        var bookingTotal=0;
         var nights=1;
         if(ci&&co&&ci.value&&co.value){
             nights=Math.max(1,Math.round((new Date(co.value)-new Date(ci.value))/86400000));
@@ -1392,8 +1400,10 @@ function simple_hotel_crm_render_add_booking_page() {
             if(dtype&&dtype.value==="amount") discount=Math.min(roomRate,num(dval&&dval.value));
             var tax=(parseInt(adults.value||0,10)*0.8*nights);
             var total=Math.max(0,roomRate-discount)+num(extras&&extras.value)+tax;
+            bookingTotal+=total;
             preview.textContent="Preview: room " + Math.max(0,roomRate-discount).toFixed(2) + " € + extras " + num(extras&&extras.value).toFixed(2) + " € + tax " + tax.toFixed(2) + " € = " + total.toFixed(2) + " €";
         });
+        if(totalPreview){totalPreview.textContent=bookingTotal.toFixed(2) + " €";}
     }
     document.addEventListener("input", upd);
     document.addEventListener("change", upd);
