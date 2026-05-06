@@ -1873,6 +1873,35 @@ function simple_hotel_crm_render_import_panel() {
     echo '</form>';
 }
 
+function simple_hotel_crm_analyze_motopress_booking_preview_row( $mapped_row ) {
+    $mapped_row = is_array( $mapped_row ) ? $mapped_row : [];
+    $issues = [];
+
+    if ( empty( $mapped_row['guest_name'] ) ) {
+        $issues[] = 'missing_guest_name';
+    }
+    if ( empty( $mapped_row['check_in'] ) ) {
+        $issues[] = 'missing_check_in';
+    }
+    if ( empty( $mapped_row['check_out'] ) ) {
+        $issues[] = 'missing_check_out';
+    }
+
+    $guest = simple_hotel_crm_find_guest_for_import_row( [
+        'email' => $mapped_row['guest_email'] ?? '',
+        'guest_name' => $mapped_row['guest_name'] ?? '',
+        'phone' => $mapped_row['phone'] ?? '',
+    ] );
+    $booking = simple_hotel_crm_find_booking_for_import_row( $mapped_row, (int) ( $guest['id'] ?? 0 ) );
+
+    return [
+        'guest_match' => ! empty( $guest['id'] ),
+        'booking_match' => ! empty( $booking['id'] ),
+        'status' => ! empty( $issues ) ? 'incomplete' : ( ! empty( $booking['id'] ) ? 'duplicate' : 'new' ),
+        'issues' => $issues,
+    ];
+}
+
 function simple_hotel_crm_map_motopress_booking_preview_row( $row ) {
     $row = is_array( $row ) ? $row : [];
 
@@ -1917,6 +1946,7 @@ function simple_hotel_crm_render_motopress_sync_page() {
     $test_message = '';
     $preview_rows = [];
     $preview_mapped_rows = [];
+    $preview_analysis_rows = [];
     $preview_message = '';
 
     if ( isset( $_POST['simple_hotel_crm_motopress_test'] ) ) {
@@ -1973,6 +2003,7 @@ function simple_hotel_crm_render_motopress_sync_page() {
             if ( 200 === $code && is_array( $data ) ) {
                 $preview_rows = $data;
                 $preview_mapped_rows = array_map( 'simple_hotel_crm_map_motopress_booking_preview_row', $preview_rows );
+                $preview_analysis_rows = array_map( 'simple_hotel_crm_analyze_motopress_booking_preview_row', $preview_mapped_rows );
                 $preview_message = sprintf( __( 'Fetched %d MotoPress booking rows for preview.', 'simple-hotel-crm' ), count( $preview_rows ) );
             } else {
                 $preview_message = __( 'Could not fetch preview rows from MotoPress.', 'simple-hotel-crm' );
@@ -2031,16 +2062,18 @@ function simple_hotel_crm_render_motopress_sync_page() {
         echo '<p><strong>' . esc_html( $preview_message ) . '</strong></p>';
     }
     if ( ! empty( $preview_rows ) ) {
-        echo '<table class="widefat striped"><thead><tr><th>ID</th><th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Mapped CRM import shape', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Raw sample', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
+        echo '<table class="widefat striped"><thead><tr><th>ID</th><th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Remote status', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Import readiness', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Mapped CRM import shape', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Raw sample', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
         foreach ( $preview_rows as $index => $preview_row ) {
             $mapped_row = $preview_mapped_rows[ $index ] ?? [];
+            $analysis = $preview_analysis_rows[ $index ] ?? [];
             echo '<tr>';
             echo '<td>' . esc_html( (string) ( $preview_row['id'] ?? '' ) ) . '</td>';
             echo '<td>' . esc_html( (string) ( $preview_row['check_in_date'] ?? $preview_row['checkInDate'] ?? '' ) ) . '</td>';
             echo '<td>' . esc_html( (string) ( $preview_row['check_out_date'] ?? $preview_row['checkOutDate'] ?? '' ) ) . '</td>';
             echo '<td>' . esc_html( (string) ( $preview_row['status'] ?? $preview_row['status_code'] ?? '' ) ) . '</td>';
-            echo '<td><code style="white-space:pre-wrap;display:block;max-width:420px;">' . esc_html( wp_json_encode( $mapped_row ) ) . '</code></td>';
-            echo '<td><code style="white-space:pre-wrap;display:block;max-width:420px;">' . esc_html( wp_json_encode( $preview_row ) ) . '</code></td>';
+            echo '<td><strong>' . esc_html( (string) ( $analysis['status'] ?? '' ) ) . '</strong><br />' . esc_html__( 'Guest match:', 'simple-hotel-crm' ) . ' ' . esc_html( ! empty( $analysis['guest_match'] ) ? 'yes' : 'no' ) . '<br />' . esc_html__( 'Booking match:', 'simple-hotel-crm' ) . ' ' . esc_html( ! empty( $analysis['booking_match'] ) ? 'yes' : 'no' ) . ( ! empty( $analysis['issues'] ) ? '<br />' . esc_html__( 'Issues:', 'simple-hotel-crm' ) . ' ' . esc_html( implode( ', ', (array) $analysis['issues'] ) ) : '' ) . '</td>';
+            echo '<td><code style="white-space:pre-wrap;display:block;max-width:360px;">' . esc_html( wp_json_encode( $mapped_row ) ) . '</code></td>';
+            echo '<td><code style="white-space:pre-wrap;display:block;max-width:360px;">' . esc_html( wp_json_encode( $preview_row ) ) . '</code></td>';
             echo '</tr>';
         }
         echo '</tbody></table>';
