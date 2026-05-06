@@ -1911,14 +1911,17 @@ function simple_hotel_crm_guess_crm_room_id_from_motopress_label( $label ) {
     $normalized_label = simple_hotel_crm_normalize_import_name( preg_replace( '/\([^)]*\)/', ' ', $label ) );
 
     foreach ( $rooms as $room ) {
-        $room_code = strtoupper( trim( (string) ( $room['room_code'] ?? '' ) ) );
         $room_name = trim( (string) ( $room['room_name'] ?? '' ) );
         $normalized_room_name = simple_hotel_crm_normalize_import_name( $room_name );
 
-        if ( '' !== $room_code && false !== strpos( strtoupper( $label ), $room_code ) ) {
+        if ( '' !== $normalized_room_name && false !== strpos( $normalized_label, $normalized_room_name ) ) {
             return (int) $room['id'];
         }
-        if ( '' !== $normalized_room_name && false !== strpos( $normalized_label, $normalized_room_name ) ) {
+    }
+
+    foreach ( $rooms as $room ) {
+        $room_code = strtoupper( trim( (string) ( $room['room_code'] ?? '' ) ) );
+        if ( '' !== $room_code && false !== strpos( strtoupper( $label ), $room_code ) ) {
             return (int) $room['id'];
         }
     }
