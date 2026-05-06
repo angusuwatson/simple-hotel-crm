@@ -460,7 +460,7 @@ function simple_hotel_crm_import_booking_com_ics_feeds() {
                     $summary['skipped']++;
                     continue;
                 }
-                $wpdb->insert(
+                $inserted = $wpdb->insert(
                     $sync_bookings_table,
                     [
                         'external_booking_id' => $external_booking_id,
@@ -490,7 +490,7 @@ function simple_hotel_crm_import_booking_com_ics_feeds() {
                     ],
                     [ '%d', '%d', '%d', '%d', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%d', '%s', '%s', '%s', '%s', '%s' ]
                 );
-                if ( false !== $wpdb->insert_id ) {
+                if ( false !== $inserted ) {
                     $summary['staged']++;
                 }
             }
