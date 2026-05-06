@@ -1873,6 +1873,39 @@ function simple_hotel_crm_render_import_panel() {
     echo '</form>';
 }
 
+function simple_hotel_crm_map_motopress_booking_preview_row( $row ) {
+    $row = is_array( $row ) ? $row : [];
+
+    $guest_name = '';
+    if ( ! empty( $row['guest_name'] ) ) {
+        $guest_name = trim( (string) $row['guest_name'] );
+    } elseif ( ! empty( $row['customer']['full_name'] ) ) {
+        $guest_name = trim( (string) $row['customer']['full_name'] );
+    } else {
+        $first_name = trim( (string) ( $row['first_name'] ?? $row['customer']['first_name'] ?? '' ) );
+        $last_name  = trim( (string) ( $row['last_name'] ?? $row['customer']['last_name'] ?? '' ) );
+        $guest_name = trim( $first_name . ' ' . $last_name );
+    }
+
+    $status = sanitize_key( (string) ( $row['status'] ?? $row['status_code'] ?? 'confirmed' ) );
+    if ( ! isset( simple_hotel_crm_get_booking_status_options()[ $status ] ) ) {
+        $status = 'confirmed';
+    }
+
+    return [
+        'external_booking_id' => (string) ( $row['id'] ?? '' ),
+        'guest_name'          => $guest_name,
+        'guest_email'         => (string) ( $row['email'] ?? $row['customer']['email'] ?? '' ),
+        'phone'               => (string) ( $row['phone'] ?? $row['customer']['phone'] ?? '' ),
+        'check_in'            => (string) ( $row['check_in_date'] ?? $row['checkInDate'] ?? '' ),
+        'check_out'           => (string) ( $row['check_out_date'] ?? $row['checkOutDate'] ?? '' ),
+        'status_code'         => $status,
+        'source_channel'      => 'booking_com',
+        'booking_note'        => (string) ( $row['note'] ?? $row['booking_note'] ?? '' ),
+        'internal_notes'      => (string) ( $row['internal_note'] ?? $row['internal_notes'] ?? '' ),
+    ];
+}
+
 function simple_hotel_crm_render_motopress_sync_page() {
     if ( ! simple_hotel_crm_user_can_access() ) {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
@@ -1883,6 +1916,7 @@ function simple_hotel_crm_render_motopress_sync_page() {
     $test_result = '';
     $test_message = '';
     $preview_rows = [];
+    $preview_mapped_rows = [];
     $preview_message = '';
 
     if ( isset( $_POST['simple_hotel_crm_motopress_test'] ) ) {
@@ -1938,6 +1972,7 @@ function simple_hotel_crm_render_motopress_sync_page() {
             $data = json_decode( wp_remote_retrieve_body( $response ), true );
             if ( 200 === $code && is_array( $data ) ) {
                 $preview_rows = $data;
+                $preview_mapped_rows = array_map( 'simple_hotel_crm_map_motopress_booking_preview_row', $preview_rows );
                 $preview_message = sprintf( __( 'Fetched %d MotoPress booking rows for preview.', 'simple-hotel-crm' ), count( $preview_rows ) );
             } else {
                 $preview_message = __( 'Could not fetch preview rows from MotoPress.', 'simple-hotel-crm' );
@@ -1996,14 +2031,16 @@ function simple_hotel_crm_render_motopress_sync_page() {
         echo '<p><strong>' . esc_html( $preview_message ) . '</strong></p>';
     }
     if ( ! empty( $preview_rows ) ) {
-        echo '<table class="widefat striped"><thead><tr><th>ID</th><th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Raw sample', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
-        foreach ( $preview_rows as $preview_row ) {
+        echo '<table class="widefat striped"><thead><tr><th>ID</th><th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Mapped CRM import shape', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Raw sample', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
+        foreach ( $preview_rows as $index => $preview_row ) {
+            $mapped_row = $preview_mapped_rows[ $index ] ?? [];
             echo '<tr>';
             echo '<td>' . esc_html( (string) ( $preview_row['id'] ?? '' ) ) . '</td>';
             echo '<td>' . esc_html( (string) ( $preview_row['check_in_date'] ?? $preview_row['checkInDate'] ?? '' ) ) . '</td>';
             echo '<td>' . esc_html( (string) ( $preview_row['check_out_date'] ?? $preview_row['checkOutDate'] ?? '' ) ) . '</td>';
             echo '<td>' . esc_html( (string) ( $preview_row['status'] ?? $preview_row['status_code'] ?? '' ) ) . '</td>';
-            echo '<td><code style="white-space:pre-wrap;display:block;max-width:640px;">' . esc_html( wp_json_encode( $preview_row ) ) . '</code></td>';
+            echo '<td><code style="white-space:pre-wrap;display:block;max-width:420px;">' . esc_html( wp_json_encode( $mapped_row ) ) . '</code></td>';
+            echo '<td><code style="white-space:pre-wrap;display:block;max-width:420px;">' . esc_html( wp_json_encode( $preview_row ) ) . '</code></td>';
             echo '</tr>';
         }
         echo '</tbody></table>';
