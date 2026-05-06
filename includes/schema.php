@@ -499,6 +499,42 @@ function simple_hotel_crm_run_repair_routines() {
     ];
 }
 
+function simple_hotel_crm_get_repair_scan_counts() {
+    global $wpdb;
+
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+
+    $counts = [
+        'pricing_rows' => 0,
+        'commission_rows' => 0,
+        'booking_headers' => 0,
+    ];
+
+    if ( simple_hotel_crm_table_has_column( $booking_rooms_table, 'subtotal_amount' ) ) {
+        $counts['pricing_rows'] += (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$booking_rooms_table} WHERE subtotal_amount = 0 AND room_rate_amount > 0" );
+    }
+    if ( simple_hotel_crm_table_has_column( $booking_rooms_table, 'base_price_amount' ) ) {
+        $counts['pricing_rows'] += (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$booking_rooms_table} WHERE base_price_amount = 0 AND room_rate_amount > 0" );
+    }
+    if ( simple_hotel_crm_table_has_column( $booking_nights_table, 'subtotal_amount' ) ) {
+        $counts['pricing_rows'] += (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$booking_nights_table} WHERE subtotal_amount = 0 AND room_rate_amount > 0" );
+    }
+    if ( simple_hotel_crm_table_has_column( $booking_nights_table, 'base_price_amount' ) ) {
+        $counts['pricing_rows'] += (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$booking_nights_table} WHERE base_price_amount = 0 AND room_rate_amount > 0" );
+    }
+    if ( simple_hotel_crm_table_has_column( $booking_rooms_table, 'commission_amount' ) ) {
+        $counts['commission_rows'] += (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$booking_rooms_table} br JOIN {$bookings_table} b ON b.id = br.booking_id WHERE br.commission_amount = 0 AND br.room_rate_amount > 0 AND b.source_channel = 'booking_com'" );
+    }
+    if ( simple_hotel_crm_table_has_column( $booking_nights_table, 'commission_amount' ) ) {
+        $counts['commission_rows'] += (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$booking_nights_table} brn JOIN {$booking_rooms_table} br ON br.id = brn.booking_room_id JOIN {$bookings_table} b ON b.id = br.booking_id WHERE brn.commission_amount = 0 AND brn.room_rate_amount > 0 AND b.source_channel = 'booking_com'" );
+    }
+    $counts['booking_headers'] = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} b LEFT JOIN (SELECT booking_id, COALESCE(SUM(total_amount), 0) AS room_total_amount FROM {$booking_rooms_table} GROUP BY booking_id) room_totals ON room_totals.booking_id = b.id WHERE COALESCE(b.total_amount, 0) <> COALESCE(room_totals.room_total_amount, 0)" );
+
+    return $counts;
+}
+
 function simple_hotel_crm_maybe_migrate_sync_data_to_crm() {
     global $wpdb;
 

@@ -65,7 +65,7 @@ $scroll_to_today = ( (int) $month === $today_month && (int) $year === $today_yea
                             [ 'label' => 'Occupancy', 'class' => 'occupancy-row', 'type' => 'detail', 'field' => 'occupancy', 'display_fn' => function( $b ) { return $b->occupancy_str ?? ''; } ],
                             [ 'label' => 'Extras', 'class' => 'extras-row', 'type' => 'detail editable-text', 'field' => 'extras_formula', 'display_fn' => function( $b ) { return $b->extras_formula ?? ''; } ],
                             [ 'label' => 'Room rate', 'class' => 'tarif-row', 'type' => 'detail detail-tarif', 'field' => 'manual_tarif', 'display_fn' => function( $b ) { return isset( $b->tarif ) && '' !== $b->tarif && null !== $b->tarif ? number_format( (float) $b->tarif, 2, ',', ' ' ) . ' €' : ''; } ],
-                            [ 'label' => 'Commission', 'class' => 'commission-row', 'type' => 'detail detail-commission', 'field' => 'manual_commission', 'display_fn' => function( $b ) { return isset( $b->commission ) && '' !== $b->commission && null !== $b->commission ? number_format( (float) $b->commission, 2, ',', ' ' ) . ' €' : ''; } ],
+                            [ 'label' => 'Commission', 'class' => 'commission-row', 'type' => 'detail detail-commission', 'field' => 'manual_commission', 'display_fn' => function( $b ) { return isset( $b->commission ) && '' !== $b->commission && null !== $b->commission && (float) $b->commission > 0 ? number_format( (float) $b->commission, 2, ',', ' ' ) . ' €' : ''; } ],
                         ];
 
                         foreach ( $rows as $row_index => $row ) :

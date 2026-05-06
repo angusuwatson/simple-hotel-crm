@@ -2113,6 +2113,7 @@ function simple_hotel_crm_render_settings_page() {
         'booking_nights_commission'=> simple_hotel_crm_table_has_column( $booking_nights_table, 'commission_amount' ),
         'booking_nights_subtotal'  => simple_hotel_crm_table_has_column( $booking_nights_table, 'subtotal_amount' ),
     ];
+    $repair_scan_counts = simple_hotel_crm_get_repair_scan_counts();
 
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( 'LGF Bookings Settings', 'simple-hotel-crm' ) . '</h1>';
@@ -2165,6 +2166,12 @@ function simple_hotel_crm_render_settings_page() {
         echo '<li>booking_rooms.subtotal_amount: ' . esc_html( $schema_status['booking_rooms_subtotal'] ? 'OK' : 'Missing' ) . '</li>';
         echo '<li>booking_room_nights.commission_amount: ' . esc_html( $schema_status['booking_nights_commission'] ? 'OK' : 'Missing' ) . '</li>';
         echo '<li>booking_room_nights.subtotal_amount: ' . esc_html( $schema_status['booking_nights_subtotal'] ? 'OK' : 'Missing' ) . '</li>';
+        echo '</ul>';
+        echo '<h3>' . esc_html__( 'Repair scan', 'simple-hotel-crm' ) . '</h3>';
+        echo '<ul>';
+        echo '<li>' . esc_html__( 'Pricing rows needing normalization:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $repair_scan_counts['pricing_rows'] ) . '</li>';
+        echo '<li>' . esc_html__( 'Commission rows needing backfill:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $repair_scan_counts['commission_rows'] ) . '</li>';
+        echo '<li>' . esc_html__( 'Booking headers needing recalculation:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $repair_scan_counts['booking_headers'] ) . '</li>';
         echo '</ul>';
         echo '<form method="post">';
         wp_nonce_field( 'simple_hotel_crm_run_repairs', 'simple_hotel_crm_run_repairs_nonce' );

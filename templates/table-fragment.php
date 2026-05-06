@@ -94,7 +94,7 @@ $days = $calendar_data['days'];
                         'label_style' => 'background:#fff; border-right: 1px solid black; text-align: right;',
                         'cell_style' => 'background:#fff;',
                         'value_fn' => function($b) {
-                            if ( $b->commission !== '' && $b->commission !== null ) {
+                            if ( $b->commission !== '' && $b->commission !== null && (float) $b->commission > 0 ) {
                                 return number_format( $b->commission, 2, ',', '' ) . '€';
                             }
                             return '';
