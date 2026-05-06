@@ -19,12 +19,10 @@ function simple_hotel_crm_rest_create_invoice( WP_REST_Request $request ) {
     }
 
     $overlay = simple_hotel_crm_get_booking_overlay( $reserved_room_id );
-    if ( empty( $overlay ) ) {
-        return new WP_Error( 'no_overlay_data', __( 'No overlay data for this room booking yet. Save the tariff/commission/extras first.', 'simple-hotel-crm' ), [ 'status' => 404 ] );
-    }
 
     global $wpdb;
     $crm_bookings_table = simple_hotel_crm_bookings_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
     $client_id = (string) $wpdb->get_var( $wpdb->prepare( "SELECT invoice_ninja_client_id FROM {$crm_bookings_table} WHERE id = %d LIMIT 1", $booking_id ) );
     if ( '' === $client_id ) {
         return new WP_Error( 'booking_not_found', __( 'Booking not found in WordPress CRM data, or it has no Invoice Ninja client ID.', 'simple-hotel-crm' ), [ 'status' => 404 ] );
@@ -34,29 +32,52 @@ function simple_hotel_crm_rest_create_invoice( WP_REST_Request $request ) {
         return new WP_Error( 'no_customer', __( 'This booking has no linked Invoice Ninja client ID.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
     }
 
+    $booking_room = $wpdb->get_row(
+        $wpdb->prepare( "SELECT room_rate_amount, extras_amount, tourist_tax_amount, total_amount FROM {$booking_rooms_table} WHERE booking_id = %d AND legacy_reserved_room_id = %d LIMIT 1", $booking_id, $reserved_room_id ),
+        ARRAY_A
+    );
+
     $invoice_lines = [];
     $total = 0.0;
 
-    if ( isset( $overlay['manual_tarif'] ) && '' !== $overlay['manual_tarif'] && null !== $overlay['manual_tarif'] ) {
+    $tarif = null;
+    if ( is_array( $booking_room ) ) {
+        $tarif = (float) $booking_room['room_rate_amount'];
+    } elseif ( isset( $overlay['manual_tarif'] ) && '' !== $overlay['manual_tarif'] && null !== $overlay['manual_tarif'] ) {
         $tarif = (float) $overlay['manual_tarif'];
-        $invoice_lines[] = [ 'product_key' => 'room-charge', 'quantity' => 1, 'rate' => $tarif ];
+    }
+    if ( null !== $tarif && $tarif != 0.0 ) {
+        $invoice_lines[] = [ 'product_key' => 'room-charge', 'quantity' => 1, 'rate' => round( $tarif, 2 ) ];
         $total += $tarif;
     }
 
-    if ( isset( $overlay['extras_total'] ) && '' !== $overlay['extras_total'] && null !== $overlay['extras_total'] ) {
+    $extras = null;
+    if ( is_array( $booking_room ) ) {
+        $extras = (float) $booking_room['extras_amount'];
+    } elseif ( isset( $overlay['extras_total'] ) && '' !== $overlay['extras_total'] && null !== $overlay['extras_total'] ) {
         $extras = (float) $overlay['extras_total'];
-        $invoice_lines[] = [ 'product_key' => 'extras-charge', 'quantity' => 1, 'rate' => $extras ];
+    }
+    if ( null !== $extras && $extras != 0.0 ) {
+        $invoice_lines[] = [ 'product_key' => 'extras-charge', 'quantity' => 1, 'rate' => round( $extras, 2 ) ];
         $total += $extras;
+    }
+
+    $tourist_tax = is_array( $booking_room ) ? (float) $booking_room['tourist_tax_amount'] : 0.0;
+    if ( $tourist_tax != 0.0 ) {
+        $invoice_lines[] = [ 'product_key' => 'tourist-tax', 'quantity' => 1, 'rate' => round( $tourist_tax, 2 ) ];
+        $total += $tourist_tax;
     }
 
     if ( isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission'] && null !== $overlay['manual_commission'] ) {
         $commission = (float) $overlay['manual_commission'];
-        $invoice_lines[] = [ 'product_key' => 'booking-commission', 'quantity' => 1, 'rate' => -$commission ];
-        $total -= $commission;
+        if ( $commission != 0.0 ) {
+            $invoice_lines[] = [ 'product_key' => 'booking-commission', 'quantity' => 1, 'rate' => -round( $commission, 2 ) ];
+            $total -= $commission;
+        }
     }
 
     if ( empty( $invoice_lines ) ) {
-        return new WP_Error( 'empty_invoice', __( 'No invoiceable lines were found in the saved overlay data.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
+        return new WP_Error( 'empty_invoice', __( 'No invoiceable lines were found in CRM pricing or saved overlay data.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
     }
 
     $payload = [

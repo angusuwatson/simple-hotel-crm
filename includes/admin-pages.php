@@ -136,6 +136,16 @@ function simple_hotel_crm_render_bookings_page() {
             array_merge( [ $is_deleted ], $search_params )
         )
     );
+    $totals_row = $wpdb->get_row(
+        $wpdb->prepare(
+            "SELECT COUNT(*) AS booking_count, COALESCE(SUM(b.total_amount), 0) AS total_amount
+             FROM {$bookings_table} b
+             JOIN {$guests_table} g ON g.id = b.guest_id
+             WHERE b.is_deleted = %d {$search_sql}",
+            array_merge( [ $is_deleted ], $search_params )
+        ),
+        ARRAY_A
+    );
     $page_count = (int) ceil( $total_bookings / $per_page );
 
     $active_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE is_deleted = 0" );
@@ -200,7 +210,14 @@ function simple_hotel_crm_render_bookings_page() {
             echo '</tr>';
         }
     }
-    echo '</tbody></table></form>';
+    echo '</tbody><tfoot><tr>';
+    echo '<td></td>';
+    echo '<td colspan="4"><strong>' . esc_html__( 'Totals', 'simple-hotel-crm' ) . '</strong></td>';
+    echo '<td><strong>' . esc_html( (string) (int) ( $totals_row['booking_count'] ?? 0 ) ) . '</strong></td>';
+    echo '<td colspan="2"></td>';
+    echo '<td><strong>' . esc_html( number_format( (float) ( $totals_row['total_amount'] ?? 0 ), 2, '.', '' ) ) . '</strong></td>';
+    echo '<td></td>';
+    echo '</tr></tfoot></table></form>';
     if ( $page_count > 1 ) {
         $base_args = [ 'page' => 'simple-hotel-crm-bookings', 'view' => $view, 's' => $search, 'orderby' => $orderby_key, 'order' => strtolower( $order ), 'per_page' => $per_page ];
         echo '<div class="tablenav"><div class="tablenav-pages"><span class="pagination-links">';
