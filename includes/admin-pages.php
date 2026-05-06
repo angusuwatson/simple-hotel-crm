@@ -2524,6 +2524,8 @@ function simple_hotel_crm_render_export_panel() {
 }
 
 function simple_hotel_crm_render_settings_page() {
+    global $wpdb;
+
     if ( ! simple_hotel_crm_user_can_access() ) {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
