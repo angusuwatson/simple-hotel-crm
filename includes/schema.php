@@ -253,6 +253,7 @@ function simple_hotel_crm_install_tables() {
     simple_hotel_crm_maybe_migrate_sync_data_to_crm();
     simple_hotel_crm_repair_booking_room_links();
     simple_hotel_crm_migrate_overlay_notes_to_booking_notes();
+    simple_hotel_crm_backfill_commission_amounts();
 
     update_option( 'simple_hotel_crm_db_version', SIMPLE_HOTEL_CRM_DB_VERSION );
 }
@@ -381,6 +382,45 @@ function simple_hotel_crm_migrate_overlay_notes_to_booking_notes() {
          SET b.booking_note = notes.booking_note
          WHERE (b.booking_note IS NULL OR b.booking_note = '')"
     );
+}
+
+function simple_hotel_crm_backfill_commission_amounts() {
+    global $wpdb;
+
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+
+    $room_rows = $wpdb->get_results(
+        "SELECT br.id, br.booking_id, br.room_rate_amount, b.source_channel
+         FROM {$booking_rooms_table} br
+         JOIN {$bookings_table} b ON b.id = br.booking_id
+         WHERE br.commission_amount = 0",
+        ARRAY_A
+    );
+    foreach ( $room_rows as $room_row ) {
+        $commission_amount = simple_hotel_crm_calculate_channel_commission( (string) $room_row['source_channel'], (float) $room_row['room_rate_amount'] );
+        if ( $commission_amount <= 0 ) {
+            continue;
+        }
+        $wpdb->update( $booking_rooms_table, [ 'commission_amount' => $commission_amount ], [ 'id' => (int) $room_row['id'] ], [ '%f' ], [ '%d' ] );
+    }
+
+    $night_rows = $wpdb->get_results(
+        "SELECT brn.id, brn.room_rate_amount, b.source_channel
+         FROM {$booking_nights_table} brn
+         JOIN {$booking_rooms_table} br ON br.id = brn.booking_room_id
+         JOIN {$bookings_table} b ON b.id = br.booking_id
+         WHERE brn.commission_amount = 0",
+        ARRAY_A
+    );
+    foreach ( $night_rows as $night_row ) {
+        $commission_amount = simple_hotel_crm_calculate_channel_commission( (string) $night_row['source_channel'], (float) $night_row['room_rate_amount'] );
+        if ( $commission_amount <= 0 ) {
+            continue;
+        }
+        $wpdb->update( $booking_nights_table, [ 'commission_amount' => $commission_amount ], [ 'id' => (int) $night_row['id'] ], [ '%f' ], [ '%d' ] );
+    }
 }
 
 function simple_hotel_crm_maybe_migrate_sync_data_to_crm() {
