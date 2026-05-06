@@ -2536,10 +2536,20 @@ function simple_hotel_crm_render_settings_page() {
         $api_url = isset( $_POST['simple_hotel_crm_invoice_ninja_url'] ) ? esc_url_raw( trim( wp_unslash( $_POST['simple_hotel_crm_invoice_ninja_url'] ) ) ) : '';
         $api_token = isset( $_POST['simple_hotel_crm_invoice_ninja_token'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_invoice_ninja_token'] ) ) ) : '';
         $booking_com_commission_percent = isset( $_POST['simple_hotel_crm_booking_com_commission_percent'] ) ? max( 0, min( 100, (float) str_replace( ',', '.', wp_unslash( $_POST['simple_hotel_crm_booking_com_commission_percent'] ) ) ) ) : 15;
+        $submitted_ics_urls = isset( $_POST['simple_hotel_crm_booking_com_ics_urls'] ) && is_array( $_POST['simple_hotel_crm_booking_com_ics_urls'] ) ? wp_unslash( $_POST['simple_hotel_crm_booking_com_ics_urls'] ) : [];
+        $booking_com_ics_urls = [];
+        foreach ( $submitted_ics_urls as $room_id => $room_url ) {
+            $room_id = absint( $room_id );
+            $room_url = esc_url_raw( trim( (string) $room_url ) );
+            if ( $room_id > 0 && '' !== $room_url ) {
+                $booking_com_ics_urls[ $room_id ] = $room_url;
+            }
+        }
 
         update_option( 'simple_hotel_crm_invoice_ninja_url', $api_url );
         update_option( 'simple_hotel_crm_invoice_ninja_token', $api_token );
         update_option( 'simple_hotel_crm_booking_com_commission_percent', $booking_com_commission_percent );
+        update_option( 'simple_hotel_crm_booking_com_ics_room_urls', $booking_com_ics_urls );
         update_option( 'simple_hotel_crm_booking_source', 'wp_sync' );
 
         simple_hotel_crm_clear_calendar_cache();
@@ -2547,6 +2557,20 @@ function simple_hotel_crm_render_settings_page() {
     }
 
     $repair_results = null;
+    $ics_import_results = null;
+    if ( isset( $_POST['simple_hotel_crm_run_booking_com_ics_import'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_run_booking_com_ics_import', 'simple_hotel_crm_run_booking_com_ics_import_nonce' );
+        $ics_import_results = simple_hotel_crm_import_booking_com_ics_feeds();
+        echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Booking.com ICS import complete. Feeds: %1$d, Events: %2$d, Staged nights: %3$d, Skipped: %4$d', 'simple-hotel-crm' ), (int) ( $ics_import_results['feeds'] ?? 0 ), (int) ( $ics_import_results['events'] ?? 0 ), (int) ( $ics_import_results['staged'] ?? 0 ), (int) ( $ics_import_results['skipped'] ?? 0 ) ) ) . '</p></div>';
+        if ( ! empty( $ics_import_results['errors'] ) ) {
+            echo '<div class="notice notice-warning"><ul>';
+            foreach ( $ics_import_results['errors'] as $error ) {
+                echo '<li>' . esc_html( $error ) . '</li>';
+            }
+            echo '</ul></div>';
+        }
+    }
+
     if ( isset( $_POST['simple_hotel_crm_run_repairs'] ) ) {
         check_admin_referer( 'simple_hotel_crm_run_repairs', 'simple_hotel_crm_run_repairs_nonce' );
         simple_hotel_crm_install_tables();
@@ -2567,6 +2591,8 @@ function simple_hotel_crm_render_settings_page() {
         'booking_nights_subtotal'  => simple_hotel_crm_table_has_column( $booking_nights_table, 'subtotal_amount' ),
     ];
     $repair_scan_counts = simple_hotel_crm_get_repair_scan_counts();
+    $booking_com_ics_urls = simple_hotel_crm_get_booking_com_ics_room_urls();
+    $rooms_for_ics = $wpdb->get_results( 'SELECT id, room_code, room_name, active FROM ' . simple_hotel_crm_rooms_table() . ' ORDER BY sort_order ASC, room_name ASC', ARRAY_A );
 
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( 'LGF Bookings Settings', 'simple-hotel-crm' ) . '</h1>';
@@ -2607,6 +2633,14 @@ function simple_hotel_crm_render_settings_page() {
         echo '<tr><th scope="row">' . esc_html__( 'DB version', 'simple-hotel-crm' ) . '</th><td><code>' . esc_html( SIMPLE_HOTEL_CRM_DB_VERSION ) . '</code></td></tr>';
         echo '<tr><th scope="row"><label for="simple_hotel_crm_booking_com_commission_percent">' . esc_html__( 'Booking.com commission %', 'simple-hotel-crm' ) . '</label></th>';
         echo '<td><input type="number" step="0.01" min="0" max="100" id="simple_hotel_crm_booking_com_commission_percent" name="simple_hotel_crm_booking_com_commission_percent" value="' . esc_attr( (string) $booking_com_commission_percent ) . '" class="small-text" /> <p class="description">' . esc_html__( 'Used for automatic commission calculation on Booking.com channel. Applied to discounted room charge only, not extras or tax.', 'simple-hotel-crm' ) . '</p></td></tr>';
+        echo '<tr><th scope="row">' . esc_html__( 'Booking.com ICS room feeds', 'simple-hotel-crm' ) . '</th><td>';
+        foreach ( $rooms_for_ics as $room_row ) {
+            if ( empty( $room_row['active'] ) || 'Coquelicot' === (string) $room_row['room_name'] ) {
+                continue;
+            }
+            echo '<p><label><strong>' . esc_html( (string) $room_row['room_name'] ) . '</strong> <code>' . esc_html( (string) $room_row['room_code'] ) . '</code><br /><input type="url" class="regular-text" name="simple_hotel_crm_booking_com_ics_urls[' . esc_attr( (string) $room_row['id'] ) . ']" value="' . esc_attr( (string) ( $booking_com_ics_urls[ $room_row['id'] ] ?? '' ) ) . '" placeholder="https://...ics" style="min-width:420px;" /></label></p>';
+        }
+        echo '<p class="description">' . esc_html__( 'One Booking.com ICS export URL per room. Used to stage bookings into sync_bookings and auto-import them into CRM.', 'simple-hotel-crm' ) . '</p></td></tr>';
         echo '</table>';
         submit_button( __( 'Save General Settings', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_submit' );
         echo '</form>';
@@ -2626,6 +2660,11 @@ function simple_hotel_crm_render_settings_page() {
         echo '<li>' . esc_html__( 'Commission rows needing backfill:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $repair_scan_counts['commission_rows'] ) . '</li>';
         echo '<li>' . esc_html__( 'Booking headers needing recalculation:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $repair_scan_counts['booking_headers'] ) . '</li>';
         echo '</ul>';
+        echo '<form method="post">';
+        wp_nonce_field( 'simple_hotel_crm_run_booking_com_ics_import', 'simple_hotel_crm_run_booking_com_ics_import_nonce' );
+        submit_button( __( 'Import Booking.com ICS Feeds', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_run_booking_com_ics_import', false );
+        echo '</form>';
+
         echo '<form method="post">';
         wp_nonce_field( 'simple_hotel_crm_run_repairs', 'simple_hotel_crm_run_repairs_nonce' );
         submit_button( __( 'Run Schema Upgrade + Repairs', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_run_repairs' );
