@@ -1,7 +1,7 @@
 {
   "name": "LGF Bookings",
   "slug": "simple-hotel-crm",
-  "version": "1.8.8.61",
+  "version": "1.8.8.62",
   "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
   "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
   "requires": "6.0",
@@ -10,6 +10,6 @@
   "last_updated": "2026-05-05",
   "sections": {
     "description": "WordPress-native bookings CRM with calendar, bookings, guests, importer, room management, and GitHub-based updating.",
-    "changelog": "<ul><li>1.8.8.61: Add Booking.com ICS room-feed importer with per-room URLs and auto-stage into sync bookings.</li><li>1.8.8.60: Turn staged sync-booking migration into ongoing duplicate-safe CRM importer for future ICS automation.</li><li>1.8.8.59: Add real MotoPress room-line import for ready matched rows using nightly room prices and taxes.</li><li>1.8.8.58: Prefer dynamic CRM room-name matching over room-code fallback for MotoPress room mapping.</li><li>1.8.8.57: Fallback MotoPress room mapping to local accommodation titles and CRM name/code matching.</li><li>1.8.8.56: Read MotoPress reserved_accommodations/customer fields for room mapping and dry-run preview.</li><li>1.8.8.55: Add MotoPress room-line dry-run reconcile preview with ready/duplicate/error counts.</li><li>1.8.8.54: Add MotoPress room-mapping preview and unmatched-room counts before room-line import.</li><li>1.8.8.53: Add first MotoPress import action for new booking headers only, skipping duplicates/incomplete rows.</li><li>1.8.8.52: Add MotoPress dry-run summary counts and visible import-action scaffold.</li></ul>"
+    "changelog": "<ul><li>1.8.8.62: Fix Booking.com ICS staged-night counting to increment only on successful inserts.</li><li>1.8.8.61: Add Booking.com ICS room-feed importer with per-room URLs and auto-stage into sync bookings.</li><li>1.8.8.60: Turn staged sync-booking migration into ongoing duplicate-safe CRM importer for future ICS automation.</li><li>1.8.8.59: Add real MotoPress room-line import for ready matched rows using nightly room prices and taxes.</li><li>1.8.8.58: Prefer dynamic CRM room-name matching over room-code fallback for MotoPress room mapping.</li><li>1.8.8.57: Fallback MotoPress room mapping to local accommodation titles and CRM name/code matching.</li><li>1.8.8.56: Read MotoPress reserved_accommodations/customer fields for room mapping and dry-run preview.</li><li>1.8.8.55: Add MotoPress room-line dry-run reconcile preview with ready/duplicate/error counts.</li><li>1.8.8.54: Add MotoPress room-mapping preview and unmatched-room counts before room-line import.</li><li>1.8.8.53: Add first MotoPress import action for new booking headers only, skipping duplicates/incomplete rows.</li></ul>"
   }
 }
