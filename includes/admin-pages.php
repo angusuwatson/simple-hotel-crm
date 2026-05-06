@@ -1949,6 +1949,7 @@ function simple_hotel_crm_render_motopress_sync_page() {
     $preview_analysis_rows = [];
     $preview_summary = [ 'new' => 0, 'duplicate' => 0, 'incomplete' => 0 ];
     $preview_message = '';
+    $import_result = null;
 
     if ( isset( $_POST['simple_hotel_crm_motopress_test'] ) ) {
         check_admin_referer( 'simple_hotel_crm_motopress_test' );
@@ -1985,11 +1986,11 @@ function simple_hotel_crm_render_motopress_sync_page() {
         echo '<div class="notice notice-success"><p>' . esc_html__( 'MotoPress API credentials saved.', 'simple-hotel-crm' ) . '</p></div>';
     }
 
-    if ( isset( $_POST['simple_hotel_crm_motopress_preview'] ) ) {
-        check_admin_referer( 'simple_hotel_crm_motopress_preview' );
+    if ( isset( $_POST['simple_hotel_crm_motopress_preview'] ) || isset( $_POST['simple_hotel_crm_motopress_import'] ) ) {
+        check_admin_referer( isset( $_POST['simple_hotel_crm_motopress_import'] ) ? 'simple_hotel_crm_motopress_import' : 'simple_hotel_crm_motopress_preview' );
         $consumer_key = sanitize_text_field( wp_unslash( $_POST['consumer_key'] ?? $consumer_key ) );
         $consumer_secret = sanitize_text_field( wp_unslash( $_POST['consumer_secret'] ?? $consumer_secret ) );
-        $per_page = max( 1, min( 20, absint( $_POST['preview_limit'] ?? 10 ) ) );
+        $per_page = max( 1, min( 50, absint( $_POST['preview_limit'] ?? 10 ) ) );
         $response = wp_remote_get( 'https://lagrangefleurie.fr/wp-json/mphb/v1/bookings?per_page=' . $per_page, [
             'headers' => [
                 'Authorization' => 'Basic ' . base64_encode( $consumer_key . ':' . $consumer_secret ),
@@ -2012,6 +2013,18 @@ function simple_hotel_crm_render_motopress_sync_page() {
                     }
                 }
                 $preview_message = sprintf( __( 'Fetched %d MotoPress booking rows for preview.', 'simple-hotel-crm' ), count( $preview_rows ) );
+
+                if ( isset( $_POST['simple_hotel_crm_motopress_import'] ) ) {
+                    $import_rows = [];
+                    foreach ( $preview_mapped_rows as $index => $mapped_row ) {
+                        $analysis_row = $preview_analysis_rows[ $index ] ?? [];
+                        if ( 'new' === ( $analysis_row['status'] ?? '' ) ) {
+                            $import_rows[] = $mapped_row;
+                        }
+                    }
+                    $import_result = simple_hotel_crm_import_bookings_csv( $import_rows, false );
+                    $preview_message = sprintf( __( 'Fetched %1$d MotoPress rows. Attempted header-only import for %2$d new rows.', 'simple-hotel-crm' ), count( $preview_rows ), count( $import_rows ) );
+                }
             } else {
                 $preview_message = __( 'Could not fetch preview rows from MotoPress.', 'simple-hotel-crm' );
             }
@@ -2068,9 +2081,26 @@ function simple_hotel_crm_render_motopress_sync_page() {
     if ( '' !== $preview_message ) {
         echo '<p><strong>' . esc_html( $preview_message ) . '</strong></p>';
     }
+    if ( is_array( $import_result ) ) {
+        echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'MotoPress header import — Created: %1$d, Skipped: %2$d', 'simple-hotel-crm' ), (int) $import_result['created'], (int) $import_result['skipped'] ) ) . '</p></div>';
+        if ( ! empty( $import_result['errors'] ) ) {
+            echo '<div class="notice notice-warning"><ul>';
+            foreach ( $import_result['errors'] as $error ) {
+                echo '<li>' . esc_html( $error ) . '</li>';
+            }
+            echo '</ul></div>';
+        }
+    }
     if ( ! empty( $preview_rows ) ) {
         echo '<div class="notice notice-info"><p><strong>' . esc_html__( 'Dry-run summary', 'simple-hotel-crm' ) . '</strong>: ' . esc_html__( 'New', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $preview_summary['new'] ) . ' · ' . esc_html__( 'Duplicate', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $preview_summary['duplicate'] ) . ' · ' . esc_html__( 'Incomplete', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $preview_summary['incomplete'] ) . '</p></div>';
-        echo '<p><button type="button" class="button" disabled>' . esc_html__( 'Import Previewed Rows (next step)', 'simple-hotel-crm' ) . '</button> <span class="description">' . esc_html__( 'Import action not wired yet — this preview is still read-only.', 'simple-hotel-crm' ) . '</span></p>';
+        echo '<form method="post" style="margin:12px 0;">';
+        wp_nonce_field( 'simple_hotel_crm_motopress_import' );
+        echo '<input type="hidden" name="consumer_key" value="' . esc_attr( $consumer_key ) . '" />';
+        echo '<input type="hidden" name="consumer_secret" value="' . esc_attr( $consumer_secret ) . '" />';
+        echo '<input type="hidden" name="preview_limit" value="' . esc_attr( (string) max( 1, min( 50, absint( $_POST['preview_limit'] ?? 10 ) ) ) ) . '" />';
+        submit_button( __( 'Import New Booking Headers', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_motopress_import', false );
+        echo ' <span class="description">' . esc_html__( 'Current step imports booking headers only. Room-line import/reconcile comes next.', 'simple-hotel-crm' ) . '</span>';
+        echo '</form>';
         echo '<table class="widefat striped"><thead><tr><th>ID</th><th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Remote status', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Import readiness', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Mapped CRM import shape', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Raw sample', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
         foreach ( $preview_rows as $index => $preview_row ) {
             $mapped_row = $preview_mapped_rows[ $index ] ?? [];
