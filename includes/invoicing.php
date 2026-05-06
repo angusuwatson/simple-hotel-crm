@@ -33,7 +33,7 @@ function simple_hotel_crm_rest_create_invoice( WP_REST_Request $request ) {
     }
 
     $booking_room = $wpdb->get_row(
-        $wpdb->prepare( "SELECT room_rate_amount, extras_amount, tourist_tax_amount, total_amount FROM {$booking_rooms_table} WHERE booking_id = %d AND legacy_reserved_room_id = %d LIMIT 1", $booking_id, $reserved_room_id ),
+        $wpdb->prepare( "SELECT room_rate_amount, extras_amount, tourist_tax_amount, commission_amount, total_amount FROM {$booking_rooms_table} WHERE booking_id = %d AND legacy_reserved_room_id = %d LIMIT 1", $booking_id, $reserved_room_id ),
         ARRAY_A
     );
 
@@ -71,6 +71,8 @@ function simple_hotel_crm_rest_create_invoice( WP_REST_Request $request ) {
     $commission = null;
     if ( isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission'] && null !== $overlay['manual_commission'] ) {
         $commission = (float) $overlay['manual_commission'];
+    } elseif ( is_array( $booking_room ) && isset( $booking_room['commission_amount'] ) ) {
+        $commission = (float) $booking_room['commission_amount'];
     } elseif ( null !== $tarif ) {
         $commission = simple_hotel_crm_calculate_channel_commission( (string) $wpdb->get_var( $wpdb->prepare( "SELECT source_channel FROM {$crm_bookings_table} WHERE id = %d LIMIT 1", $booking_id ) ), (float) $tarif );
     }
