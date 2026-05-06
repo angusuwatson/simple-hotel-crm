@@ -16,7 +16,7 @@ function simple_hotel_crm_register_admin_menu() {
     add_submenu_page( 'simple-hotel-crm', __( 'Guests', 'simple-hotel-crm' ), __( 'Guests', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guests', 'simple_hotel_crm_render_guests_page' );
     add_submenu_page( null, __( 'Guest Duplicates', 'simple-hotel-crm' ), __( 'Guest Duplicates', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-duplicates', 'simple_hotel_crm_render_guest_duplicates_page' );
     add_submenu_page( null, __( 'Guest Detail', 'simple-hotel-crm' ), __( 'Guest Detail', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-detail', 'simple_hotel_crm_render_guest_detail_page' );
-    add_submenu_page( 'simple-hotel-crm', __( 'Invoice Ninja Settings', 'simple-hotel-crm' ), __( 'Settings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-settings', 'simple_hotel_crm_render_settings_page' );
+    add_submenu_page( 'simple-hotel-crm', __( 'Settings', 'simple-hotel-crm' ), __( 'Settings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-settings', 'simple_hotel_crm_render_settings_page' );
     
     add_submenu_page( null, __( 'Import', 'simple-hotel-crm' ), __( 'Import', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-import', 'simple_hotel_crm_render_import_page' );
 }
@@ -1098,7 +1098,7 @@ function simple_hotel_crm_render_booking_detail_page() {
         echo '<td><input type="text" style="width:80px;" name="room_lines[' . esc_attr( $index ) . '][discount_value]" value="' . esc_attr( isset( $room['discount_value'] ) ? number_format( (float) $room['discount_value'], 2, '.', '' ) : '0.00' ) . '" /></td>';
         echo '<td><input type="text" style="width:80px;" name="room_lines[' . esc_attr( $index ) . '][extras_amount]" value="' . esc_attr( isset( $room['extras_amount'] ) ? number_format( (float) $room['extras_amount'], 2, '.', '' ) : '0.00' ) . '" /></td>';
         echo '<td>' . esc_html( isset( $room['tourist_tax_amount'] ) ? number_format( (float) $room['tourist_tax_amount'], 2, '.', '' ) : '' ) . '</td>';
-        echo '<td><span class="simple-hotel-crm-line-total-preview">' . esc_html( isset( $room['total_amount'] ) ? number_format( (float) $room['total_amount'], 2, '.', '' ) : '' ) . '</span></td>';
+        echo '<td><span class="simple-hotel-crm-line-total-preview">' . esc_html( isset( $room['total_amount'] ) ? number_format( (float) $room['total_amount'], 2, '.', '' ) : '' ) . '</span><br /><span class="description simple-hotel-crm-line-commission-preview">0.00</span></td>';
         echo '</tr>';
     }
     echo '</tbody></table>';
@@ -1108,11 +1108,14 @@ function simple_hotel_crm_render_booking_detail_page() {
     submit_button( __( 'Save Booking', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_save_booking', false );
     echo '</form>';
     $room_pricing_json = wp_json_encode( $room_pricing_map );
+    $booking_com_commission_percent_json = wp_json_encode( (float) get_option( 'simple_hotel_crm_booking_com_commission_percent', 15 ) );
     echo <<<HTML
 <script>
 window.simpleHotelCrmRoomPricing = {$room_pricing_json};
+window.simpleHotelCrmBookingComCommissionPercent = {$booking_com_commission_percent_json};
 (function(){
   function num(v){v=(v||"0").toString().replace(/,/g, ".");var n=parseFloat(v);return isNaN(n)?0:n}
+  function commissionPercent(channel){ return channel === 'booking_com' ? num(window.simpleHotelCrmBookingComCommissionPercent || 0) : 0; }
   function rateSource(row, nights){
     var room=row.querySelector("select[name*='[room_sync_id]']");
     var adults=row.querySelector("input[name*='[adults]']");
@@ -1124,6 +1127,7 @@ window.simpleHotelCrmRoomPricing = {$room_pricing_json};
     var ci=form.querySelector('[name="check_in_date"]');
     var co=form.querySelector('[name="check_out_date"]');
     var totalPreview=form.querySelector('.simple-hotel-crm-booking-total-preview');
+    var channelField=form.querySelector('[name="source_channel"]');
     var bookingTotal=0;
     var nights=1;
     if(ci&&co&&ci.value&&co.value){nights=Math.max(1,Math.round((new Date(co.value)-new Date(ci.value))/86400000));}
@@ -1135,6 +1139,7 @@ window.simpleHotelCrmRoomPricing = {$room_pricing_json};
       var dval=tr.querySelector("input[name*='[discount_value]']");
       var extras=tr.querySelector("input[name*='[extras_amount]']");
       var preview=tr.querySelector('.simple-hotel-crm-line-total-preview');
+      var commissionPreview=tr.querySelector('.simple-hotel-crm-line-commission-preview');
       if(!room||!adults||!rate||!preview)return;
       var src=rateSource(tr,nights);
       if(src.base>0 && (forceAuto || rate.dataset.manualOverride!=='1')){ rate.value=src.total.toFixed(2); }
@@ -1142,10 +1147,13 @@ window.simpleHotelCrmRoomPricing = {$room_pricing_json};
       var discount=0;
       if(dtype&&dtype.value==='percent')discount=roomRate*(Math.min(100,num(dval&&dval.value))/100);
       if(dtype&&dtype.value==='amount')discount=Math.min(roomRate,num(dval&&dval.value));
+      var netRoom=Math.max(0,roomRate-discount);
       var tax=(parseInt(adults.value||0,10)*0.8*nights);
-      var total=Math.max(0,roomRate-discount)+num(extras&&extras.value)+tax;
+      var total=netRoom+num(extras&&extras.value)+tax;
+      var commission=netRoom*(commissionPercent(channelField&&channelField.value)/100);
       bookingTotal+=total;
       preview.textContent=total.toFixed(2);
+      if(commissionPreview){commissionPreview.textContent='Commission: '+commission.toFixed(2);} 
     });
     if(totalPreview){totalPreview.textContent=bookingTotal.toFixed(2);}
   }
@@ -1412,6 +1420,9 @@ function simple_hotel_crm_render_add_booking_page() {
         var n=parseFloat(v);
         return isNaN(n)?0:n;
     }
+    function commissionPercent(channel){
+        return channel === 'booking_com' ? num(window.simpleHotelCrmBookingComCommissionPercent || 0) : 0;
+    }
     function rateSource(box, nights){
         var room=box.querySelector("select[name*='[room_sync_id]']");
         var adults=box.querySelector("input[name*='[adults]']");
@@ -1424,6 +1435,7 @@ function simple_hotel_crm_render_add_booking_page() {
         var ci=form.querySelector("#check_in");
         var co=form.querySelector("#check_out");
         var totalPreview=form.querySelector(".simple-hotel-crm-booking-total-preview");
+        var channelField=form.querySelector("#source_channel");
         var bookingTotal=0;
         var nights=1;
         if(ci&&co&&ci.value&&co.value){
@@ -1444,10 +1456,12 @@ function simple_hotel_crm_render_add_booking_page() {
             var discount=0;
             if(dtype&&dtype.value==="percent") discount=roomRate*(Math.min(100,num(dval&&dval.value))/100);
             if(dtype&&dtype.value==="amount") discount=Math.min(roomRate,num(dval&&dval.value));
+            var netRoom=Math.max(0,roomRate-discount);
             var tax=(parseInt(adults.value||0,10)*0.8*nights);
-            var total=Math.max(0,roomRate-discount)+num(extras&&extras.value)+tax;
+            var total=netRoom+num(extras&&extras.value)+tax;
+            var commission=netRoom*(commissionPercent(channelField&&channelField.value)/100);
             bookingTotal+=total;
-            preview.textContent="Preview: room " + Math.max(0,roomRate-discount).toFixed(2) + " € + extras " + num(extras&&extras.value).toFixed(2) + " € + tax " + tax.toFixed(2) + " € = " + total.toFixed(2) + " €";
+            preview.textContent="Preview: room " + netRoom.toFixed(2) + " € + extras " + num(extras&&extras.value).toFixed(2) + " € + tax " + tax.toFixed(2) + " € = " + total.toFixed(2) + " € | commission " + commission.toFixed(2) + " €";
         });
         if(totalPreview){totalPreview.textContent=bookingTotal.toFixed(2) + " €";}
     }
@@ -1473,7 +1487,7 @@ function simple_hotel_crm_render_add_booking_page() {
     upd(false);
 })();
 JS;
-    echo '<script>window.simpleHotelCrmRoomPricing=' . $pricing_json . ';' . $pricing_script . '</script>';
+    echo '<script>window.simpleHotelCrmRoomPricing=' . $pricing_json . ';window.simpleHotelCrmBookingComCommissionPercent=' . wp_json_encode( (float) get_option( 'simple_hotel_crm_booking_com_commission_percent', 15 ) ) . ';' . $pricing_script . '</script>';
     echo '</div>';
 }
 
@@ -1876,7 +1890,7 @@ function simple_hotel_crm_render_motopress_sync_page() {
     }
 
     echo '<div class="wrap">';
-    echo '<h1>' . esc_html__( 'MotoPress Sync Settings', 'simple-hotel-crm' ) . '</h1>';
+    echo '<h2>' . esc_html__( 'MotoPress Sync', 'simple-hotel-crm' ) . '</h2>';
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_motopress_save' );
     echo '<table class="form-table">
@@ -2032,7 +2046,7 @@ function simple_hotel_crm_render_settings_page() {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
 
-    $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'import', 'export', 'motopress' ], true ) ? sanitize_key( $_GET['tab'] ) : 'motopress';
+    $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'invoice-ninja', 'import', 'export', 'motopress' ], true ) ? sanitize_key( $_GET['tab'] ) : 'invoice-ninja';
 
     if ( isset( $_POST['simple_hotel_crm_submit'] ) ) {
         check_admin_referer( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );

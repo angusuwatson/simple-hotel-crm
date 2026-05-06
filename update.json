@@ -1,7 +1,7 @@
 {
   "name": "LGF Bookings",
   "slug": "simple-hotel-crm",
-  "version": "1.8.8.37",
+  "version": "1.8.8.38",
   "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
   "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
   "requires": "6.0",
@@ -10,6 +10,6 @@
   "last_updated": "2026-05-05",
   "sections": {
     "description": "WordPress-native bookings CRM with calendar, bookings, guests, importer, room management, and GitHub-based updating.",
-    "changelog": "<ul><li>1.8.8.37: Add configurable Booking.com auto-commission, bump version for testing, and keep manual commission as override.</li><li>1.8.8.36: Support room colors in hex/RGB, shrink month tabs/rows, soften vertical lines, add booking total previews, preserve manual room-rate overrides, make calendar tarif prefer nightly subtotal, add Bookings totals row, and make Invoice Ninja use CRM pricing first.</li><li>1.8.8.35: Add booking-detail room-pricing preview/auto-fill and refine room pricing workflow.</li><li>1.8.8.34: Add room-pricing auto-fill and live total preview on Add Booking page.</li><li>1.8.8.33: Add room occupancy pricing admin UI and make calendar grid lines thinner/subtler.</li><li>1.8.8.32: Add pricing discount fields to booking forms and remove calendar horizontal lines except above Room rate.</li><li>1.8.8.31: Tune calendar colours closer to booking sheet with pastel room bands and light grid.</li><li>1.8.8.30: Add occupancy pricing calculator and wire pricing fields into booking create/edit flows.</li><li>1.8.8.29: Add occupancy pricing schema foundation and show plugin version in Settings.</li><li>1.8.8.28: Safe LGF Bookings branding cleanup, add [lgf_bookings] shortcode alias, add occupancy pricing roadmap.</li></ul>"
+    "changelog": "<ul><li>1.8.8.38: Show commission preview in booking forms and fix Settings tab routing/titles.</li><li>1.8.8.37: Add configurable Booking.com auto-commission, bump version for testing, and keep manual commission as override.</li><li>1.8.8.36: Support room colors in hex/RGB, shrink month tabs/rows, soften vertical lines, add booking total previews, preserve manual room-rate overrides, make calendar tarif prefer nightly subtotal, add Bookings totals row, and make Invoice Ninja use CRM pricing first.</li><li>1.8.8.35: Add booking-detail room-pricing preview/auto-fill and refine room pricing workflow.</li><li>1.8.8.34: Add room-pricing auto-fill and live total preview on Add Booking page.</li><li>1.8.8.33: Add room occupancy pricing admin UI and make calendar grid lines thinner/subtler.</li><li>1.8.8.32: Add pricing discount fields to booking forms and remove calendar horizontal lines except above Room rate.</li><li>1.8.8.31: Tune calendar colours closer to booking sheet with pastel room bands and light grid.</li><li>1.8.8.30: Add occupancy pricing calculator and wire pricing fields into booking create/edit flows.</li><li>1.8.8.29: Add occupancy pricing schema foundation and show plugin version in Settings.</li></ul>"
   }
 }
