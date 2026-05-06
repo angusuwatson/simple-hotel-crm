@@ -1947,6 +1947,7 @@ function simple_hotel_crm_render_motopress_sync_page() {
     $preview_rows = [];
     $preview_mapped_rows = [];
     $preview_analysis_rows = [];
+    $preview_summary = [ 'new' => 0, 'duplicate' => 0, 'incomplete' => 0 ];
     $preview_message = '';
 
     if ( isset( $_POST['simple_hotel_crm_motopress_test'] ) ) {
@@ -2004,6 +2005,12 @@ function simple_hotel_crm_render_motopress_sync_page() {
                 $preview_rows = $data;
                 $preview_mapped_rows = array_map( 'simple_hotel_crm_map_motopress_booking_preview_row', $preview_rows );
                 $preview_analysis_rows = array_map( 'simple_hotel_crm_analyze_motopress_booking_preview_row', $preview_mapped_rows );
+                foreach ( $preview_analysis_rows as $analysis_row ) {
+                    $status_key = (string) ( $analysis_row['status'] ?? '' );
+                    if ( isset( $preview_summary[ $status_key ] ) ) {
+                        $preview_summary[ $status_key ]++;
+                    }
+                }
                 $preview_message = sprintf( __( 'Fetched %d MotoPress booking rows for preview.', 'simple-hotel-crm' ), count( $preview_rows ) );
             } else {
                 $preview_message = __( 'Could not fetch preview rows from MotoPress.', 'simple-hotel-crm' );
@@ -2062,6 +2069,8 @@ function simple_hotel_crm_render_motopress_sync_page() {
         echo '<p><strong>' . esc_html( $preview_message ) . '</strong></p>';
     }
     if ( ! empty( $preview_rows ) ) {
+        echo '<div class="notice notice-info"><p><strong>' . esc_html__( 'Dry-run summary', 'simple-hotel-crm' ) . '</strong>: ' . esc_html__( 'New', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $preview_summary['new'] ) . ' · ' . esc_html__( 'Duplicate', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $preview_summary['duplicate'] ) . ' · ' . esc_html__( 'Incomplete', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $preview_summary['incomplete'] ) . '</p></div>';
+        echo '<p><button type="button" class="button" disabled>' . esc_html__( 'Import Previewed Rows (next step)', 'simple-hotel-crm' ) . '</button> <span class="description">' . esc_html__( 'Import action not wired yet — this preview is still read-only.', 'simple-hotel-crm' ) . '</span></p>';
         echo '<table class="widefat striped"><thead><tr><th>ID</th><th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Remote status', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Import readiness', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Mapped CRM import shape', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Raw sample', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
         foreach ( $preview_rows as $index => $preview_row ) {
             $mapped_row = $preview_mapped_rows[ $index ] ?? [];
