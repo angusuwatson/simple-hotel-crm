@@ -243,7 +243,7 @@ function simple_hotel_crm_render_rooms_page() {
             'room_code' => strtoupper( sanitize_text_field( wp_unslash( $_POST['room_code'] ?? '' ) ) ),
             'room_name' => sanitize_text_field( wp_unslash( $_POST['room_name'] ?? '' ) ),
             'sort_order' => (int) ( $_POST['sort_order'] ?? 0 ),
-            'color' => sanitize_hex_color( wp_unslash( $_POST['color'] ?? '' ) ) ?: '#cccccc',
+            'color' => simple_hotel_crm_normalize_color_value( wp_unslash( $_POST['color'] ?? ( $_POST['color_hex'] ?? ( $_POST['color_rgb'] ?? '' ) ) ) ) ?: '#cccccc',
             'active' => empty( $_POST['active'] ) ? 0 : 1,
         ];
         if ( '' === $data['room_code'] || '' === $data['room_name'] ) {
@@ -290,6 +290,7 @@ function simple_hotel_crm_render_rooms_page() {
         [ 'room_code' => '', 'room_name' => '', 'sort_order' => 0, 'color' => '#cccccc', 'active' => 1 ],
         is_array( $room ) ? $room : []
     );
+    $room_color_rgb = simple_hotel_crm_hex_to_rgb_string( (string) $room['color'] );
     $room_pricing_rows = $room_id > 0 ? $wpdb->get_results( $wpdb->prepare( "SELECT occupancy_adults, price_amount, active FROM {$room_pricing_table} WHERE room_id = %d ORDER BY occupancy_adults ASC", $room_id ), ARRAY_A ) : [];
     $room_pricing = [];
     foreach ( range( 1, 4 ) as $occupancy_adults ) {
@@ -311,7 +312,7 @@ function simple_hotel_crm_render_rooms_page() {
     echo '<tr><th><label for="room_code">' . esc_html__( 'Room code', 'simple-hotel-crm' ) . '</label></th><td><input id="room_code" name="room_code" type="text" class="regular-text" value="' . esc_attr( (string) $room['room_code'] ) . '" /></td></tr>';
     echo '<tr><th><label for="room_name">' . esc_html__( 'Room name', 'simple-hotel-crm' ) . '</label></th><td><input id="room_name" name="room_name" type="text" class="regular-text" value="' . esc_attr( (string) $room['room_name'] ) . '" /></td></tr>';
     echo '<tr><th><label for="sort_order">' . esc_html__( 'Sort order', 'simple-hotel-crm' ) . '</label></th><td><input id="sort_order" name="sort_order" type="number" value="' . esc_attr( (string) $room['sort_order'] ) . '" /></td></tr>';
-    echo '<tr><th><label for="color">' . esc_html__( 'Color', 'simple-hotel-crm' ) . '</label></th><td><input id="color" name="color" type="color" value="' . esc_attr( (string) $room['color'] ) . '" /> <code>' . esc_html( (string) $room['color'] ) . '</code></td></tr>';
+    echo '<tr><th><label for="color">' . esc_html__( 'Color', 'simple-hotel-crm' ) . '</label></th><td><input id="color" name="color" type="color" value="' . esc_attr( (string) $room['color'] ) . '" /> <input id="color_hex" name="color_hex" type="text" class="regular-text" value="' . esc_attr( (string) $room['color'] ) . '" placeholder="#cccccc" style="max-width:110px;" /> <input id="color_rgb" name="color_rgb" type="text" class="regular-text" value="' . esc_attr( $room_color_rgb ) . '" placeholder="rgb(204, 204, 204)" style="max-width:170px;" /> <code>' . esc_html( (string) $room['color'] ) . '</code></td></tr>';
     echo '<tr><th>' . esc_html__( 'Active', 'simple-hotel-crm' ) . '</th><td><label><input type="checkbox" name="active" value="1" ' . checked( (int) $room['active'], 1, false ) . ' /> ' . esc_html__( 'Show this room in the calendar', 'simple-hotel-crm' ) . '</label></td></tr>';
     echo '</table>';
     echo '<h3>' . esc_html__( 'Occupancy pricing', 'simple-hotel-crm' ) . '</h3>';
@@ -324,6 +325,7 @@ function simple_hotel_crm_render_rooms_page() {
         echo '</tr>';
     }
     echo '</tbody></table>';
+    echo '<script>(function(){var picker=document.getElementById("color"),hex=document.getElementById("color_hex"),rgb=document.getElementById("color_rgb");function hexToRgb(v){v=(v||"").replace("#","");if(v.length!==6)return"";return "rgb("+parseInt(v.slice(0,2),16)+", "+parseInt(v.slice(2,4),16)+", "+parseInt(v.slice(4,6),16)+")";}function rgbToHex(v){var m=(v||"").match(/^rgb\(\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*\)$/i);if(!m)return"";var p=function(n){n=Math.max(0,Math.min(255,parseInt(n,10)||0));return n.toString(16).padStart(2,"0");};return "#"+p(m[1])+p(m[2])+p(m[3]);}if(picker&&hex&&rgb){picker.addEventListener("input",function(){hex.value=picker.value.toLowerCase();rgb.value=hexToRgb(picker.value);});hex.addEventListener("input",function(){if(/^#?[0-9a-f]{6}$/i.test(hex.value)){var v=hex.value.startsWith("#")?hex.value:"#"+hex.value;picker.value=v.toLowerCase();rgb.value=hexToRgb(v);}});rgb.addEventListener("input",function(){var v=rgbToHex(rgb.value);if(v){picker.value=v.toLowerCase();hex.value=v.toLowerCase();}});}}</script>';
     submit_button( __( 'Save Room', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_save_room' );
     if ( $editing ) {
         echo '<a class="button" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-rooms' ) ) . '">' . esc_html__( 'Add New Room', 'simple-hotel-crm' ) . '</a>';

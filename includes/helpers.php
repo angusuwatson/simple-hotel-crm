@@ -203,11 +203,39 @@ function simple_hotel_crm_evaluate_extras_formula( $formula ) {
     ];
 }
 
-function simple_hotel_crm_adjust_color_brightness( $hex, $steps ) {
-    $hex = ltrim( trim( (string) $hex ), '#' );
-    if ( 3 === strlen( $hex ) ) {
-        $hex = $hex[0] . $hex[0] . $hex[1] . $hex[1] . $hex[2] . $hex[2];
+function simple_hotel_crm_normalize_color_value( $value ) {
+    $value = trim( (string) $value );
+    if ( '' === $value ) {
+        return null;
     }
+
+    $hex = sanitize_hex_color( $value );
+    if ( $hex ) {
+        return strtolower( $hex );
+    }
+
+    if ( preg_match( '/^rgb\(\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*,\s*([0-9]{1,3})\s*\)$/i', $value, $matches ) ) {
+        $r = max( 0, min( 255, (int) $matches[1] ) );
+        $g = max( 0, min( 255, (int) $matches[2] ) );
+        $b = max( 0, min( 255, (int) $matches[3] ) );
+        return sprintf( '#%02x%02x%02x', $r, $g, $b );
+    }
+
+    return null;
+}
+
+function simple_hotel_crm_hex_to_rgb_string( $value ) {
+    $hex = simple_hotel_crm_normalize_color_value( $value );
+    if ( ! $hex ) {
+        return 'rgb(204, 204, 204)';
+    }
+
+    $hex = ltrim( $hex, '#' );
+    return sprintf( 'rgb(%d, %d, %d)', hexdec( substr( $hex, 0, 2 ) ), hexdec( substr( $hex, 2, 2 ) ), hexdec( substr( $hex, 4, 2 ) ) );
+}
+
+function simple_hotel_crm_adjust_color_brightness( $hex, $steps ) {
+    $hex = ltrim( trim( (string) simple_hotel_crm_normalize_color_value( $hex ) ), '#' );
     if ( 6 !== strlen( $hex ) ) {
         return '#444444';
     }
