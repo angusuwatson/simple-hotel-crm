@@ -995,6 +995,7 @@ function simple_hotel_crm_render_booking_detail_page() {
         wp_die( esc_html__( 'Booking not found.', 'simple-hotel-crm' ) );
     }
 
+    $room_pricing_table = simple_hotel_crm_room_pricing_table();
     $rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.*, r.room_name, r.room_code, r.sync_room_id FROM {$booking_rooms_table} br JOIN {$rooms_table} r ON r.id = br.room_id WHERE br.booking_id = %d ORDER BY r.sort_order ASC, r.room_name ASC", $booking_id ), ARRAY_A );
     foreach ( $rooms as &$room ) {
         $room['room_sync_id'] = (string) $room['room_id'];
@@ -1028,6 +1029,12 @@ function simple_hotel_crm_render_booking_detail_page() {
             return strcmp( (string) $a['room_name'], (string) $b['room_name'] );
         } );
     }
+    $room_pricing_rows = $wpdb->get_results( "SELECT room_id, occupancy_adults, price_amount, active FROM {$room_pricing_table} WHERE active = 1 ORDER BY room_id ASC, occupancy_adults ASC", ARRAY_A );
+    $room_pricing_map = [];
+    foreach ( $room_pricing_rows as $pricing_row ) {
+        $room_pricing_map[ (int) $pricing_row['room_id'] ][ (int) $pricing_row['occupancy_adults'] ] = (float) $pricing_row['price_amount'];
+    }
+
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( 'Booking Detail', 'simple-hotel-crm' ) . ' #' . esc_html( (string) $booking_id ) . '</h1>';
     echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings' ) ) . '">← ' . esc_html__( 'Back to Bookings', 'simple-hotel-crm' ) . '</a></p>';
@@ -1072,7 +1079,7 @@ function simple_hotel_crm_render_booking_detail_page() {
         echo '<td><input type="text" style="width:80px;" name="room_lines[' . esc_attr( $index ) . '][discount_value]" value="' . esc_attr( isset( $room['discount_value'] ) ? number_format( (float) $room['discount_value'], 2, '.', '' ) : '0.00' ) . '" /></td>';
         echo '<td><input type="text" style="width:80px;" name="room_lines[' . esc_attr( $index ) . '][extras_amount]" value="' . esc_attr( isset( $room['extras_amount'] ) ? number_format( (float) $room['extras_amount'], 2, '.', '' ) : '0.00' ) . '" /></td>';
         echo '<td>' . esc_html( isset( $room['tourist_tax_amount'] ) ? number_format( (float) $room['tourist_tax_amount'], 2, '.', '' ) : '' ) . '</td>';
-        echo '<td>' . esc_html( isset( $room['total_amount'] ) ? number_format( (float) $room['total_amount'], 2, '.', '' ) : '' ) . '</td>';
+        echo '<td><span class="simple-hotel-crm-line-total-preview">' . esc_html( isset( $room['total_amount'] ) ? number_format( (float) $room['total_amount'], 2, '.', '' ) : '' ) . '</span></td>';
         echo '</tr>';
     }
     echo '</tbody></table>';
@@ -1080,6 +1087,44 @@ function simple_hotel_crm_render_booking_detail_page() {
     echo ' ';
     submit_button( __( 'Save Booking', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_save_booking', false );
     echo '</form>';
+    $room_pricing_json = wp_json_encode( $room_pricing_map );
+    echo <<<HTML
+<script>
+window.simpleHotelCrmRoomPricing = {$room_pricing_json};
+(function(){
+  function num(v){v=(v||"0").toString().replace(/,/g, ".");var n=parseFloat(v);return isNaN(n)?0:n}
+  function upd(){
+    var form=document.querySelector(".wrap form");if(!form)return;
+    var ci=form.querySelector('[name="check_in_date"]');
+    var co=form.querySelector('[name="check_out_date"]');
+    var nights=1;
+    if(ci&&co&&ci.value&&co.value){nights=Math.max(1,Math.round((new Date(co.value)-new Date(ci.value))/86400000));}
+    form.querySelectorAll("tbody tr").forEach(function(tr){
+      var room=tr.querySelector("select[name*='[room_sync_id]']");
+      var adults=tr.querySelector("input[name*='[adults]']");
+      var rate=tr.querySelector("input[name*='[room_rate_amount]']");
+      var dtype=tr.querySelector("select[name*='[discount_type]']");
+      var dval=tr.querySelector("input[name*='[discount_value]']");
+      var extras=tr.querySelector("input[name*='[extras_amount]']");
+      var preview=tr.querySelector('.simple-hotel-crm-line-total-preview');
+      if(!room||!adults||!rate||!preview)return;
+      var base=((window.simpleHotelCrmRoomPricing||{})[room.value]||{})[parseInt(adults.value||0,10)]||0;
+      if(base>0)rate.value=(base*nights).toFixed(2);
+      var roomRate=num(rate.value);
+      var discount=0;
+      if(dtype&&dtype.value==='percent')discount=roomRate*(Math.min(100,num(dval&&dval.value))/100);
+      if(dtype&&dtype.value==='amount')discount=Math.min(roomRate,num(dval&&dval.value));
+      var tax=(parseInt(adults.value||0,10)*0.8*nights);
+      var total=Math.max(0,roomRate-discount)+num(extras&&extras.value)+tax;
+      preview.textContent=total.toFixed(2);
+    });
+  }
+  document.addEventListener('input',upd);
+  document.addEventListener('change',upd);
+  upd();
+})();
+</script>
+HTML;
     echo '</div>';
 }
 
