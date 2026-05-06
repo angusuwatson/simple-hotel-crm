@@ -146,8 +146,12 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
             'channel_label' => (string) $row['source_channel'],
             'created_date' => ! empty( $row['contacted_date'] ) ? (string) $row['contacted_date'] : '',
             'is_imported' => 'direct' !== (string) $row['source_channel'],
-            'tarif' => isset( $overlay['manual_tarif'] ) && '' !== $overlay['manual_tarif'] ? (float) $overlay['manual_tarif'] : (float) ( isset( $row['subtotal_amount'] ) ? $row['subtotal_amount'] : $row['room_rate_amount'] ),
-            'commission' => isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission'] ? (float) $overlay['manual_commission'] : simple_hotel_crm_calculate_channel_commission( (string) $row['source_channel'], (float) ( isset( $row['subtotal_amount'] ) ? $row['subtotal_amount'] : $row['room_rate_amount'] ) ),
+            'tarif' => isset( $overlay['manual_tarif'] ) && '' !== $overlay['manual_tarif']
+                ? (float) $overlay['manual_tarif']
+                : (float) ( ( isset( $row['subtotal_amount'] ) && (float) $row['subtotal_amount'] > 0 ) ? $row['subtotal_amount'] : $row['room_rate_amount'] ),
+            'commission' => isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission']
+                ? (float) $overlay['manual_commission']
+                : simple_hotel_crm_calculate_channel_commission( (string) $row['source_channel'], (float) ( ( isset( $row['subtotal_amount'] ) && (float) $row['subtotal_amount'] > 0 ) ? $row['subtotal_amount'] : $row['room_rate_amount'] ) ),
             'extras_formula' => $extras_formula,
             'extras_total' => null !== $extras_total ? $extras_total : ( (float) $row['extras_amount'] > 0 ? (float) $row['extras_amount'] : null ),
             'booking_note' => (string) ( $row['booking_note'] ?? '' ),
