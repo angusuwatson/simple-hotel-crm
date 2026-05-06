@@ -1096,7 +1096,13 @@ function simple_hotel_crm_render_booking_detail_page() {
 window.simpleHotelCrmRoomPricing = {$room_pricing_json};
 (function(){
   function num(v){v=(v||"0").toString().replace(/,/g, ".");var n=parseFloat(v);return isNaN(n)?0:n}
-  function upd(){
+  function rateSource(row, nights){
+    var room=row.querySelector("select[name*='[room_sync_id]']");
+    var adults=row.querySelector("input[name*='[adults]']");
+    var base=((window.simpleHotelCrmRoomPricing||{})[room&&room.value]||{})[parseInt(adults&&adults.value||0,10)]||0;
+    return {base:base, total:base>0?(base*nights):0};
+  }
+  function upd(forceAuto){
     var form=document.querySelector(".wrap form");if(!form)return;
     var ci=form.querySelector('[name="check_in_date"]');
     var co=form.querySelector('[name="check_out_date"]');
@@ -1113,8 +1119,8 @@ window.simpleHotelCrmRoomPricing = {$room_pricing_json};
       var extras=tr.querySelector("input[name*='[extras_amount]']");
       var preview=tr.querySelector('.simple-hotel-crm-line-total-preview');
       if(!room||!adults||!rate||!preview)return;
-      var base=((window.simpleHotelCrmRoomPricing||{})[room.value]||{})[parseInt(adults.value||0,10)]||0;
-      if(base>0)rate.value=(base*nights).toFixed(2);
+      var src=rateSource(tr,nights);
+      if(src.base>0 && (forceAuto || rate.dataset.manualOverride!=='1')){ rate.value=src.total.toFixed(2); }
       var roomRate=num(rate.value);
       var discount=0;
       if(dtype&&dtype.value==='percent')discount=roomRate*(Math.min(100,num(dval&&dval.value))/100);
@@ -1126,9 +1132,26 @@ window.simpleHotelCrmRoomPricing = {$room_pricing_json};
     });
     if(totalPreview){totalPreview.textContent=bookingTotal.toFixed(2);}
   }
-  document.addEventListener('input',upd);
-  document.addEventListener('change',upd);
-  upd();
+  document.addEventListener('input',function(e){
+    if(e.target && e.target.matches("input[name*='[room_rate_amount]']")){ e.target.dataset.manualOverride='1'; }
+    upd(false);
+  });
+  document.addEventListener('change',function(e){
+    if(e.target && e.target.matches("select[name*='[room_sync_id]'], input[name*='[adults]']")){
+      var row=e.target.closest('tr');
+      var rate=row&&row.querySelector("input[name*='[room_rate_amount]']");
+      if(rate){ delete rate.dataset.manualOverride; }
+      upd(true);
+      return;
+    }
+    if(e.target && e.target.matches('[name="check_in_date"], [name="check_out_date"]')){
+      document.querySelectorAll("input[name*='[room_rate_amount]']").forEach(function(rate){ if(rate.dataset.manualOverride!=='1'){ delete rate.dataset.manualOverride; } });
+      upd(true);
+      return;
+    }
+    upd(false);
+  });
+  upd(false);
 })();
 </script>
 HTML;
@@ -1372,7 +1395,13 @@ function simple_hotel_crm_render_add_booking_page() {
         var n=parseFloat(v);
         return isNaN(n)?0:n;
     }
-    function upd(){
+    function rateSource(box, nights){
+        var room=box.querySelector("select[name*='[room_sync_id]']");
+        var adults=box.querySelector("input[name*='[adults]']");
+        var base=((window.simpleHotelCrmRoomPricing||{})[room&&room.value]||{})[parseInt(adults&&adults.value||0,10)]||0;
+        return {base:base,total:base>0?(base*nights):0};
+    }
+    function upd(forceAuto){
         var form=document.querySelector(".wrap form");
         if(!form) return;
         var ci=form.querySelector("#check_in");
@@ -1392,8 +1421,8 @@ function simple_hotel_crm_render_add_booking_page() {
             var extras=fs.querySelector("input[name*='[extras_amount]']");
             var preview=fs.querySelector(".simple-hotel-crm-price-preview");
             if(!room||!adults||!rate||!preview) return;
-            var base=((window.simpleHotelCrmRoomPricing||{})[room.value]||{})[parseInt(adults.value||0,10)]||0;
-            if(base>0) rate.value=(base*nights).toFixed(2);
+            var src=rateSource(fs,nights);
+            if(src.base>0 && (forceAuto || rate.dataset.manualOverride!=="1")) rate.value=src.total.toFixed(2);
             var roomRate=num(rate.value);
             var discount=0;
             if(dtype&&dtype.value==="percent") discount=roomRate*(Math.min(100,num(dval&&dval.value))/100);
@@ -1405,9 +1434,26 @@ function simple_hotel_crm_render_add_booking_page() {
         });
         if(totalPreview){totalPreview.textContent=bookingTotal.toFixed(2) + " €";}
     }
-    document.addEventListener("input", upd);
-    document.addEventListener("change", upd);
-    upd();
+    document.addEventListener("input", function(e){
+        if(e.target && e.target.matches("input[name*='[room_rate_amount]']")) e.target.dataset.manualOverride="1";
+        upd(false);
+    });
+    document.addEventListener("change", function(e){
+        if(e.target && e.target.matches("select[name*='[room_sync_id]'], input[name*='[adults]']")){
+            var box=e.target.closest('fieldset');
+            var rate=box&&box.querySelector("input[name*='[room_rate_amount]']");
+            if(rate) delete rate.dataset.manualOverride;
+            upd(true);
+            return;
+        }
+        if(e.target && e.target.matches("#check_in, #check_out")){
+            document.querySelectorAll("input[name*='[room_rate_amount]']").forEach(function(rate){ if(rate.dataset.manualOverride!=="1") delete rate.dataset.manualOverride; });
+            upd(true);
+            return;
+        }
+        upd(false);
+    });
+    upd(false);
 })();
 JS;
     echo '<script>window.simpleHotelCrmRoomPricing=' . $pricing_json . ';' . $pricing_script . '</script>';
