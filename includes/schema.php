@@ -253,7 +253,9 @@ function simple_hotel_crm_install_tables() {
     simple_hotel_crm_maybe_migrate_sync_data_to_crm();
     simple_hotel_crm_repair_booking_room_links();
     simple_hotel_crm_migrate_overlay_notes_to_booking_notes();
+    simple_hotel_crm_backfill_pricing_amounts();
     simple_hotel_crm_backfill_commission_amounts();
+    simple_hotel_crm_recalculate_booking_header_totals();
 
     update_option( 'simple_hotel_crm_db_version', SIMPLE_HOTEL_CRM_DB_VERSION );
 }
@@ -384,6 +386,26 @@ function simple_hotel_crm_migrate_overlay_notes_to_booking_notes() {
     );
 }
 
+function simple_hotel_crm_backfill_pricing_amounts() {
+    global $wpdb;
+
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+
+    if ( simple_hotel_crm_table_has_column( $booking_rooms_table, 'subtotal_amount' ) ) {
+        $wpdb->query( "UPDATE {$booking_rooms_table} SET subtotal_amount = room_rate_amount WHERE subtotal_amount = 0 AND room_rate_amount > 0" );
+    }
+    if ( simple_hotel_crm_table_has_column( $booking_rooms_table, 'base_price_amount' ) ) {
+        $wpdb->query( "UPDATE {$booking_rooms_table} SET base_price_amount = room_rate_amount WHERE base_price_amount = 0 AND room_rate_amount > 0" );
+    }
+    if ( simple_hotel_crm_table_has_column( $booking_nights_table, 'subtotal_amount' ) ) {
+        $wpdb->query( "UPDATE {$booking_nights_table} SET subtotal_amount = room_rate_amount WHERE subtotal_amount = 0 AND room_rate_amount > 0" );
+    }
+    if ( simple_hotel_crm_table_has_column( $booking_nights_table, 'base_price_amount' ) ) {
+        $wpdb->query( "UPDATE {$booking_nights_table} SET base_price_amount = room_rate_amount WHERE base_price_amount = 0 AND room_rate_amount > 0" );
+    }
+}
+
 function simple_hotel_crm_backfill_commission_amounts() {
     global $wpdb;
 
@@ -421,6 +443,36 @@ function simple_hotel_crm_backfill_commission_amounts() {
         }
         $wpdb->update( $booking_nights_table, [ 'commission_amount' => $commission_amount ], [ 'id' => (int) $night_row['id'] ], [ '%f' ], [ '%d' ] );
     }
+}
+
+function simple_hotel_crm_recalculate_booking_header_totals() {
+    global $wpdb;
+
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+
+    $wpdb->query(
+        "UPDATE {$bookings_table} b
+         JOIN (
+            SELECT booking_id,
+                   COALESCE(SUM(adults), 0) AS adults,
+                   COALESCE(SUM(children), 0) AS children,
+                   COALESCE(SUM(babies), 0) AS babies,
+                   COALESCE(SUM(room_rate_amount), 0) AS room_rate_amount,
+                   COALESCE(SUM(extras_amount), 0) AS extras_amount,
+                   COALESCE(SUM(tourist_tax_amount), 0) AS tourist_tax_amount,
+                   COALESCE(SUM(total_amount), 0) AS total_amount
+            FROM {$booking_rooms_table}
+            GROUP BY booking_id
+         ) room_totals ON room_totals.booking_id = b.id
+         SET b.adults = room_totals.adults,
+             b.children = room_totals.children,
+             b.babies = room_totals.babies,
+             b.room_rate_amount = room_totals.room_rate_amount,
+             b.extras_amount = room_totals.extras_amount,
+             b.tourist_tax_amount = room_totals.tourist_tax_amount,
+             b.total_amount = room_totals.total_amount"
+    );
 }
 
 function simple_hotel_crm_maybe_migrate_sync_data_to_crm() {
