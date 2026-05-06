@@ -460,13 +460,22 @@ function simple_hotel_crm_import_booking_com_ics_feeds() {
                     $summary['skipped']++;
                     continue;
                 }
+                $staged_external_room_id = (int) ( $room['external_room_id'] ?? 0 );
+                $staged_room_sync_id = (int) ( $room['sync_room_id'] ?? 0 );
+                if ( $staged_external_room_id <= 0 ) {
+                    $staged_external_room_id = (int) $room['id'];
+                }
+                if ( $staged_room_sync_id <= 0 ) {
+                    $staged_room_sync_id = (int) $room['id'];
+                }
+
                 $inserted = $wpdb->insert(
                     $sync_bookings_table,
                     [
                         'external_booking_id' => $external_booking_id,
                         'external_booking_room_id' => $external_booking_room_id,
-                        'external_room_id' => (int) ( $room['external_room_id'] ?? 0 ),
-                        'room_sync_id' => (int) ( $room['sync_room_id'] ?? 0 ),
+                        'external_room_id' => $staged_external_room_id,
+                        'room_sync_id' => $staged_room_sync_id,
                         'status_code' => $status,
                         'check_in' => $check_in,
                         'check_out' => $check_out,
