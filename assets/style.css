@@ -71,15 +71,15 @@
 .calendar-month-tab {
     color: #d9dbe6;
     text-decoration: none;
-    padding: 10px 18px;
+    padding: 4px 14px;
     font-weight: 500;
-    min-width: 92px;
+    min-width: 82px;
     text-align: center;
-    border-bottom: 3px solid transparent;
+    border-bottom: 2px solid transparent;
     flex: 0 0 auto;
     letter-spacing: -0.02em;
-    font-size: 18px;
-    line-height: 1.1;
+    font-size: 15px;
+    line-height: 1;
 }
 
 .calendar-month-tab:hover { background: rgba(255,255,255,0.08); color: #fff; }
@@ -98,8 +98,8 @@
 
 .simple-hotel-crm .calendar-grid th,
 .simple-hotel-crm .calendar-grid td {
-    border-left: 1px solid #d7dae1;
-    border-right: 1px solid #d7dae1;
+    border-left: 1px solid #eef0f4;
+    border-right: 1px solid #eef0f4;
     border-top: 0;
     border-bottom: 0;
     padding: 0 3px;
@@ -129,6 +129,8 @@
 .simple-hotel-crm .calendar-grid .room-header-spacer { background: #f4f4f6; }
 .simple-hotel-crm .calendar-grid .month-row th,
 .simple-hotel-crm .calendar-grid .weekday-row th { background: #f4f4f6; }
+.simple-hotel-crm .calendar-grid .month-row th { height: 13px; padding-top: 0; padding-bottom: 0; }
+.simple-hotel-crm .calendar-grid .weekday-row th { height: 15px; padding-top: 0; padding-bottom: 0; }
 .simple-hotel-crm .calendar-grid .calendar-day-number,
 .simple-hotel-crm .calendar-grid .calendar-weekday,
 .simple-hotel-crm .calendar-grid .calendar-corner-month { display: block; }
@@ -392,7 +394,7 @@
 .simple-hotel-crm-quick-booking-message.success { color: #027a48; }
 
 @media (max-width: 768px) {
-    .calendar-month-tab { min-width: 64px; padding: 8px 10px; font-size: 15px; }
+    .calendar-month-tab { min-width: 60px; padding: 6px 9px; font-size: 14px; }
     .simple-hotel-crm .calendar-grid { min-width: 1950px; font-size: 11px; }
     .simple-hotel-crm .calendar-grid th,
     .simple-hotel-crm .calendar-grid td { width: 86px; font-size: 10px; height: 14px; }
