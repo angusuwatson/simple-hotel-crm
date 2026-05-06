@@ -122,7 +122,9 @@ function simple_hotel_crm_render_bookings_page() {
             "SELECT b.id, b.guest_id, b.status_code, b.check_in_date, b.check_out_date, b.source_channel, b.total_amount, b.created_at,
                     CONCAT(g.first_name, ' ', g.last_name) AS guest_name,
                     COUNT(br.id) AS room_count,
-                    {$commission_select} AS commission_amount
+                    {$commission_select} AS commission_amount,
+                    COALESCE(SUM(br.total_amount), 0) AS room_total_amount,
+                    CASE WHEN COALESCE(b.total_amount, 0) > 0 THEN b.total_amount ELSE COALESCE(SUM(br.total_amount), 0) END AS display_total_amount
              FROM {$bookings_table} b
              JOIN {$guests_table} g ON g.id = b.guest_id
              LEFT JOIN {$booking_rooms_table} br ON br.booking_id = b.id
@@ -142,9 +144,15 @@ function simple_hotel_crm_render_bookings_page() {
     );
     $totals_row = $wpdb->get_row(
         $wpdb->prepare(
-            "SELECT COUNT(*) AS booking_count, COALESCE(SUM(b.total_amount), 0) AS total_amount
+            "SELECT COUNT(*) AS booking_count,
+                    COALESCE(SUM(CASE WHEN COALESCE(b.total_amount, 0) > 0 THEN b.total_amount ELSE room_totals.room_total_amount END), 0) AS total_amount
              FROM {$bookings_table} b
              JOIN {$guests_table} g ON g.id = b.guest_id
+             LEFT JOIN (
+                SELECT booking_id, COALESCE(SUM(total_amount), 0) AS room_total_amount
+                FROM {$booking_rooms_table}
+                GROUP BY booking_id
+             ) room_totals ON room_totals.booking_id = b.id
              WHERE b.is_deleted = %d {$search_sql}",
             array_merge( [ $is_deleted ], $search_params )
         ),
@@ -221,7 +229,7 @@ function simple_hotel_crm_render_bookings_page() {
             echo '<td>' . esc_html( (string) $row['status_code'] ) . '</td>';
             echo '<td>' . esc_html( (string) $row['source_channel'] ) . '</td>';
             echo '<td>' . esc_html( number_format( (float) $row['commission_amount'], 2, '.', '' ) ) . '</td>';
-            echo '<td>' . esc_html( number_format( (float) $row['total_amount'], 2, '.', '' ) ) . '</td>';
+            echo '<td>' . esc_html( number_format( (float) $row['display_total_amount'], 2, '.', '' ) ) . '</td>';
             echo '<td><a class="button button-small" href="' . esc_url( $detail_url ) . '">' . esc_html__( 'View / Edit', 'simple-hotel-crm' ) . '</a> ' . ( 'trash' === $view ? '<a class="button button-small" href="' . esc_url( $restore_url ) . '">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</a> <a class="button button-small button-link-delete" href="' . esc_url( $delete_url ) . '" onclick="return confirm(' . wp_json_encode( __( 'Permanently delete this booking?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Delete Permanently', 'simple-hotel-crm' ) . '</a>' : '<a class="button button-small" href="' . esc_url( $delete_url ) . '" onclick="return confirm(' . wp_json_encode( __( 'Delete this booking?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</a>' ) . '</td>';
             echo '</tr>';
         }
@@ -2067,7 +2075,7 @@ function simple_hotel_crm_render_settings_page() {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
 
-    $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'invoice-ninja', 'import', 'export', 'motopress' ], true ) ? sanitize_key( $_GET['tab'] ) : 'invoice-ninja';
+    $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'general', 'invoice-ninja', 'import', 'export', 'motopress' ], true ) ? sanitize_key( $_GET['tab'] ) : 'general';
 
     if ( isset( $_POST['simple_hotel_crm_submit'] ) ) {
         check_admin_referer( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
@@ -2109,6 +2117,7 @@ function simple_hotel_crm_render_settings_page() {
     echo '<p>' . esc_html__( 'LGF Bookings now uses the WordPress CRM tables as the main booking source.', 'simple-hotel-crm' ) . '</p>';
     echo '<p><strong>' . esc_html__( 'Plugin version:', 'simple-hotel-crm' ) . '</strong> ' . esc_html( SIMPLE_HOTEL_CRM_VERSION ) . ' &nbsp; <strong>' . esc_html__( 'DB version:', 'simple-hotel-crm' ) . '</strong> ' . esc_html( SIMPLE_HOTEL_CRM_DB_VERSION ) . '</p>';
     echo '<nav class="nav-tab-wrapper">';
+    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=general' ) ) . '" class="nav-tab ' . ( 'general' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'General', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=motopress' ) ) . '" class="nav-tab ' . ( 'motopress' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'MotoPress Sync', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=invoice-ninja' ) ) . '" class="nav-tab ' . ( 'invoice-ninja' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Invoice Ninja', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=import' ) ) . '" class="nav-tab ' . ( 'import' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Import', 'simple-hotel-crm' ) . '</a>';
@@ -2121,7 +2130,7 @@ function simple_hotel_crm_render_settings_page() {
         simple_hotel_crm_render_export_panel();
     } elseif ( 'motopress' === $tab ) {
         simple_hotel_crm_render_motopress_sync_page();
-    } else {
+    } elseif ( 'invoice-ninja' === $tab ) {
         echo '<form method="post">';
         wp_nonce_field( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
         echo '<h2>' . esc_html__( 'Invoice Ninja', 'simple-hotel-crm' ) . '</h2>';
@@ -2130,10 +2139,20 @@ function simple_hotel_crm_render_settings_page() {
         echo '<td><input type="url" id="simple_hotel_crm_invoice_ninja_url" name="simple_hotel_crm_invoice_ninja_url" value="' . esc_attr( $api_url ) . '" class="regular-text" placeholder="https://your-invoice-ninja.com" /></td></tr>';
         echo '<tr><th scope="row"><label for="simple_hotel_crm_invoice_ninja_token">' . esc_html__( 'API Token', 'simple-hotel-crm' ) . '</label></th>';
         echo '<td><input type="password" id="simple_hotel_crm_invoice_ninja_token" name="simple_hotel_crm_invoice_ninja_token" value="' . esc_attr( $api_token ) . '" class="regular-text" /></td></tr>';
+        echo '</table>';
+        submit_button( __( 'Save Invoice Ninja Settings', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_submit' );
+        echo '</form>';
+    } else {
+        echo '<form method="post">';
+        wp_nonce_field( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
+        echo '<h2>' . esc_html__( 'General', 'simple-hotel-crm' ) . '</h2>';
+        echo '<table class="form-table">';
+        echo '<tr><th scope="row">' . esc_html__( 'Plugin version', 'simple-hotel-crm' ) . '</th><td><code>' . esc_html( SIMPLE_HOTEL_CRM_VERSION ) . '</code></td></tr>';
+        echo '<tr><th scope="row">' . esc_html__( 'DB version', 'simple-hotel-crm' ) . '</th><td><code>' . esc_html( SIMPLE_HOTEL_CRM_DB_VERSION ) . '</code></td></tr>';
         echo '<tr><th scope="row"><label for="simple_hotel_crm_booking_com_commission_percent">' . esc_html__( 'Booking.com commission %', 'simple-hotel-crm' ) . '</label></th>';
         echo '<td><input type="number" step="0.01" min="0" max="100" id="simple_hotel_crm_booking_com_commission_percent" name="simple_hotel_crm_booking_com_commission_percent" value="' . esc_attr( (string) $booking_com_commission_percent ) . '" class="small-text" /> <p class="description">' . esc_html__( 'Used for automatic commission calculation on Booking.com channel. Applied to discounted room charge only, not extras or tax.', 'simple-hotel-crm' ) . '</p></td></tr>';
         echo '</table>';
-        submit_button( __( 'Save Settings', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_submit' );
+        submit_button( __( 'Save General Settings', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_submit' );
         echo '</form>';
 
         echo '<hr />';
