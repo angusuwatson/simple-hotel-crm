@@ -98,7 +98,10 @@
 
 .simple-hotel-crm .calendar-grid th,
 .simple-hotel-crm .calendar-grid td {
-    border: 1px solid #bfc2ca;
+    border-left: 1px solid #bfc2ca;
+    border-right: 1px solid #bfc2ca;
+    border-top: 0;
+    border-bottom: 0;
     padding: 0 3px;
     width: 106px;
     vertical-align: middle;
@@ -111,7 +114,7 @@
     color: #161616;
 }
 
-.simple-hotel-crm .calendar-grid th { background: #f4f4f6; text-align: center; font-weight: 400; color: #161616; }
+.simple-hotel-crm .calendar-grid th { background: #f4f4f6; text-align: center; font-weight: 400; color: #161616; border-top: 1px solid #bfc2ca; border-bottom: 1px solid #bfc2ca; }
 
 .simple-hotel-crm .calendar-grid .sticky-col {
     position: sticky;
@@ -224,6 +227,28 @@
 .simple-hotel-crm .calendar-grid .room-name-row td,
 .simple-hotel-crm .calendar-grid .extras-row td,
 .simple-hotel-crm .calendar-grid .extras-row th { height: 14px; }
+
+.simple-hotel-crm .calendar-grid .room-name-row td,
+.simple-hotel-crm .calendar-grid .room-name-row th,
+.simple-hotel-crm .calendar-grid .guest-row td,
+.simple-hotel-crm .calendar-grid .guest-row th,
+.simple-hotel-crm .calendar-grid .channel-row td,
+.simple-hotel-crm .calendar-grid .channel-row th,
+.simple-hotel-crm .calendar-grid .occupancy-row td,
+.simple-hotel-crm .calendar-grid .occupancy-row th,
+.simple-hotel-crm .calendar-grid .extras-row td,
+.simple-hotel-crm .calendar-grid .extras-row th,
+.simple-hotel-crm .calendar-grid .commission-row td,
+.simple-hotel-crm .calendar-grid .commission-row th {
+    border-top: 0 !important;
+    border-bottom: 0 !important;
+}
+
+.simple-hotel-crm .calendar-grid .tarif-row td,
+.simple-hotel-crm .calendar-grid .tarif-row th {
+    border-top: 2px solid #2e2e33 !important;
+    border-bottom: 0 !important;
+}
 
 .calendar-occupancy-editor {
     display: flex;
