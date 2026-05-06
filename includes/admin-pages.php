@@ -228,7 +228,7 @@ function simple_hotel_crm_render_bookings_page() {
             echo '<td>' . esc_html( (string) $row['room_count'] ) . '</td>';
             echo '<td>' . esc_html( (string) $row['status_code'] ) . '</td>';
             echo '<td>' . esc_html( (string) $row['source_channel'] ) . '</td>';
-            echo '<td>' . esc_html( number_format( (float) $row['commission_amount'], 2, '.', '' ) ) . '</td>';
+            echo '<td>' . ( (float) $row['commission_amount'] > 0 ? esc_html( number_format( (float) $row['commission_amount'], 2, '.', '' ) ) : '' ) . '</td>';
             echo '<td>' . esc_html( number_format( (float) $row['display_total_amount'], 2, '.', '' ) ) . '</td>';
             echo '<td><a class="button button-small" href="' . esc_url( $detail_url ) . '">' . esc_html__( 'View / Edit', 'simple-hotel-crm' ) . '</a> ' . ( 'trash' === $view ? '<a class="button button-small" href="' . esc_url( $restore_url ) . '">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</a> <a class="button button-small button-link-delete" href="' . esc_url( $delete_url ) . '" onclick="return confirm(' . wp_json_encode( __( 'Permanently delete this booking?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Delete Permanently', 'simple-hotel-crm' ) . '</a>' : '<a class="button button-small" href="' . esc_url( $delete_url ) . '" onclick="return confirm(' . wp_json_encode( __( 'Delete this booking?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</a>' ) . '</td>';
             echo '</tr>';
@@ -239,7 +239,7 @@ function simple_hotel_crm_render_bookings_page() {
     echo '<td colspan="4"><strong>' . esc_html__( 'Totals', 'simple-hotel-crm' ) . '</strong></td>';
     echo '<td><strong>' . esc_html( (string) (int) ( $totals_row['booking_count'] ?? 0 ) ) . '</strong></td>';
     echo '<td></td>';
-    echo '<td><strong>' . esc_html( number_format( (float) ( $totals_row['commission_amount'] ?? 0 ), 2, '.', '' ) ) . '</strong></td>';
+    echo '<td><strong>' . ( (float) ( $totals_row['commission_amount'] ?? 0 ) > 0 ? esc_html( number_format( (float) ( $totals_row['commission_amount'] ?? 0 ), 2, '.', '' ) ) : '' ) . '</strong></td>';
     echo '<td><strong>' . esc_html( number_format( (float) ( $totals_row['total_amount'] ?? 0 ), 2, '.', '' ) ) . '</strong></td>';
     echo '<td></td>';
     echo '</tr></tfoot></table></form>';
@@ -1126,7 +1126,7 @@ function simple_hotel_crm_render_booking_detail_page() {
         echo '<td><input type="text" style="width:80px;" name="room_lines[' . esc_attr( $index ) . '][discount_value]" value="' . esc_attr( isset( $room['discount_value'] ) ? number_format( (float) $room['discount_value'], 2, '.', '' ) : '0.00' ) . '" /></td>';
         echo '<td><input type="text" style="width:80px;" name="room_lines[' . esc_attr( $index ) . '][extras_amount]" value="' . esc_attr( isset( $room['extras_amount'] ) ? number_format( (float) $room['extras_amount'], 2, '.', '' ) : '0.00' ) . '" /></td>';
         echo '<td>' . esc_html( isset( $room['tourist_tax_amount'] ) ? number_format( (float) $room['tourist_tax_amount'], 2, '.', '' ) : '' ) . '</td>';
-        echo '<td><span class="simple-hotel-crm-line-commission-preview">' . esc_html( isset( $room['commission_amount'] ) ? number_format( (float) $room['commission_amount'], 2, '.', '' ) : '0.00' ) . '</span></td>';
+        echo '<td><span class="simple-hotel-crm-line-commission-preview">' . esc_html( ( isset( $room['commission_amount'] ) && (float) $room['commission_amount'] > 0 ) ? number_format( (float) $room['commission_amount'], 2, '.', '' ) : '' ) . '</span></td>';
         echo '<td><span class="simple-hotel-crm-line-total-preview">' . esc_html( isset( $room['total_amount'] ) ? number_format( (float) $room['total_amount'], 2, '.', '' ) : '' ) . '</span></td>';
         echo '</tr>';
     }
@@ -2093,11 +2093,13 @@ function simple_hotel_crm_render_settings_page() {
         echo '<div class="notice notice-success"><p>' . esc_html__( 'Settings saved.', 'simple-hotel-crm' ) . '</p></div>';
     }
 
+    $repair_results = null;
     if ( isset( $_POST['simple_hotel_crm_run_repairs'] ) ) {
         check_admin_referer( 'simple_hotel_crm_run_repairs', 'simple_hotel_crm_run_repairs_nonce' );
         simple_hotel_crm_install_tables();
+        $repair_results = simple_hotel_crm_run_repair_routines();
         simple_hotel_crm_clear_calendar_cache();
-        echo '<div class="notice notice-success"><p>' . esc_html__( 'Schema upgrade and repair routines completed.', 'simple-hotel-crm' ) . '</p></div>';
+        echo '<div class="notice notice-success"><p>' . esc_html__( 'Schema upgrade and repair routines completed.', 'simple-hotel-crm' ) . '</p><ul><li>' . esc_html__( 'Pricing rows updated:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_results['pricing_rows'] ?? 0 ) ) . '</li><li>' . esc_html__( 'Commission rows updated:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_results['commission_rows'] ?? 0 ) ) . '</li><li>' . esc_html__( 'Booking headers recalculated:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_results['booking_headers'] ?? 0 ) ) . '</li></ul></div>';
     }
 
     $api_url = get_option( 'simple_hotel_crm_invoice_ninja_url', '' );

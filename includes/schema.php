@@ -253,9 +253,7 @@ function simple_hotel_crm_install_tables() {
     simple_hotel_crm_maybe_migrate_sync_data_to_crm();
     simple_hotel_crm_repair_booking_room_links();
     simple_hotel_crm_migrate_overlay_notes_to_booking_notes();
-    simple_hotel_crm_backfill_pricing_amounts();
-    simple_hotel_crm_backfill_commission_amounts();
-    simple_hotel_crm_recalculate_booking_header_totals();
+    simple_hotel_crm_run_repair_routines();
 
     update_option( 'simple_hotel_crm_db_version', SIMPLE_HOTEL_CRM_DB_VERSION );
 }
@@ -391,19 +389,26 @@ function simple_hotel_crm_backfill_pricing_amounts() {
 
     $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
     $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+    $updated = 0;
 
     if ( simple_hotel_crm_table_has_column( $booking_rooms_table, 'subtotal_amount' ) ) {
         $wpdb->query( "UPDATE {$booking_rooms_table} SET subtotal_amount = room_rate_amount WHERE subtotal_amount = 0 AND room_rate_amount > 0" );
+        $updated += max( 0, (int) $wpdb->rows_affected );
     }
     if ( simple_hotel_crm_table_has_column( $booking_rooms_table, 'base_price_amount' ) ) {
         $wpdb->query( "UPDATE {$booking_rooms_table} SET base_price_amount = room_rate_amount WHERE base_price_amount = 0 AND room_rate_amount > 0" );
+        $updated += max( 0, (int) $wpdb->rows_affected );
     }
     if ( simple_hotel_crm_table_has_column( $booking_nights_table, 'subtotal_amount' ) ) {
         $wpdb->query( "UPDATE {$booking_nights_table} SET subtotal_amount = room_rate_amount WHERE subtotal_amount = 0 AND room_rate_amount > 0" );
+        $updated += max( 0, (int) $wpdb->rows_affected );
     }
     if ( simple_hotel_crm_table_has_column( $booking_nights_table, 'base_price_amount' ) ) {
         $wpdb->query( "UPDATE {$booking_nights_table} SET base_price_amount = room_rate_amount WHERE base_price_amount = 0 AND room_rate_amount > 0" );
+        $updated += max( 0, (int) $wpdb->rows_affected );
     }
+
+    return $updated;
 }
 
 function simple_hotel_crm_backfill_commission_amounts() {
@@ -412,6 +417,7 @@ function simple_hotel_crm_backfill_commission_amounts() {
     $bookings_table = simple_hotel_crm_bookings_table();
     $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
     $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+    $updated = 0;
 
     $room_rows = $wpdb->get_results(
         "SELECT br.id, br.booking_id, br.room_rate_amount, b.source_channel
@@ -425,7 +431,10 @@ function simple_hotel_crm_backfill_commission_amounts() {
         if ( $commission_amount <= 0 ) {
             continue;
         }
-        $wpdb->update( $booking_rooms_table, [ 'commission_amount' => $commission_amount ], [ 'id' => (int) $room_row['id'] ], [ '%f' ], [ '%d' ] );
+        $result = $wpdb->update( $booking_rooms_table, [ 'commission_amount' => $commission_amount ], [ 'id' => (int) $room_row['id'] ], [ '%f' ], [ '%d' ] );
+        if ( false !== $result ) {
+            $updated += (int) $result;
+        }
     }
 
     $night_rows = $wpdb->get_results(
@@ -441,8 +450,13 @@ function simple_hotel_crm_backfill_commission_amounts() {
         if ( $commission_amount <= 0 ) {
             continue;
         }
-        $wpdb->update( $booking_nights_table, [ 'commission_amount' => $commission_amount ], [ 'id' => (int) $night_row['id'] ], [ '%f' ], [ '%d' ] );
+        $result = $wpdb->update( $booking_nights_table, [ 'commission_amount' => $commission_amount ], [ 'id' => (int) $night_row['id'] ], [ '%f' ], [ '%d' ] );
+        if ( false !== $result ) {
+            $updated += (int) $result;
+        }
     }
+
+    return $updated;
 }
 
 function simple_hotel_crm_recalculate_booking_header_totals() {
@@ -473,6 +487,16 @@ function simple_hotel_crm_recalculate_booking_header_totals() {
              b.tourist_tax_amount = room_totals.tourist_tax_amount,
              b.total_amount = room_totals.total_amount"
     );
+
+    return max( 0, (int) $wpdb->rows_affected );
+}
+
+function simple_hotel_crm_run_repair_routines() {
+    return [
+        'pricing_rows' => simple_hotel_crm_backfill_pricing_amounts(),
+        'commission_rows' => simple_hotel_crm_backfill_commission_amounts(),
+        'booking_headers' => simple_hotel_crm_recalculate_booking_header_totals(),
+    ];
 }
 
 function simple_hotel_crm_maybe_migrate_sync_data_to_crm() {
