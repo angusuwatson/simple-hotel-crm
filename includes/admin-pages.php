@@ -1878,7 +1878,7 @@ function simple_hotel_crm_extract_motopress_room_candidates( $row ) {
     $candidates = [];
     $collections = [];
 
-    foreach ( [ 'rooms', 'reserved_rooms', 'reservedRooms', 'accommodations', 'room_stays', 'roomStays' ] as $key ) {
+    foreach ( [ 'reserved_accommodations', 'rooms', 'reserved_rooms', 'reservedRooms', 'accommodations', 'room_stays', 'roomStays' ] as $key ) {
         if ( ! empty( $row[ $key ] ) && is_array( $row[ $key ] ) ) {
             $collections[] = $row[ $key ];
         }
@@ -1889,9 +1889,9 @@ function simple_hotel_crm_extract_motopress_room_candidates( $row ) {
             if ( ! is_array( $item ) ) {
                 continue;
             }
-            $room_id = (int) ( $item['room_id'] ?? $item['roomId'] ?? $item['id'] ?? $item['accommodation_id'] ?? $item['accommodationId'] ?? 0 );
+            $room_id = (int) ( $item['room_id'] ?? $item['roomId'] ?? $item['id'] ?? $item['accommodation'] ?? $item['accommodation_id'] ?? $item['accommodationId'] ?? 0 );
             $room_code = strtoupper( trim( (string) ( $item['room_code'] ?? $item['roomCode'] ?? $item['code'] ?? '' ) ) );
-            $room_name = trim( (string) ( $item['room_name'] ?? $item['roomName'] ?? $item['name'] ?? $item['accommodation_title'] ?? $item['accommodationTitle'] ?? '' ) );
+            $room_name = trim( (string) ( $item['room_name'] ?? $item['roomName'] ?? $item['name'] ?? $item['accommodation_title'] ?? $item['accommodationTitle'] ?? $item['accommodation_label'] ?? '' ) );
             $adults = max( 0, (int) ( $item['adults'] ?? $item['adult_count'] ?? $item['adultCount'] ?? $row['adults'] ?? 0 ) );
             $children = max( 0, (int) ( $item['children'] ?? $item['child_count'] ?? $item['childCount'] ?? $row['children'] ?? 0 ) );
             $babies = max( 0, (int) ( $item['babies'] ?? $item['infants'] ?? $row['babies'] ?? 0 ) );
@@ -1899,6 +1899,8 @@ function simple_hotel_crm_extract_motopress_room_candidates( $row ) {
                 'external_room_id' => $room_id,
                 'room_code' => $room_code,
                 'room_name' => $room_name,
+            'accommodation_type' => (int) ( $item['accommodation_type'] ?? 0 ),
+            'guest_name' => (string) ( $item['guest_name'] ?? '' ),
                 'adults' => $adults,
                 'children' => $children,
                 'babies' => $babies,
@@ -1908,7 +1910,7 @@ function simple_hotel_crm_extract_motopress_room_candidates( $row ) {
 
     if ( empty( $candidates ) ) {
         $candidates[] = [
-            'external_room_id' => (int) ( $row['room_id'] ?? $row['roomId'] ?? $row['accommodation_id'] ?? 0 ),
+            'external_room_id' => (int) ( $row['room_id'] ?? $row['roomId'] ?? $row['accommodation'] ?? $row['accommodation_id'] ?? 0 ),
             'room_code' => strtoupper( trim( (string) ( $row['room_code'] ?? $row['roomCode'] ?? '' ) ) ),
             'room_name' => trim( (string) ( $row['room_name'] ?? $row['roomName'] ?? $row['accommodation_title'] ?? $row['accommodationTitle'] ?? '' ) ),
             'adults' => max( 0, (int) ( $row['adults'] ?? 0 ) ),
@@ -2050,6 +2052,10 @@ function simple_hotel_crm_map_motopress_booking_preview_row( $row ) {
         $first_name = trim( (string) ( $row['first_name'] ?? $row['customer']['first_name'] ?? '' ) );
         $last_name  = trim( (string) ( $row['last_name'] ?? $row['customer']['last_name'] ?? '' ) );
         $guest_name = trim( $first_name . ' ' . $last_name );
+    }
+
+    if ( '' === $guest_name && ! empty( $row['reserved_accommodations'][0]['guest_name'] ) ) {
+        $guest_name = trim( (string) $row['reserved_accommodations'][0]['guest_name'] );
     }
 
     $status = sanitize_key( (string) ( $row['status'] ?? $row['status_code'] ?? 'confirmed' ) );
