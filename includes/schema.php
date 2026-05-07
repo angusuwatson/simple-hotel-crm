@@ -535,6 +535,29 @@ function simple_hotel_crm_get_repair_scan_counts() {
     return $counts;
 }
 
+function simple_hotel_crm_booking_is_enriched( $booking ) {
+    global $wpdb;
+
+    $booking = is_array( $booking ) ? $booking : [];
+    $booking_id = (int) ( $booking['id'] ?? 0 );
+    if ( $booking_id <= 0 ) {
+        return false;
+    }
+
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $room_count = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$booking_rooms_table} WHERE booking_id = %d", $booking_id ) );
+    if ( $room_count > 0 ) {
+        return true;
+    }
+
+    return ( (float) ( $booking['room_rate_amount'] ?? 0 ) > 0 )
+        || ( (float) ( $booking['extras_amount'] ?? 0 ) > 0 )
+        || ( (float) ( $booking['tourist_tax_amount'] ?? 0 ) > 0 )
+        || ( (float) ( $booking['total_amount'] ?? 0 ) > 0 )
+        || ! empty( $booking['booking_note'] )
+        || ! empty( $booking['internal_notes'] );
+}
+
 function simple_hotel_crm_import_sync_data_to_crm() {
     global $wpdb;
 
@@ -632,6 +655,10 @@ function simple_hotel_crm_import_sync_data_to_crm() {
             $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$crm_bookings_table} WHERE id = %d", (int) $wpdb->insert_id ), ARRAY_A );
         }
         if ( ! $booking ) {
+            continue;
+        }
+
+        if ( 'booking_com' === (string) ( $booking_group['source_channel'] ?? '' ) && simple_hotel_crm_booking_is_enriched( $booking ) ) {
             continue;
         }
 
