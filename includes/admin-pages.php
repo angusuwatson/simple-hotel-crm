@@ -852,6 +852,24 @@ function simple_hotel_crm_render_booking_transfers_page() {
         echo '<p>' . esc_html__( 'No likely booking transfer pairs found.', 'simple-hotel-crm' ) . '</p></div>';
         return;
     }
+    $per_page = 50;
+    $paged = max( 1, absint( $_GET['transfer_paged'] ?? 1 ) );
+    $total_candidates = count( $candidates );
+    $page_count = max( 1, (int) ceil( $total_candidates / $per_page ) );
+    if ( $paged > $page_count ) {
+        $paged = $page_count;
+    }
+    $candidates = array_slice( $candidates, ( $paged - 1 ) * $per_page, $per_page );
+
+    if ( $page_count > 1 ) {
+        echo '<div class="tablenav top"><div class="tablenav-pages">';
+        for ( $i = 1; $i <= $page_count; $i++ ) {
+            $url = add_query_arg( [ 'page' => 'simple-hotel-crm-booking-transfers', 'transfer_paged' => $i ], admin_url( 'admin.php' ) );
+            echo '<a class="button' . ( $i === $paged ? ' button-primary' : '' ) . '" href="' . esc_url( $url ) . '">' . esc_html( (string) $i ) . '</a> ';
+        }
+        echo '</div></div>';
+    }
+
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_transfer_booking_bulk' );
     echo '<p><label><input type="checkbox" id="transfer-select-all-top" /> ' . esc_html__( 'Select all', 'simple-hotel-crm' ) . '</label></p>';
@@ -880,6 +898,14 @@ function simple_hotel_crm_render_booking_transfers_page() {
     echo '<p><label><input type="checkbox" id="transfer-select-all-bottom" /> ' . esc_html__( 'Select all', 'simple-hotel-crm' ) . '</label></p>';
     submit_button( __( 'Approve Selected Transfers', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_transfer_booking_bulk', false, [ 'onclick' => "return confirm('Approve all selected booking transfers?');" ] );
     echo '</form>';
+    if ( $page_count > 1 ) {
+        echo '<div class="tablenav bottom"><div class="tablenav-pages">';
+        for ( $i = 1; $i <= $page_count; $i++ ) {
+            $url = add_query_arg( [ 'page' => 'simple-hotel-crm-booking-transfers', 'transfer_paged' => $i ], admin_url( 'admin.php' ) );
+            echo '<a class="button' . ( $i === $paged ? ' button-primary' : '' ) . '" href="' . esc_url( $url ) . '">' . esc_html( (string) $i ) . '</a> ';
+        }
+        echo '</div></div>';
+    }
     echo '<script>document.addEventListener("change",function(e){if(e.target&&e.target.id&&e.target.id.indexOf("transfer-select-all")===0){document.querySelectorAll("input[name^=\"transfer_pairs\"][name$=\"[selected]\"]").forEach(function(cb){cb.checked=e.target.checked;});if(e.target.id==="transfer-select-all-top"){var b=document.getElementById("transfer-select-all-bottom");if(b)b.checked=e.target.checked;}if(e.target.id==="transfer-select-all-bottom"){var t=document.getElementById("transfer-select-all-top");if(t)t.checked=e.target.checked;}}});</script></div>';
 }
 

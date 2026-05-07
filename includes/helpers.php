@@ -415,6 +415,7 @@ function simple_hotel_crm_import_booking_com_ics_feeds() {
 
     $rooms_table = simple_hotel_crm_rooms_table();
     $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
+    simple_hotel_crm_clear_booking_com_ics_staged_rows();
     $room_urls = simple_hotel_crm_get_booking_com_ics_room_urls();
     $summary = [ 'feeds' => 0, 'events' => 0, 'staged' => 0, 'skipped' => 0, 'errors' => [] ];
 
