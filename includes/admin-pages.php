@@ -2572,6 +2572,18 @@ function simple_hotel_crm_render_settings_page() {
             echo '</ul></div>';
         }
     }
+    if ( isset( $_POST['simple_hotel_crm_rebuild_booking_com_ics_import'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_rebuild_booking_com_ics_import', 'simple_hotel_crm_rebuild_booking_com_ics_import_nonce' );
+        $ics_import_results = simple_hotel_crm_rebuild_booking_com_ics_feeds();
+        echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Booking.com ICS rebuild complete. Deleted staged rows: %1$d, Feeds: %2$d, Events: %3$d, Restaged nights: %4$d, Skipped: %5$d', 'simple-hotel-crm' ), (int) ( $ics_import_results['deleted_rows'] ?? 0 ), (int) ( $ics_import_results['feeds'] ?? 0 ), (int) ( $ics_import_results['events'] ?? 0 ), (int) ( $ics_import_results['staged'] ?? 0 ), (int) ( $ics_import_results['skipped'] ?? 0 ) ) ) . '</p></div>';
+        if ( ! empty( $ics_import_results['errors'] ) ) {
+            echo '<div class="notice notice-warning"><ul>';
+            foreach ( $ics_import_results['errors'] as $error ) {
+                echo '<li>' . esc_html( $error ) . '</li>';
+            }
+            echo '</ul></div>';
+        }
+    }
 
     if ( isset( $_POST['simple_hotel_crm_run_repairs'] ) ) {
         check_admin_referer( 'simple_hotel_crm_run_repairs', 'simple_hotel_crm_run_repairs_nonce' );
@@ -2665,6 +2677,10 @@ function simple_hotel_crm_render_settings_page() {
         echo '<form method="post">';
         wp_nonce_field( 'simple_hotel_crm_run_booking_com_ics_import', 'simple_hotel_crm_run_booking_com_ics_import_nonce' );
         submit_button( __( 'Import Booking.com ICS Feeds', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_run_booking_com_ics_import', false );
+        echo '</form>';
+        echo '<form method="post">';
+        wp_nonce_field( 'simple_hotel_crm_rebuild_booking_com_ics_import', 'simple_hotel_crm_rebuild_booking_com_ics_import_nonce' );
+        submit_button( __( 'Rebuild Booking.com ICS Staging + Reimport', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_rebuild_booking_com_ics_import', false );
         echo '</form>';
 
         echo '<form method="post">';

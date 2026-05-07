@@ -396,6 +396,20 @@ function simple_hotel_crm_parse_ics_content( $content ) {
     return $events;
 }
 
+function simple_hotel_crm_clear_booking_com_ics_staged_rows() {
+    global $wpdb;
+
+    $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
+    return (int) $wpdb->query( $wpdb->prepare( "DELETE FROM {$sync_bookings_table} WHERE source_channel = %s AND source_booking_id <> %s", 'booking_com', '' ) );
+}
+
+function simple_hotel_crm_rebuild_booking_com_ics_feeds() {
+    $deleted_rows = simple_hotel_crm_clear_booking_com_ics_staged_rows();
+    $result = simple_hotel_crm_import_booking_com_ics_feeds();
+    $result['deleted_rows'] = $deleted_rows;
+    return $result;
+}
+
 function simple_hotel_crm_import_booking_com_ics_feeds() {
     global $wpdb;
 
