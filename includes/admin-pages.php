@@ -2019,7 +2019,7 @@ function simple_hotel_crm_render_import_panel() {
         }
     }
 
-    echo '<p>' . esc_html__( 'Import missing records only. Recommended order: guests, bookings, booking rooms. Repair modes update existing bookings/room lines from backup CSV.', 'simple-hotel-crm' ) . '</p>';
+    echo '<p>' . esc_html__( 'Import missing records only. Recommended order: guests, bookings, booking rooms. For Booking.com workflow: sync ICS skeletons first, then use repair modes to enrich existing bookings/room lines from CSV backup.', 'simple-hotel-crm' ) . '</p>';
     echo '<p><a class="button" href="data:text/csv;charset=utf-8,' . rawurlencode( "external_guest_id,first_name,last_name,email,phone,address_line_1,address_line_2,city,postcode,country,notes\nG-1001,Jane,Doe,jane@example.com,123456789,1 Street,,Town,75000,France,VIP" ) . '" download="guests-template.csv">' . esc_html__( 'Download guests template', 'simple-hotel-crm' ) . '</a> ';
     echo '<a class="button" href="data:text/csv;charset=utf-8,' . rawurlencode( "external_booking_id,guest_email,guest_name,check_in,check_out,status_code,source_channel,contacted_date,booking_note,internal_notes\nB-2001,jane@example.com,Jane Doe,2026-06-01,2026-06-03,confirmed,direct,2026-05-01,Late arrival,Imported from CSV" ) . '" download="bookings-template.csv">' . esc_html__( 'Download bookings template', 'simple-hotel-crm' ) . '</a> ';
     echo '<a class="button" href="data:text/csv;charset=utf-8,' . rawurlencode( "external_booking_id,guest_email,guest_name,check_in,check_out,room_code,adults,children,babies,room_rate_amount,extras_amount,tourist_tax_amount\nB-2001,jane@example.com,Jane Doe,2026-06-01,2026-06-03,ANE,2,0,0,180,20,3.2" ) . '" download="booking-rooms-template.csv">' . esc_html__( 'Download booking rooms template', 'simple-hotel-crm' ) . '</a></p>';
@@ -2849,6 +2849,7 @@ function simple_hotel_crm_render_settings_page() {
         echo '<li>' . esc_html__( 'Commission rows needing backfill:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $repair_scan_counts['commission_rows'] ) . '</li>';
         echo '<li>' . esc_html__( 'Booking headers needing recalculation:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $repair_scan_counts['booking_headers'] ) . '</li>';
         echo '</ul>';
+        echo '<p>' . esc_html__( 'Fetch Booking.com ICS room feeds, stage nights, then create only missing booking skeletons in CRM. Existing enriched bookings are skipped.', 'simple-hotel-crm' ) . '</p>';
         echo '<form method="post">';
         wp_nonce_field( 'simple_hotel_crm_run_booking_com_ics_import', 'simple_hotel_crm_run_booking_com_ics_import_nonce' );
         submit_button( __( 'Sync Booking.com ICS Skeletons', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_run_booking_com_ics_import', false );
