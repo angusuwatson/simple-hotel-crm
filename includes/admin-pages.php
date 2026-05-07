@@ -707,38 +707,50 @@ function simple_hotel_crm_find_booking_transfer_candidates() {
 
     $bookings_table = simple_hotel_crm_bookings_table();
     $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
-    $candidates = [];
+    $guests_table = simple_hotel_crm_guests_table();
+
     $rows = $wpdb->get_results(
-        "SELECT b.id, b.guest_id, b.check_in_date, b.check_out_date, b.source_channel, b.source_booking_id, b.status_code, b.booking_note, b.internal_notes, COUNT(br.id) AS room_count, g.first_name, g.last_name, g.email, g.phone
+        "SELECT b.id, b.guest_id, b.check_in_date, b.check_out_date, b.source_channel, b.source_booking_id, b.status_code, b.booking_note, b.internal_notes, b.adults, b.children, b.babies, b.total_amount, COUNT(br.id) AS room_count, COALESCE(SUM(br.guest_count), 0) AS room_guest_count, g.first_name, g.last_name, g.email, g.phone
          FROM {$bookings_table} b
          LEFT JOIN {$booking_rooms_table} br ON br.booking_id = b.id
-         LEFT JOIN " . simple_hotel_crm_guests_table() . " g ON g.id = b.guest_id
+         LEFT JOIN {$guests_table} g ON g.id = b.guest_id
          WHERE b.is_deleted = 0 AND b.source_channel = 'booking_com'
          GROUP BY b.id
          ORDER BY b.check_in_date DESC, b.id DESC",
         ARRAY_A
     );
 
-    $bucket = [];
-    foreach ( $rows as $row ) {
-        $key = (string) $row['check_in_date'] . '|' . (string) $row['check_out_date'] . '|' . (int) $row['room_count'];
-        $bucket[ $key ][] = $row;
-    }
-    foreach ( $bucket as $group ) {
-        if ( count( $group ) < 2 ) {
-            continue;
+    $candidates = [];
+    foreach ( $rows as $target ) {
+        $best_source = null;
+        $best_score = 0;
+        foreach ( $rows as $source ) {
+            if ( (int) $source['id'] === (int) $target['id'] ) {
+                continue;
+            }
+            $score = 0;
+            if ( (string) $target['check_in_date'] === (string) $source['check_in_date'] ) { $score += 3; }
+            if ( (string) $target['check_out_date'] === (string) $source['check_out_date'] ) { $score += 3; }
+            if ( (int) $target['room_count'] === (int) $source['room_count'] ) { $score += 2; }
+            if ( (int) $target['adults'] === (int) $source['adults'] ) { $score += 1; }
+            if ( (int) $target['children'] === (int) $source['children'] ) { $score += 1; }
+            if ( (int) $target['babies'] === (int) $source['babies'] ) { $score += 1; }
+            if ( abs( (float) $target['total_amount'] - (float) $source['total_amount'] ) < 0.01 ) { $score += 1; }
+            if ( ! empty( $target['source_booking_id'] ) && $target['source_booking_id'] === $source['source_booking_id'] ) { $score += 10; }
+            if ( (int) $target['room_guest_count'] === (int) $source['room_guest_count'] ) { $score += 1; }
+            if ( $score > $best_score ) {
+                $best_score = $score;
+                $best_source = $source;
+            }
         }
-        usort( $group, static function( $a, $b ) { return (int) $b['id'] <=> (int) $a['id']; } );
-        $target = $group[0];
-        $source = $group[1];
-        if ( empty( $target['guest_id'] ) && ! empty( $source['guest_id'] ) ) {
-            $candidates[] = [ 'target' => $target, 'source' => $source ];
-        } elseif ( empty( $target['booking_note'] ) && ! empty( $source['booking_note'] ) ) {
-            $candidates[] = [ 'target' => $target, 'source' => $source ];
+
+        if ( $best_source && $best_score >= 8 ) {
+            $candidates[] = [ 'target' => $target, 'source' => $best_source, 'score' => $best_score ];
         }
     }
 
-    return $candidates;
+    usort( $candidates, static function( $a, $b ) { return (int) $b['score'] <=> (int) $a['score']; } );
+    return array_slice( $candidates, 0, 25 );
 }
 
 function simple_hotel_crm_transfer_booking_details( $target_booking_id, $source_booking_id ) {
@@ -785,7 +797,7 @@ function simple_hotel_crm_render_booking_transfers_page() {
         echo '<p>' . esc_html__( 'No likely booking transfer pairs found.', 'simple-hotel-crm' ) . '</p></div>';
         return;
     }
-    echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Target', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Source', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Dates', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Action', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
+    echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Target', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Source', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Dates', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Match', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Action', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
     foreach ( $candidates as $pair ) {
         $target = $pair['target'];
         $source = $pair['source'];
@@ -794,6 +806,7 @@ function simple_hotel_crm_render_booking_transfers_page() {
         echo '<td>#' . esc_html( (string) $source['id'] ) . ' ' . esc_html( trim( (string) $source['first_name'] . ' ' . (string) $source['last_name'] ) ?: __( '(no guest)', 'simple-hotel-crm' ) ) . '</td>';
         echo '<td>' . esc_html( (string) $target['check_in_date'] ) . ' → ' . esc_html( (string) $target['check_out_date'] ) . '</td>';
         echo '<td>' . esc_html( (string) $target['room_count'] ) . '</td>';
+        echo '<td>' . esc_html( (string) (int) ( $pair['score'] ?? 0 ) ) . '</td>';
         echo '<td><form method="post">';
         wp_nonce_field( 'simple_hotel_crm_transfer_booking' );
         echo '<input type="hidden" name="target_booking_id" value="' . esc_attr( (string) $target['id'] ) . '" />';
