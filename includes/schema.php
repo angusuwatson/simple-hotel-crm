@@ -608,11 +608,10 @@ function simple_hotel_crm_import_sync_data_to_crm() {
             continue;
         }
 
-        $booking = simple_hotel_crm_find_booking_for_import_row( [
-            'external_booking_id' => (string) $booking_group['external_booking_id'],
-            'check_in' => (string) $booking_group['check_in_date'],
-            'check_out' => (string) $booking_group['check_out_date'],
-        ], (int) $guest['id'] );
+        $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$crm_bookings_table} WHERE source_channel = %s AND source_booking_id = %s LIMIT 1", (string) $booking_group['source_channel'], (string) $booking_group['external_booking_id'] ), ARRAY_A );
+        if ( 'booking_com' === (string) ( $booking_group['source_channel'] ?? '' ) && $booking ) {
+            continue;
+        }
 
         if ( ! $booking ) {
             $booking_adults = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'adults' ) ) );
@@ -657,7 +656,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
             continue;
         }
 
-        if ( 'booking_com' === (string) ( $booking_group['source_channel'] ?? '' ) && simple_hotel_crm_booking_is_enriched( $booking ) ) {
+        if ( 'booking_com' === (string) ( $booking_group['source_channel'] ?? '' ) ) {
             continue;
         }
 

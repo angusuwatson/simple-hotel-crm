@@ -751,9 +751,6 @@ function simple_hotel_crm_find_booking_transfer_candidates() {
             if ( ! empty( $newer['internal_notes'] ) && false !== strpos( (string) $newer['internal_notes'], '[TRANSFERRED_FROM_BOOKING:' ) ) {
                 continue;
             }
-            if ( ! empty( $newer['source_booking_id'] ) && ! empty( $older['source_booking_id'] ) && (string) $newer['source_booking_id'] !== (string) $older['source_booking_id'] ) {
-                continue;
-            }
             $candidates[] = [ 'target' => $newer, 'source' => $older, 'score' => $score, 'reason' => implode( ', ', $reason ) ];
         }
     }
