@@ -110,6 +110,9 @@ function simple_hotel_crm_render_bookings_page() {
         } elseif ( 'restore' === $action ) {
             $wpdb->query( "UPDATE {$bookings_table} SET is_deleted = 0, deleted_at = NULL WHERE id IN (" . implode( ',', $booking_ids ) . ")" );
             echo '<div class="notice notice-success"><p>' . esc_html__( 'Selected bookings restored.', 'simple-hotel-crm' ) . '</p></div>';
+        } elseif ( 'cancel' === $action ) {
+            $wpdb->query( "UPDATE {$bookings_table} SET status_code = 'cancelled' WHERE id IN (" . implode( ',', $booking_ids ) . ")" );
+            echo '<div class="notice notice-success"><p>' . esc_html__( 'Selected bookings marked cancelled.', 'simple-hotel-crm' ) . '</p></div>';
         }
         simple_hotel_crm_clear_calendar_cache();
     }
@@ -207,7 +210,7 @@ function simple_hotel_crm_render_bookings_page() {
     echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings&view=active' ) ) . '">' . esc_html__( 'Active', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $active_count ) . ')</a> | <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings&view=trash' ) ) . '">' . esc_html__( 'Trash', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $trash_count ) . ')</a></p>';
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_bulk_bookings' );
-    echo '<p><select name="bulk_action"><option value="">' . esc_html__( 'Bulk actions', 'simple-hotel-crm' ) . '</option><option value="delete">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</option><option value="restore">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</option></select> ';
+    echo '<p><select name="bulk_action"><option value="">' . esc_html__( 'Bulk actions', 'simple-hotel-crm' ) . '</option><option value="delete">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</option><option value="restore">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</option><option value="cancel">' . esc_html__( 'Mark cancelled', 'simple-hotel-crm' ) . '</option></select> ';
     submit_button( __( 'Apply', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_bulk_apply', false );
     if ( 'trash' === $view ) {
         echo ' <span class="description">' . esc_html__( 'Delete will permanently remove trashed bookings.', 'simple-hotel-crm' ) . '</span>';
@@ -3072,7 +3075,7 @@ function simple_hotel_crm_render_settings_page() {
     if ( isset( $_POST['simple_hotel_crm_run_booking_com_ics_import'] ) ) {
         check_admin_referer( 'simple_hotel_crm_run_booking_com_ics_import', 'simple_hotel_crm_run_booking_com_ics_import_nonce' );
         $ics_import_results = simple_hotel_crm_import_booking_com_ics_feeds();
-        echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Booking.com ICS import complete. Feeds: %1$d, Events: %2$d, Staged nights: %3$d, Skipped: %4$d', 'simple-hotel-crm' ), (int) ( $ics_import_results['feeds'] ?? 0 ), (int) ( $ics_import_results['events'] ?? 0 ), (int) ( $ics_import_results['staged'] ?? 0 ), (int) ( $ics_import_results['skipped'] ?? 0 ) ) ) . '</p></div>';
+        echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Booking.com ICS import complete. Feeds: %1$d, Events: %2$d, Staged nights: %3$d, Skipped: %4$d, Cancelled: %5$d', 'simple-hotel-crm' ), (int) ( $ics_import_results['feeds'] ?? 0 ), (int) ( $ics_import_results['events'] ?? 0 ), (int) ( $ics_import_results['staged'] ?? 0 ), (int) ( $ics_import_results['skipped'] ?? 0 ), (int) ( $ics_import_results['cancelled'] ?? 0 ) ) ) . '</p></div>';
         if ( ! empty( $ics_import_results['errors'] ) ) {
             echo '<div class="notice notice-warning"><ul>';
             foreach ( $ics_import_results['errors'] as $error ) {
