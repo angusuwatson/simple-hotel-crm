@@ -731,9 +731,10 @@ function simple_hotel_crm_find_booking_transfer_candidates() {
             if ( (int) $newer['id'] < (int) $older['id'] ) {
                 continue;
             }
+            $same_channel = (string) $newer['source_channel'] === (string) $older['source_channel'];
             $same_dates = (string) $newer['check_in_date'] === (string) $older['check_in_date'] && (string) $newer['check_out_date'] === (string) $older['check_out_date'];
             $same_rooms = (string) $newer['room_ids'] === (string) $older['room_ids'];
-            if ( ! $same_dates || ! $same_rooms ) {
+            if ( ! $same_channel || ! $same_dates || ! $same_rooms ) {
                 continue;
             }
             $score = 0;
@@ -745,6 +746,7 @@ function simple_hotel_crm_find_booking_transfer_candidates() {
             if ( ! empty( $newer['source_booking_id'] ) && $newer['source_booking_id'] === $older['source_booking_id'] ) { $score += 10; }
             if ( abs( (float) $newer['total_amount'] - (float) $older['total_amount'] ) < 0.01 ) { $score += 1; }
             $reason = [];
+            if ( $same_channel ) { $reason[] = 'same channel'; }
             if ( $same_dates ) { $reason[] = 'dates'; }
             if ( $same_rooms ) { $reason[] = 'same rooms'; }
             if ( ! empty( $newer['source_booking_id'] ) && $newer['source_booking_id'] === $older['source_booking_id'] ) { $reason[] = 'same source id'; }

@@ -656,10 +656,6 @@ function simple_hotel_crm_import_sync_data_to_crm() {
             continue;
         }
 
-        if ( 'booking_com' === (string) ( $booking_group['source_channel'] ?? '' ) ) {
-            continue;
-        }
-
         foreach ( $room_groups as $room_group ) {
             $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $room_group['room_sync_id'] );
             if ( $crm_room_id <= 0 ) {
