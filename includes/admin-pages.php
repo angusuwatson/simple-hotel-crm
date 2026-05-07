@@ -747,8 +747,10 @@ function simple_hotel_crm_find_booking_transfer_candidates() {
             $reason = [];
             if ( $same_dates ) { $reason[] = 'dates'; }
             if ( $same_rooms ) { $reason[] = 'same rooms'; }
-            elseif ( $same_room_count ) { $reason[] = 'same room count'; }
             if ( ! empty( $newer['source_booking_id'] ) && $newer['source_booking_id'] === $older['source_booking_id'] ) { $reason[] = 'same source id'; }
+            if ( ! empty( $newer['internal_notes'] ) && false !== strpos( (string) $newer['internal_notes'], '[TRANSFERRED_FROM_BOOKING:' ) ) {
+                continue;
+            }
             $candidates[] = [ 'target' => $newer, 'source' => $older, 'score' => $score, 'reason' => implode( ', ', $reason ) ];
         }
     }
@@ -769,6 +771,7 @@ function simple_hotel_crm_transfer_booking_details( $target_booking_id, $source_
         return new WP_Error( 'missing_booking', __( 'One or both bookings not found.', 'simple-hotel-crm' ) );
     }
 
+    $marker = '[TRANSFERRED_FROM_BOOKING:' . (int) $source_booking_id . ']';
     $update = [
         'guest_id' => (int) $source['guest_id'],
         'source_channel' => (string) $source['source_channel'],
@@ -786,7 +789,7 @@ function simple_hotel_crm_transfer_booking_details( $target_booking_id, $source_
         'total_amount' => (float) $source['total_amount'],
         'booking_note' => (string) $source['booking_note'],
         'special_requests' => (string) $source['special_requests'],
-        'internal_notes' => trim( (string) $source['internal_notes'] ),
+        'internal_notes' => trim( (string) $source['internal_notes'] ) . ' ' . $marker,
     ];
 
     $wpdb->query( 'START TRANSACTION' );
