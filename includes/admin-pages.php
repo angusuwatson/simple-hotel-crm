@@ -751,6 +751,9 @@ function simple_hotel_crm_find_booking_transfer_candidates() {
             if ( ! empty( $newer['internal_notes'] ) && false !== strpos( (string) $newer['internal_notes'], '[TRANSFERRED_FROM_BOOKING:' ) ) {
                 continue;
             }
+            if ( ! empty( $newer['source_booking_id'] ) && ! empty( $older['source_booking_id'] ) && (string) $newer['source_booking_id'] !== (string) $older['source_booking_id'] ) {
+                continue;
+            }
             $candidates[] = [ 'target' => $newer, 'source' => $older, 'score' => $score, 'reason' => implode( ', ', $reason ) ];
         }
     }
@@ -854,7 +857,8 @@ function simple_hotel_crm_render_booking_transfers_page() {
     }
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_transfer_booking_bulk' );
-    echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Select', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Newer target', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Older source', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Dates', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Diff', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Why matched', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Action', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
+    echo '<p><label><input type="checkbox" id="transfer-select-all-top" /> ' . esc_html__( 'Select all', 'simple-hotel-crm' ) . '</label></p>';
+    echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Select', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Newer target', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Older source', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Dates', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Diff', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Why matched', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
     foreach ( $candidates as $index => $pair ) {
         $target = $pair['target'];
         $source = $pair['source'];
@@ -873,12 +877,13 @@ function simple_hotel_crm_render_booking_transfers_page() {
         echo esc_html__( 'Source:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) $target['source_booking_id'] );
         echo '</td>';
         echo '<td>' . esc_html( (string) ( $pair['reason'] ?? '' ) ) . '</td>';
-        echo '<td>—</td>';
         echo '</tr>';
     }
     echo '</tbody></table>';
+    echo '<p><label><input type="checkbox" id="transfer-select-all-bottom" /> ' . esc_html__( 'Select all', 'simple-hotel-crm' ) . '</label></p>';
     submit_button( __( 'Approve Selected Transfers', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_transfer_booking_bulk', false, [ 'onclick' => "return confirm('Approve all selected booking transfers?');" ] );
-    echo '</form></div>';
+    echo '</form>';
+    echo '<script>document.addEventListener("change",function(e){if(e.target&&e.target.id&&e.target.id.indexOf("transfer-select-all")===0){document.querySelectorAll("input[name^=\"transfer_pairs\"][name$=\"[selected]\"]").forEach(function(cb){cb.checked=e.target.checked;});if(e.target.id==="transfer-select-all-top"){var b=document.getElementById("transfer-select-all-bottom");if(b)b.checked=e.target.checked;}if(e.target.id==="transfer-select-all-bottom"){var t=document.getElementById("transfer-select-all-top");if(t)t.checked=e.target.checked;}}});</script></div>';
 }
 
 function simple_hotel_crm_render_guest_duplicates_page() {
