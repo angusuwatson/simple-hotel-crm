@@ -710,11 +710,11 @@ function simple_hotel_crm_find_booking_transfer_candidates() {
     $guests_table = simple_hotel_crm_guests_table();
 
     $rows = $wpdb->get_results(
-        "SELECT b.id, b.guest_id, b.check_in_date, b.check_out_date, b.source_channel, b.source_booking_id, b.status_code, b.booking_note, b.internal_notes, b.adults, b.children, b.babies, b.total_amount, COUNT(br.id) AS room_count, COALESCE(SUM(br.guest_count), 0) AS room_guest_count, g.first_name, g.last_name, g.email, g.phone
+        "SELECT b.id, b.guest_id, b.check_in_date, b.check_out_date, b.source_channel, b.source_booking_id, b.status_code, b.booking_note, b.internal_notes, b.adults, b.children, b.babies, b.total_amount, COUNT(br.id) AS room_count, COALESCE(SUM(br.guest_count), 0) AS room_guest_count, GROUP_CONCAT(br.room_id ORDER BY br.room_id ASC SEPARATOR ',') AS room_ids, g.first_name, g.last_name, g.email, g.phone
          FROM {$bookings_table} b
          LEFT JOIN {$booking_rooms_table} br ON br.booking_id = b.id
          LEFT JOIN {$guests_table} g ON g.id = b.guest_id
-         WHERE b.is_deleted = 0 AND b.source_channel = 'booking_com'
+         WHERE b.is_deleted = 0
          GROUP BY b.id
          ORDER BY b.check_in_date DESC, b.id DESC",
         ARRAY_A
@@ -722,35 +722,31 @@ function simple_hotel_crm_find_booking_transfer_candidates() {
 
     $candidates = [];
     foreach ( $rows as $target ) {
-        $best_source = null;
-        $best_score = 0;
         foreach ( $rows as $source ) {
             if ( (int) $source['id'] === (int) $target['id'] ) {
                 continue;
             }
+            $same_dates = (string) $target['check_in_date'] === (string) $source['check_in_date'] && (string) $target['check_out_date'] === (string) $source['check_out_date'];
+            $same_rooms = (string) $target['room_ids'] === (string) $source['room_ids'];
+            $same_room_count = (int) $target['room_count'] === (int) $source['room_count'];
+            if ( ! $same_dates || ( ! $same_rooms && ! $same_room_count ) ) {
+                continue;
+            }
             $score = 0;
-            if ( (string) $target['check_in_date'] === (string) $source['check_in_date'] ) { $score += 3; }
-            if ( (string) $target['check_out_date'] === (string) $source['check_out_date'] ) { $score += 3; }
-            if ( (int) $target['room_count'] === (int) $source['room_count'] ) { $score += 2; }
+            if ( $same_dates ) { $score += 5; }
+            if ( $same_rooms ) { $score += 5; }
+            if ( $same_room_count ) { $score += 2; }
             if ( (int) $target['adults'] === (int) $source['adults'] ) { $score += 1; }
             if ( (int) $target['children'] === (int) $source['children'] ) { $score += 1; }
             if ( (int) $target['babies'] === (int) $source['babies'] ) { $score += 1; }
-            if ( abs( (float) $target['total_amount'] - (float) $source['total_amount'] ) < 0.01 ) { $score += 1; }
             if ( ! empty( $target['source_booking_id'] ) && $target['source_booking_id'] === $source['source_booking_id'] ) { $score += 10; }
-            if ( (int) $target['room_guest_count'] === (int) $source['room_guest_count'] ) { $score += 1; }
-            if ( $score > $best_score ) {
-                $best_score = $score;
-                $best_source = $source;
-            }
-        }
-
-        if ( $best_source && $best_score >= 8 ) {
-            $candidates[] = [ 'target' => $target, 'source' => $best_source, 'score' => $best_score ];
+            if ( abs( (float) $target['total_amount'] - (float) $source['total_amount'] ) < 0.01 ) { $score += 1; }
+            $candidates[] = [ 'target' => $target, 'source' => $source, 'score' => $score, 'same_dates' => $same_dates, 'same_rooms' => $same_rooms ];
         }
     }
 
     usort( $candidates, static function( $a, $b ) { return (int) $b['score'] <=> (int) $a['score']; } );
-    return array_slice( $candidates, 0, 25 );
+    return array_slice( $candidates, 0, 50 );
 }
 
 function simple_hotel_crm_transfer_booking_details( $target_booking_id, $source_booking_id ) {
