@@ -1,7 +1,7 @@
 {
   "name": "LGF Bookings",
   "slug": "simple-hotel-crm",
-  "version": "1.8.8.79",
+  "version": "1.8.8.80",
   "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
   "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
   "requires": "6.0",
@@ -10,6 +10,6 @@
   "last_updated": "2026-05-05",
   "sections": {
     "description": "WordPress-native bookings CRM with calendar, bookings, guests, importer, room management, and GitHub-based updating.",
-    "changelog": "<ul><li>1.8.8.79: Make booking transfer approval fully replace target booking header with source header data.</li><li>1.8.8.78: Create a separate guest record per Booking.com ICS booking import.</li><li>1.8.8.77: Restrict booking transfer matches to exact same dates and exact same rooms.</li><li>1.8.8.76: Show small booking diff details in transfer approvals.</li><li>1.8.8.75: Clarify booking transfer UI with newer/older labels and match reasons.</li><li>1.8.8.74: Force a fresh updater bump for Booking Transfers improvements.</li><li>1.8.8.73: Match booking transfer candidates by date + room conflict so approvals appear more often.</li><li>1.8.8.72: Improve booking transfer matching with stronger score-based candidate detection.</li><li>1.8.8.71: Add settings link to Booking Transfers page for easier access.</li><li>1.8.8.70: Add booking transfer approvals to move guest and note data from older Booking.com rows into newer ICS rows.</li></ul>"
+    "changelog": "<ul><li>1.8.8.80: Copy booking room lines and nightly rows during transfer so occupancy and room rate move too.</li><li>1.8.8.79: Make booking transfer approval fully replace target booking header with source header data.</li><li>1.8.8.78: Create a separate guest record per Booking.com ICS booking import.</li><li>1.8.8.77: Restrict booking transfer matches to exact same dates and exact same rooms.</li><li>1.8.8.76: Show small booking diff details in transfer approvals.</li><li>1.8.8.75: Clarify booking transfer UI with newer/older labels and match reasons.</li><li>1.8.8.74: Force a fresh updater bump for Booking Transfers improvements.</li><li>1.8.8.73: Match booking transfer candidates by date + room conflict so approvals appear more often.</li><li>1.8.8.72: Improve booking transfer matching with stronger score-based candidate detection.</li><li>1.8.8.71: Add settings link to Booking Transfers page for easier access.</li><li>1.8.8.70: Add booking transfer approvals to move guest and note data from older Booking.com rows into newer ICS rows.</li></ul>"
   }
 }

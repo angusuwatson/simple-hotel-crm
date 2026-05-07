@@ -761,6 +761,8 @@ function simple_hotel_crm_transfer_booking_details( $target_booking_id, $source_
     global $wpdb;
 
     $bookings_table = simple_hotel_crm_bookings_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
     $target = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bookings_table} WHERE id = %d LIMIT 1", $target_booking_id ), ARRAY_A );
     $source = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bookings_table} WHERE id = %d LIMIT 1", $source_booking_id ), ARRAY_A );
     if ( ! $target || ! $source ) {
@@ -787,7 +789,32 @@ function simple_hotel_crm_transfer_booking_details( $target_booking_id, $source_
         'internal_notes' => trim( (string) $source['internal_notes'] ),
     ];
 
+    $wpdb->query( 'START TRANSACTION' );
     $wpdb->update( $bookings_table, $update, [ 'id' => $target_booking_id ], [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%s', '%s', '%s' ], [ '%d' ] );
+
+    $target_room_ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$booking_rooms_table} WHERE booking_id = %d", $target_booking_id ) );
+    if ( ! empty( $target_room_ids ) ) {
+        $wpdb->query( "DELETE FROM {$booking_nights_table} WHERE booking_room_id IN (" . implode( ',', array_map( 'intval', $target_room_ids ) ) . ')' );
+        $wpdb->query( $wpdb->prepare( "DELETE FROM {$booking_rooms_table} WHERE booking_id = %d", $target_booking_id ) );
+    }
+
+    $source_rooms = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$booking_rooms_table} WHERE booking_id = %d ORDER BY id ASC", $source_booking_id ), ARRAY_A );
+    foreach ( $source_rooms as $source_room ) {
+        $room_payload = $source_room;
+        unset( $room_payload['id'], $room_payload['booking_id'], $room_payload['created_at'] );
+        $room_payload['booking_id'] = (int) $target_booking_id;
+        $wpdb->insert( $booking_rooms_table, $room_payload );
+        $new_booking_room_id = (int) $wpdb->insert_id;
+        $source_nights = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$booking_nights_table} WHERE booking_room_id = %d ORDER BY stay_date ASC", (int) $source_room['id'] ), ARRAY_A );
+        foreach ( $source_nights as $source_night ) {
+            $night_payload = $source_night;
+            unset( $night_payload['id'], $night_payload['booking_room_id'], $night_payload['created_at'] );
+            $night_payload['booking_room_id'] = $new_booking_room_id;
+            $wpdb->insert( $booking_nights_table, $night_payload );
+        }
+    }
+
+    $wpdb->query( 'COMMIT' );
     simple_hotel_crm_clear_calendar_cache();
     return true;
 }
