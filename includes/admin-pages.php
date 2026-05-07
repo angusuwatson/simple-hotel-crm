@@ -1814,6 +1814,149 @@ function simple_hotel_crm_import_booking_rooms_csv( $rows, $dry_run = false ) {
     return $summary;
 }
 
+function simple_hotel_crm_repair_bookings_csv( $rows, $dry_run = false ) {
+    global $wpdb;
+
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $summary = [ 'created' => 0, 'skipped' => 0, 'errors' => [] ];
+
+    foreach ( $rows as $index => $row ) {
+        $guest_email = sanitize_email( $row['guest_email'] ?? '' );
+        $guest_name = trim( sanitize_text_field( $row['guest_name'] ?? '' ) );
+        $check_in = sanitize_text_field( $row['check_in'] ?? '' );
+        $check_out = sanitize_text_field( $row['check_out'] ?? '' );
+        $guest = simple_hotel_crm_find_guest_for_import_row( [ 'email' => $guest_email, 'guest_name' => $guest_name, 'phone' => $row['phone'] ?? '' ] );
+        $booking = simple_hotel_crm_find_booking_for_import_row( $row, (int) ( $guest['id'] ?? 0 ) );
+        if ( ! $booking ) {
+            $summary['errors'][] = sprintf( __( 'Repair bookings row %d: booking not found.', 'simple-hotel-crm' ), $index + 2 );
+            continue;
+        }
+
+        $update = [];
+        if ( '' !== $guest_name && ! $guest ) {
+            list( $first_name, $last_name ) = simple_hotel_crm_split_guest_name( $guest_name );
+            if ( ! $dry_run ) {
+                $wpdb->insert( simple_hotel_crm_guests_table(), [ 'first_name' => $first_name, 'last_name' => $last_name, 'email' => $guest_email, 'phone' => sanitize_text_field( $row['phone'] ?? '' ) ], [ '%s', '%s', '%s', '%s' ] );
+                $guest = $wpdb->get_row( $wpdb->prepare( 'SELECT * FROM ' . simple_hotel_crm_guests_table() . ' WHERE id = %d', (int) $wpdb->insert_id ), ARRAY_A );
+            }
+        }
+        if ( ! empty( $guest['id'] ) && (int) $booking['guest_id'] !== (int) $guest['id'] ) {
+            $update['guest_id'] = (int) $guest['id'];
+        }
+        foreach ( [ 'status_code', 'source_channel' ] as $field ) {
+            if ( ! empty( $row[ $field ] ) ) {
+                $update[ $field ] = sanitize_text_field( $row[ $field ] );
+            }
+        }
+        foreach ( [ 'booking_note', 'internal_notes' ] as $field ) {
+            if ( array_key_exists( $field, $row ) && '' !== (string) $row[ $field ] ) {
+                $update[ $field ] = sanitize_textarea_field( $row[ $field ] );
+            }
+        }
+        foreach ( [ 'room_rate_amount', 'extras_amount', 'tourist_tax_amount', 'total_amount' ] as $field ) {
+            if ( array_key_exists( $field, $row ) && null !== simple_hotel_crm_normalize_decimal( $row[ $field ] ) ) {
+                $update[ $field ] = (float) simple_hotel_crm_normalize_decimal( $row[ $field ] );
+            }
+        }
+        if ( empty( $update ) ) {
+            $summary['skipped']++;
+            continue;
+        }
+        if ( $dry_run ) {
+            $summary['created']++;
+            continue;
+        }
+        $formats = [];
+        foreach ( $update as $key => $value ) {
+            $formats[] = is_int( $value ) ? '%d' : ( is_float( $value ) ? '%f' : '%s' );
+        }
+        $wpdb->update( $bookings_table, $update, [ 'id' => (int) $booking['id'] ], $formats, [ '%d' ] );
+        $summary['created']++;
+    }
+
+    return $summary;
+}
+
+function simple_hotel_crm_repair_booking_rooms_csv( $rows, $dry_run = false ) {
+    global $wpdb;
+
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+    $summary = [ 'created' => 0, 'skipped' => 0, 'errors' => [] ];
+
+    foreach ( $rows as $index => $row ) {
+        $guest = simple_hotel_crm_find_guest_for_import_row( [ 'email' => $row['guest_email'] ?? '', 'guest_name' => $row['guest_name'] ?? '', 'phone' => $row['phone'] ?? '' ] );
+        $booking = simple_hotel_crm_find_booking_for_import_row( $row, (int) ( $guest['id'] ?? 0 ) );
+        $room_id = 0;
+        if ( ! empty( $row['room_id'] ) ) {
+            $room_id = (int) $row['room_id'];
+        } elseif ( ! empty( $row['room_code'] ) ) {
+            $room_id = simple_hotel_crm_find_crm_room_id( 0, [ 'room_code' => $row['room_code'], 'room_name' => $row['room_name'] ?? '' ] );
+        }
+        if ( ! $booking || $room_id <= 0 ) {
+            $summary['errors'][] = sprintf( __( 'Repair room row %d: booking or room not found.', 'simple-hotel-crm' ), $index + 2 );
+            continue;
+        }
+        $booking_room = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$booking_rooms_table} WHERE booking_id = %d AND room_id = %d LIMIT 1", (int) $booking['id'], $room_id ), ARRAY_A );
+        if ( ! $booking_room ) {
+            $summary['errors'][] = sprintf( __( 'Repair room row %d: existing room line not found.', 'simple-hotel-crm' ), $index + 2 );
+            continue;
+        }
+
+        $adults = max( 0, (int) ( $row['adults'] ?? $booking_room['adults'] ?? 0 ) );
+        $children = max( 0, (int) ( $row['children'] ?? $booking_room['children'] ?? 0 ) );
+        $babies = max( 0, (int) ( $row['babies'] ?? $booking_room['babies'] ?? 0 ) );
+        $guest_count = $adults + $children + $babies;
+        $room_rate_amount = (float) simple_hotel_crm_normalize_decimal( $row['room_rate_amount'] ?? $booking_room['room_rate_amount'] ?? 0 );
+        $extras_amount = (float) simple_hotel_crm_normalize_decimal( $row['extras_amount'] ?? $booking_room['extras_amount'] ?? 0 );
+        $tourist_tax_amount = (float) simple_hotel_crm_normalize_decimal( $row['tourist_tax_amount'] ?? $booking_room['tourist_tax_amount'] ?? 0 );
+        $total_amount = ( array_key_exists( 'total_amount', $row ) && null !== simple_hotel_crm_normalize_decimal( $row['total_amount'] ?? null ) ) ? (float) simple_hotel_crm_normalize_decimal( $row['total_amount'] ) : round( $room_rate_amount + $extras_amount + $tourist_tax_amount, 2 );
+        if ( $dry_run ) {
+            $summary['created']++;
+            continue;
+        }
+
+        $wpdb->update( $booking_rooms_table, [
+            'guest_count' => $guest_count,
+            'adults' => $adults,
+            'children' => $children,
+            'babies' => $babies,
+            'room_rate_amount' => $room_rate_amount,
+            'extras_amount' => $extras_amount,
+            'tourist_tax_amount' => $tourist_tax_amount,
+            'total_amount' => $total_amount,
+        ], [ 'id' => (int) $booking_room['id'] ], [ '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f' ], [ '%d' ] );
+
+        $check_in = sanitize_text_field( $row['check_in'] ?? $booking['check_in_date'] ?? '' );
+        $check_out = sanitize_text_field( $row['check_out'] ?? $booking['check_out_date'] ?? '' );
+        $nights = max( 1, (int) round( ( strtotime( $check_out ) - strtotime( $check_in ) ) / DAY_IN_SECONDS ) );
+        $night_room_rate = round( $room_rate_amount / $nights, 2 );
+        $night_extras = round( $extras_amount / $nights, 2 );
+        $night_tax = round( $tourist_tax_amount / $nights, 2 );
+        $night_total = round( $total_amount / $nights, 2 );
+        $wpdb->delete( $booking_nights_table, [ 'booking_room_id' => (int) $booking_room['id'] ], [ '%d' ] );
+        for ( $i = 0; $i < $nights; $i++ ) {
+            $stay_date = gmdate( 'Y-m-d', strtotime( $check_in . ' +' . $i . ' day' ) );
+            $wpdb->insert( $booking_nights_table, [
+                'booking_room_id' => (int) $booking_room['id'],
+                'stay_date' => $stay_date,
+                'guest_count' => $guest_count,
+                'adults' => $adults,
+                'children' => $children,
+                'babies' => $babies,
+                'room_rate_amount' => $night_room_rate,
+                'extras_amount' => $night_extras,
+                'tourist_tax_amount' => $night_tax,
+                'total_amount' => $night_total,
+            ], [ '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f' ] );
+        }
+        $summary['created']++;
+    }
+
+    simple_hotel_crm_clear_calendar_cache();
+    return $summary;
+}
+
 function simple_hotel_crm_render_import_preview( $rows ) {
     if ( empty( $rows ) ) {
         return;
@@ -1851,11 +1994,15 @@ function simple_hotel_crm_render_import_panel() {
                 $result = simple_hotel_crm_import_bookings_csv( $rows, $dry_run );
             } elseif ( 'booking_rooms' === $type ) {
                 $result = simple_hotel_crm_import_booking_rooms_csv( $rows, $dry_run );
+            } elseif ( 'bookings_repair' === $type ) {
+                $result = simple_hotel_crm_repair_bookings_csv( $rows, $dry_run );
+            } elseif ( 'booking_rooms_repair' === $type ) {
+                $result = simple_hotel_crm_repair_booking_rooms_csv( $rows, $dry_run );
             }
         }
     }
 
-    echo '<p>' . esc_html__( 'Import missing records only. Recommended order: guests, bookings, booking rooms.', 'simple-hotel-crm' ) . '</p>';
+    echo '<p>' . esc_html__( 'Import missing records only. Recommended order: guests, bookings, booking rooms. Repair modes update existing bookings/room lines from backup CSV.', 'simple-hotel-crm' ) . '</p>';
     echo '<p><a class="button" href="data:text/csv;charset=utf-8,' . rawurlencode( "external_guest_id,first_name,last_name,email,phone,address_line_1,address_line_2,city,postcode,country,notes\nG-1001,Jane,Doe,jane@example.com,123456789,1 Street,,Town,75000,France,VIP" ) . '" download="guests-template.csv">' . esc_html__( 'Download guests template', 'simple-hotel-crm' ) . '</a> ';
     echo '<a class="button" href="data:text/csv;charset=utf-8,' . rawurlencode( "external_booking_id,guest_email,guest_name,check_in,check_out,status_code,source_channel,contacted_date,booking_note,internal_notes\nB-2001,jane@example.com,Jane Doe,2026-06-01,2026-06-03,confirmed,direct,2026-05-01,Late arrival,Imported from CSV" ) . '" download="bookings-template.csv">' . esc_html__( 'Download bookings template', 'simple-hotel-crm' ) . '</a> ';
     echo '<a class="button" href="data:text/csv;charset=utf-8,' . rawurlencode( "external_booking_id,guest_email,guest_name,check_in,check_out,room_code,adults,children,babies,room_rate_amount,extras_amount,tourist_tax_amount\nB-2001,jane@example.com,Jane Doe,2026-06-01,2026-06-03,ANE,2,0,0,180,20,3.2" ) . '" download="booking-rooms-template.csv">' . esc_html__( 'Download booking rooms template', 'simple-hotel-crm' ) . '</a></p>';
@@ -1872,7 +2019,7 @@ function simple_hotel_crm_render_import_panel() {
     }
     echo '<form method="post" enctype="multipart/form-data">';
     wp_nonce_field( 'simple_hotel_crm_import', 'simple_hotel_crm_import_nonce' );
-    echo '<table class="form-table"><tr><th><label for="import_type">' . esc_html__( 'Import type', 'simple-hotel-crm' ) . '</label></th><td><select name="import_type" id="import_type"><option value="guests">' . esc_html__( 'Guests', 'simple-hotel-crm' ) . '</option><option value="bookings">' . esc_html__( 'Bookings', 'simple-hotel-crm' ) . '</option><option value="booking_rooms">' . esc_html__( 'Booking rooms', 'simple-hotel-crm' ) . '</option></select></td></tr>';
+    echo '<table class="form-table"><tr><th><label for="import_type">' . esc_html__( 'Import type', 'simple-hotel-crm' ) . '</label></th><td><select name="import_type" id="import_type"><option value="guests">' . esc_html__( 'Guests', 'simple-hotel-crm' ) . '</option><option value="bookings">' . esc_html__( 'Bookings', 'simple-hotel-crm' ) . '</option><option value="booking_rooms">' . esc_html__( 'Booking rooms', 'simple-hotel-crm' ) . '</option><option value="bookings_repair">' . esc_html__( 'Repair existing bookings', 'simple-hotel-crm' ) . '</option><option value="booking_rooms_repair">' . esc_html__( 'Repair existing booking rooms', 'simple-hotel-crm' ) . '</option></select></td></tr>';
     echo '<tr><th><label for="import_csv">' . esc_html__( 'CSV file', 'simple-hotel-crm' ) . '</label></th><td><input type="file" name="import_csv" id="import_csv" accept=".csv,text/csv" required /></td></tr></table>';
     submit_button( __( 'Preview / Dry Run', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_import_preview', false );
     echo ' ';
