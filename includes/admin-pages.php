@@ -26,6 +26,19 @@ function simple_hotel_crm_render_admin_page() {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
 
+    if ( isset( $_POST['simple_hotel_crm_calendar_sync_ics'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_calendar_sync_ics', 'simple_hotel_crm_calendar_sync_ics_nonce' );
+        $ics_import_results = simple_hotel_crm_import_booking_com_ics_feeds();
+        echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'ICS skeleton sync complete. Feeds: %1$d, Events: %2$d, Staged nights: %3$d, Skipped: %4$d', 'simple-hotel-crm' ), (int) ( $ics_import_results['feeds'] ?? 0 ), (int) ( $ics_import_results['events'] ?? 0 ), (int) ( $ics_import_results['staged'] ?? 0 ), (int) ( $ics_import_results['skipped'] ?? 0 ) ) ) . '</p></div>';
+        if ( ! empty( $ics_import_results['errors'] ) ) {
+            echo '<div class="notice notice-warning"><ul>';
+            foreach ( $ics_import_results['errors'] as $error ) {
+                echo '<li>' . esc_html( $error ) . '</li>';
+            }
+            echo '</ul></div>';
+        }
+    }
+
     $month = isset( $_GET['month'] ) ? intval( $_GET['month'] ) : intval( date( 'n' ) );
     $year  = isset( $_GET['year'] ) ? intval( $_GET['year'] ) : intval( date( 'Y' ) );
     $calendar_data = simple_hotel_crm_get_calendar_data( $month, $year );
@@ -36,6 +49,10 @@ function simple_hotel_crm_render_admin_page() {
     }
     echo simple_hotel_crm_render_calendar( $calendar_data, 'admin' );
     echo '<a class="simple-hotel-crm-floating-add-booking" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-add-booking' ) ) . '" aria-label="' . esc_attr__( 'Add Booking', 'simple-hotel-crm' ) . '">+</a>';
+    echo '<form method="post" class="simple-hotel-crm-floating-sync-form">';
+    wp_nonce_field( 'simple_hotel_crm_calendar_sync_ics', 'simple_hotel_crm_calendar_sync_ics_nonce' );
+    echo '<button type="submit" name="simple_hotel_crm_calendar_sync_ics" value="1" class="simple-hotel-crm-floating-sync">' . esc_html__( 'Sync ICS', 'simple-hotel-crm' ) . '</button>';
+    echo '</form>';
     echo '</div>';
 }
 
@@ -2834,7 +2851,7 @@ function simple_hotel_crm_render_settings_page() {
         echo '</ul>';
         echo '<form method="post">';
         wp_nonce_field( 'simple_hotel_crm_run_booking_com_ics_import', 'simple_hotel_crm_run_booking_com_ics_import_nonce' );
-        submit_button( __( 'Import Booking.com ICS Feeds', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_run_booking_com_ics_import', false );
+        submit_button( __( 'Sync Booking.com ICS Skeletons', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_run_booking_com_ics_import', false );
         echo '</form>';
         echo '<p><button type="button" class="button" disabled>' . esc_html__( 'Rebuild Booking.com ICS Staging + Reimport', 'simple-hotel-crm' ) . '</button> <span class="description">' . esc_html__( 'Disabled for safety to avoid overwriting enriched Booking.com bookings.', 'simple-hotel-crm' ) . '</span></p>';
 

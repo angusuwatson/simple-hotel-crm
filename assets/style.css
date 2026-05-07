@@ -36,6 +36,29 @@
     color: #fff;
 }
 
+.simple-hotel-crm-floating-sync-form {
+    position: fixed;
+    right: 24px;
+    bottom: 78px;
+    z-index: 1000;
+}
+
+.simple-hotel-crm-floating-sync {
+    border: 0;
+    border-radius: 999px;
+    background: #2f6f3e;
+    color: #fff;
+    padding: 10px 14px;
+    line-height: 1;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    cursor: pointer;
+}
+
+.simple-hotel-crm-floating-sync:hover {
+    background: #245a31;
+    color: #fff;
+}
+
 .simple-hotel-crm-container.loading {
     opacity: 0.72;
     transition: opacity 0.2s ease;
