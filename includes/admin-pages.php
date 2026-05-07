@@ -733,14 +733,12 @@ function simple_hotel_crm_find_booking_transfer_candidates() {
             }
             $same_dates = (string) $newer['check_in_date'] === (string) $older['check_in_date'] && (string) $newer['check_out_date'] === (string) $older['check_out_date'];
             $same_rooms = (string) $newer['room_ids'] === (string) $older['room_ids'];
-            $same_room_count = (int) $newer['room_count'] === (int) $older['room_count'];
-            if ( ! $same_dates || ( ! $same_rooms && ! $same_room_count ) ) {
+            if ( ! $same_dates || ! $same_rooms ) {
                 continue;
             }
             $score = 0;
             if ( $same_dates ) { $score += 5; }
             if ( $same_rooms ) { $score += 5; }
-            if ( $same_room_count ) { $score += 2; }
             if ( (int) $newer['adults'] === (int) $older['adults'] ) { $score += 1; }
             if ( (int) $newer['children'] === (int) $older['children'] ) { $score += 1; }
             if ( (int) $newer['babies'] === (int) $older['babies'] ) { $score += 1; }
