@@ -585,20 +585,19 @@ function simple_hotel_crm_import_sync_data_to_crm() {
             continue;
         }
 
-        $guest = simple_hotel_crm_find_guest_for_import_row( [
-            'guest_name' => (string) $booking_group['guest_name'],
-            'phone' => (string) $booking_group['phone'],
-        ] );
+        list( $first_name, $last_name ) = simple_hotel_crm_split_guest_name( $booking_group['guest_name'] );
+        $guest_note = 'Booking.com ICS import ' . (string) $booking_group['external_booking_id'];
+        $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE notes LIKE %s LIMIT 1", '%' . $wpdb->esc_like( $guest_note ) . '%' ), ARRAY_A );
         if ( ! $guest ) {
-            list( $first_name, $last_name ) = simple_hotel_crm_split_guest_name( $booking_group['guest_name'] );
             $guest_inserted = $wpdb->insert(
                 simple_hotel_crm_guests_table(),
                 [
                     'first_name' => $first_name,
                     'last_name' => $last_name,
                     'phone' => (string) $booking_group['phone'],
+                    'notes' => $guest_note,
                 ],
-                [ '%s', '%s', '%s' ]
+                [ '%s', '%s', '%s', '%s' ]
             );
             if ( false === $guest_inserted ) {
                 continue;
