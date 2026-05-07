@@ -761,26 +761,33 @@ function simple_hotel_crm_transfer_booking_details( $target_booking_id, $source_
     global $wpdb;
 
     $bookings_table = simple_hotel_crm_bookings_table();
-    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
     $target = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bookings_table} WHERE id = %d LIMIT 1", $target_booking_id ), ARRAY_A );
     $source = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bookings_table} WHERE id = %d LIMIT 1", $source_booking_id ), ARRAY_A );
     if ( ! $target || ! $source ) {
         return new WP_Error( 'missing_booking', __( 'One or both bookings not found.', 'simple-hotel-crm' ) );
     }
-    $update = [];
-    foreach ( [ 'guest_id', 'booking_note', 'internal_notes', 'special_requests', 'contacted_date' ] as $field ) {
-        if ( empty( $target[ $field ] ) && ! empty( $source[ $field ] ) ) {
-            $update[ $field ] = $source[ $field ];
-        }
-    }
-    if ( empty( $update ) ) {
-        return new WP_Error( 'nothing_to_transfer', __( 'No empty fields to transfer.', 'simple-hotel-crm' ) );
-    }
-    $formats = [];
-    foreach ( $update as $value ) {
-        $formats[] = is_int( $value ) ? '%d' : '%s';
-    }
-    $wpdb->update( $bookings_table, $update, [ 'id' => $target_booking_id ], $formats, [ '%d' ] );
+
+    $update = [
+        'guest_id' => (int) $source['guest_id'],
+        'source_channel' => (string) $source['source_channel'],
+        'source_booking_id' => (string) $source['source_booking_id'],
+        'status_code' => (string) $source['status_code'],
+        'contacted_date' => ! empty( $source['contacted_date'] ) ? (string) $source['contacted_date'] : (string) $target['contacted_date'],
+        'check_in_date' => (string) $source['check_in_date'],
+        'check_out_date' => (string) $source['check_out_date'],
+        'adults' => (int) $source['adults'],
+        'children' => (int) $source['children'],
+        'babies' => (int) $source['babies'],
+        'room_rate_amount' => (float) $source['room_rate_amount'],
+        'extras_amount' => (float) $source['extras_amount'],
+        'tourist_tax_amount' => (float) $source['tourist_tax_amount'],
+        'total_amount' => (float) $source['total_amount'],
+        'booking_note' => (string) $source['booking_note'],
+        'special_requests' => (string) $source['special_requests'],
+        'internal_notes' => trim( (string) $source['internal_notes'] ),
+    ];
+
+    $wpdb->update( $bookings_table, $update, [ 'id' => $target_booking_id ], [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%s', '%s', '%s' ], [ '%d' ] );
     simple_hotel_crm_clear_calendar_cache();
     return true;
 }
