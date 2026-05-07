@@ -2731,6 +2731,25 @@ function simple_hotel_crm_render_settings_page() {
         simple_hotel_crm_clear_calendar_cache();
         echo '<div class="notice notice-success"><p>' . esc_html__( 'Schema upgrade and repair routines completed.', 'simple-hotel-crm' ) . '</p><ul><li>' . esc_html__( 'Pricing rows updated:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_results['pricing_rows'] ?? 0 ) ) . '</li><li>' . esc_html__( 'Commission rows updated:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_results['commission_rows'] ?? 0 ) ) . '</li><li>' . esc_html__( 'Booking headers recalculated:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_results['booking_headers'] ?? 0 ) ) . '</li></ul></div>';
     }
+    if ( isset( $_POST['simple_hotel_crm_reset_crm_data'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_reset_crm_data', 'simple_hotel_crm_reset_crm_data_nonce' );
+        $reset_results = simple_hotel_crm_reset_crm_data();
+        $failed_tables = [];
+        foreach ( $reset_results as $table => $status ) {
+            if ( ! $status ) {
+                $failed_tables[] = $table;
+            }
+        }
+        if ( empty( $failed_tables ) ) {
+            echo '<div class="notice notice-success"><p>' . esc_html__( 'CRM booking data reset complete. Rooms, pricing, and settings kept.', 'simple-hotel-crm' ) . '</p></div>';
+        } else {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'CRM reset finished with errors.', 'simple-hotel-crm' ) . '</p><ul>';
+            foreach ( $failed_tables as $failed_table ) {
+                echo '<li>' . esc_html( (string) $failed_table ) . '</li>';
+            }
+            echo '</ul></div>';
+        }
+    }
 
     $api_url = get_option( 'simple_hotel_crm_invoice_ninja_url', '' );
     $api_token = get_option( 'simple_hotel_crm_invoice_ninja_token', '' );
@@ -2822,6 +2841,14 @@ function simple_hotel_crm_render_settings_page() {
         echo '<form method="post">';
         wp_nonce_field( 'simple_hotel_crm_run_repairs', 'simple_hotel_crm_run_repairs_nonce' );
         submit_button( __( 'Run Schema Upgrade + Repairs', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_run_repairs' );
+        echo '</form>';
+
+        echo '<hr />';
+        echo '<h2>' . esc_html__( 'Reset CRM Data', 'simple-hotel-crm' ) . '</h2>';
+        echo '<p><strong>' . esc_html__( 'Warning:', 'simple-hotel-crm' ) . '</strong> ' . esc_html__( 'This permanently deletes bookings, booking rooms, nightly rows, overlays, staged sync rows, and guests. Rooms, pricing, and settings stay.', 'simple-hotel-crm' ) . '</p>';
+        echo '<form method="post" onsubmit="return confirm(' . wp_json_encode( __( 'Permanently delete CRM booking data and guests? This cannot be undone.', 'simple-hotel-crm' ) ) . ');">';
+        wp_nonce_field( 'simple_hotel_crm_reset_crm_data', 'simple_hotel_crm_reset_crm_data_nonce' );
+        submit_button( __( 'Reset CRM Data', 'simple-hotel-crm' ), 'delete', 'simple_hotel_crm_reset_crm_data' );
         echo '</form>';
     }
     echo '</div>';

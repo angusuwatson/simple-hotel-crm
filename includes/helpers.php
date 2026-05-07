@@ -525,6 +525,28 @@ function simple_hotel_crm_import_booking_com_ics_feeds() {
     return $summary;
 }
 
+function simple_hotel_crm_reset_crm_data() {
+    global $wpdb;
+
+    $tables = [
+        simple_hotel_crm_booking_room_nights_table(),
+        simple_hotel_crm_booking_rooms_table(),
+        simple_hotel_crm_booking_overlay_table(),
+        simple_hotel_crm_sync_bookings_table(),
+        simple_hotel_crm_bookings_table(),
+        simple_hotel_crm_guests_table(),
+    ];
+
+    $results = [];
+    foreach ( $tables as $table ) {
+        $deleted = $wpdb->query( "TRUNCATE TABLE {$table}" );
+        $results[ $table ] = false === $deleted ? false : true;
+    }
+
+    simple_hotel_crm_clear_calendar_cache();
+    return $results;
+}
+
 function simple_hotel_crm_format_channel_code( $source_channel, $created_date = '' ) {
     $source_channel = (string) $source_channel;
     $created_date   = (string) $created_date;
