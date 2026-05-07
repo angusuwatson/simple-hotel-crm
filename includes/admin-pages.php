@@ -776,8 +776,8 @@ function simple_hotel_crm_transfer_booking_details( $target_booking_id, $source_
     $marker = '[TRANSFERRED_FROM_BOOKING:' . (int) $source_booking_id . ']';
     $update = [
         'guest_id' => (int) $source['guest_id'],
-        'source_channel' => (string) $source['source_channel'],
-        'source_booking_id' => (string) $source['source_booking_id'],
+        'source_channel' => (string) $target['source_channel'],
+        'source_booking_id' => (string) $target['source_booking_id'],
         'status_code' => (string) $source['status_code'],
         'contacted_date' => ! empty( $source['contacted_date'] ) ? (string) $source['contacted_date'] : (string) $target['contacted_date'],
         'check_in_date' => (string) $source['check_in_date'],
@@ -791,7 +791,7 @@ function simple_hotel_crm_transfer_booking_details( $target_booking_id, $source_
         'total_amount' => (float) $source['total_amount'],
         'booking_note' => (string) $source['booking_note'],
         'special_requests' => (string) $source['special_requests'],
-        'internal_notes' => trim( (string) $source['internal_notes'] ) . ' ' . $marker,
+        'internal_notes' => trim( (string) $source['internal_notes'] . ' ' . $target['internal_notes'] ) . ' ' . $marker,
     ];
 
     $wpdb->query( 'START TRANSACTION' );
