@@ -473,6 +473,29 @@ function simple_hotel_crm_rebuild_booking_com_ics_feeds() {
     return $result;
 }
 
+function simple_hotel_crm_mark_missing_booking_com_bookings_cancelled( array $seen_uids ) {
+    global $wpdb;
+
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $seen_uids = array_values( array_filter( array_map( 'trim', $seen_uids ) ) );
+    if ( empty( $seen_uids ) ) {
+        return 0;
+    }
+    $placeholders = implode( ',', array_fill( 0, count( $seen_uids ), '%s' ) );
+    $params = array_merge( [ 'booking_com' ], $seen_uids );
+    $query = $wpdb->prepare(
+        "UPDATE {$bookings_table}
+         SET status_code = 'cancelled'
+         WHERE source_channel = %s
+           AND is_deleted = 0
+           AND (internal_notes IS NULL OR internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')
+           AND source_booking_id <> ''
+           AND source_booking_id NOT IN ({$placeholders})",
+        $params
+    );
+    return (int) $wpdb->query( $query );
+}
+
 function simple_hotel_crm_import_booking_com_ics_feeds() {
     global $wpdb;
 
@@ -480,7 +503,7 @@ function simple_hotel_crm_import_booking_com_ics_feeds() {
     $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
     simple_hotel_crm_clear_booking_com_ics_staged_rows();
     $room_urls = simple_hotel_crm_get_booking_com_ics_room_urls();
-    $summary = [ 'feeds' => 0, 'events' => 0, 'staged' => 0, 'skipped' => 0, 'errors' => [] ];
+    $summary = [ 'feeds' => 0, 'events' => 0, 'staged' => 0, 'skipped' => 0, 'errors' => [], 'seen_uids' => [] ];
 
     if ( empty( $room_urls ) ) {
         $summary['errors'][] = __( 'No Booking.com ICS URLs configured.', 'simple-hotel-crm' );
@@ -526,6 +549,9 @@ function simple_hotel_crm_import_booking_com_ics_feeds() {
             $description = trim( (string) ( $event['DESCRIPTION'] ?? '' ) );
             $status = 'confirmed';
             $source_booking_id = '' !== $uid ? $uid : md5( $room_id . '|' . $check_in . '|' . $check_out . '|' . $summary_text );
+            if ( ! in_array( $source_booking_id, $summary['seen_uids'], true ) ) {
+                $summary['seen_uids'][] = $source_booking_id;
+            }
             $external_booking_id = abs( crc32( $source_booking_id ) );
             $external_booking_room_id = abs( crc32( $room_id . '|' . $source_booking_id ) );
             $guest_name = '' !== $summary_text ? $summary_text : ( '' !== $description ? $description : __( 'Booking.com guest', 'simple-hotel-crm' ) );
@@ -585,6 +611,7 @@ function simple_hotel_crm_import_booking_com_ics_feeds() {
     }
 
     simple_hotel_crm_import_sync_data_to_crm();
+    $summary['cancelled'] = simple_hotel_crm_mark_missing_booking_com_bookings_cancelled( $summary['seen_uids'] );
     simple_hotel_crm_clear_calendar_cache();
     return $summary;
 }
