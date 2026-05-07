@@ -1,7 +1,7 @@
 {
   "name": "LGF Bookings",
   "slug": "simple-hotel-crm",
-  "version": "1.8.8.87",
+  "version": "1.8.8.88",
   "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
   "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
   "requires": "6.0",
@@ -10,6 +10,6 @@
   "last_updated": "2026-05-05",
   "sections": {
     "description": "WordPress-native bookings CRM with calendar, bookings, guests, importer, room management, and GitHub-based updating.",
-    "changelog": "<ul><li>1.8.8.87: Keep Booking.com UID on transferred target bookings so later ICS syncs do not recreate them.</li><li>1.8.8.86: Fix Booking.com ICS skeleton creation to include room lines and require same channel in transfer matches.</li><li>1.8.8.85: Clear stale Booking.com staged rows before each ICS sync and add pagination to booking transfers.</li><li>1.8.8.84: Make Booking.com ICS import absolutely create-only by UID and loosen transfer candidate checks back to exact date+room matches.</li><li>1.8.8.83: Add select-all controls at top and bottom of booking transfers table and remove action column.</li><li>1.8.8.82: Hide already-transferred booking pairs and tighten transfer matching.</li><li>1.8.8.81: Add bulk approve checkboxes for booking transfers and remove calendar auto-scroll to today.</li><li>1.8.8.80: Copy booking room lines and nightly rows during transfer so occupancy and room rate move too.</li><li>1.8.8.79: Make booking transfer approval fully replace target booking header with source header data.</li><li>1.8.8.78: Create a separate guest record per Booking.com ICS booking import.</li><li>1.8.8.77: Restrict booking transfer matches to exact same dates and exact same rooms.</li><li>1.8.8.76: Show small booking diff details in transfer approvals.</li></ul>"
+    "changelog": "<ul><li>1.8.8.88: Add Booking.com ICS grouping debug preview to inspect multi-room reservation keys before grouping imports.</li><li>1.8.8.87: Keep Booking.com UID on transferred target bookings so later ICS syncs do not recreate them.</li><li>1.8.8.86: Fix Booking.com ICS skeleton creation to include room lines and require same channel in transfer matches.</li><li>1.8.8.85: Clear stale Booking.com staged rows before each ICS sync and add pagination to booking transfers.</li><li>1.8.8.84: Make Booking.com ICS import absolutely create-only by UID and loosen transfer candidate checks back to exact date+room matches.</li><li>1.8.8.83: Add select-all controls at top and bottom of booking transfers table and remove action column.</li><li>1.8.8.82: Hide already-transferred booking pairs and tighten transfer matching.</li><li>1.8.8.81: Add bulk approve checkboxes for booking transfers and remove calendar auto-scroll to today.</li><li>1.8.8.80: Copy booking room lines and nightly rows during transfer so occupancy and room rate move too.</li><li>1.8.8.79: Make booking transfer approval fully replace target booking header with source header data.</li><li>1.8.8.78: Create a separate guest record per Booking.com ICS booking import.</li><li>1.8.8.77: Restrict booking transfer matches to exact same dates and exact same rooms.</li></ul>"
   }
 }

@@ -2934,6 +2934,7 @@ function simple_hotel_crm_render_settings_page() {
 
     $repair_results = null;
     $ics_import_results = null;
+    $ics_debug_preview = [];
     if ( isset( $_POST['simple_hotel_crm_run_booking_com_ics_import'] ) ) {
         check_admin_referer( 'simple_hotel_crm_run_booking_com_ics_import', 'simple_hotel_crm_run_booking_com_ics_import_nonce' );
         $ics_import_results = simple_hotel_crm_import_booking_com_ics_feeds();
@@ -2949,6 +2950,10 @@ function simple_hotel_crm_render_settings_page() {
     if ( isset( $_POST['simple_hotel_crm_rebuild_booking_com_ics_import'] ) ) {
         check_admin_referer( 'simple_hotel_crm_rebuild_booking_com_ics_import', 'simple_hotel_crm_rebuild_booking_com_ics_import_nonce' );
         echo '<div class="notice notice-error"><p>' . esc_html__( 'Booking.com ICS rebuild is disabled for safety. Use normal import only.', 'simple-hotel-crm' ) . '</p></div>';
+    }
+    if ( isset( $_POST['simple_hotel_crm_preview_booking_com_ics_grouping'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_preview_booking_com_ics_grouping', 'simple_hotel_crm_preview_booking_com_ics_grouping_nonce' );
+        $ics_debug_preview = simple_hotel_crm_get_booking_com_ics_debug_preview();
     }
 
     if ( isset( $_POST['simple_hotel_crm_run_repairs'] ) ) {
@@ -3065,6 +3070,18 @@ function simple_hotel_crm_render_settings_page() {
         wp_nonce_field( 'simple_hotel_crm_run_booking_com_ics_import', 'simple_hotel_crm_run_booking_com_ics_import_nonce' );
         submit_button( __( 'Sync Booking.com ICS Skeletons', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_run_booking_com_ics_import', false );
         echo '</form>';
+        echo '<form method="post" style="margin-top:8px;">';
+        wp_nonce_field( 'simple_hotel_crm_preview_booking_com_ics_grouping', 'simple_hotel_crm_preview_booking_com_ics_grouping_nonce' );
+        submit_button( __( 'Preview ICS Grouping', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_preview_booking_com_ics_grouping', false );
+        echo '</form>';
+        if ( ! empty( $ics_debug_preview ) ) {
+            echo '<h3>' . esc_html__( 'ICS grouping preview', 'simple-hotel-crm' ) . '</h3>';
+            echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Room', 'simple-hotel-crm' ) . '</th><th>UID</th><th>' . esc_html__( 'Proposed group key', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Summary', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
+            foreach ( $ics_debug_preview as $preview_row ) {
+                echo '<tr><td>' . esc_html( (string) $preview_row['room_name'] ) . '</td><td><code>' . esc_html( (string) $preview_row['uid'] ) . '</code></td><td><code>' . esc_html( (string) $preview_row['group_key'] ) . '</code></td><td>' . esc_html( (string) $preview_row['check_in'] ) . '</td><td>' . esc_html( (string) $preview_row['check_out'] ) . '</td><td>' . esc_html( (string) $preview_row['summary'] ) . '</td></tr>';
+            }
+            echo '</tbody></table>';
+        }
         echo '<p><button type="button" class="button" disabled>' . esc_html__( 'Rebuild Booking.com ICS Staging + Reimport', 'simple-hotel-crm' ) . '</button> <span class="description">' . esc_html__( 'Disabled for safety to avoid overwriting enriched Booking.com bookings.', 'simple-hotel-crm' ) . '</span></p>';
 
         echo '<form method="post">';

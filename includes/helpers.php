@@ -396,6 +396,69 @@ function simple_hotel_crm_parse_ics_content( $content ) {
     return $events;
 }
 
+function simple_hotel_crm_extract_booking_com_ics_group_key( $event, $room_id = 0 ) {
+    $uid = trim( (string) ( $event['UID'] ?? '' ) );
+    $summary = trim( (string) ( $event['SUMMARY'] ?? '' ) );
+    $description = trim( (string) ( $event['DESCRIPTION'] ?? '' ) );
+    $haystacks = [ $uid, $summary, $description ];
+
+    foreach ( $haystacks as $text ) {
+        if ( preg_match( '/\b(\d{7,})\b/', $text, $matches ) ) {
+            return (string) $matches[1];
+        }
+    }
+
+    if ( '' !== $uid ) {
+        $normalized_uid = preg_replace( '/(^|[^a-z0-9])' . preg_quote( (string) $room_id, '/' ) . '([^a-z0-9]|$)/i', '$1$2', strtolower( $uid ) );
+        $normalized_uid = preg_replace( '/[^a-z0-9]+/i', '-', (string) $normalized_uid );
+        $normalized_uid = trim( (string) $normalized_uid, '-' );
+        if ( '' !== $normalized_uid ) {
+            return $normalized_uid;
+        }
+        return $uid;
+    }
+
+    return md5( wp_json_encode( $event ) );
+}
+
+function simple_hotel_crm_get_booking_com_ics_debug_preview() {
+    global $wpdb;
+
+    $rooms_table = simple_hotel_crm_rooms_table();
+    $room_urls = simple_hotel_crm_get_booking_com_ics_room_urls();
+    $preview = [];
+
+    foreach ( $room_urls as $room_id => $url ) {
+        $room_id = absint( $room_id );
+        $url = esc_url_raw( trim( (string) $url ) );
+        if ( $room_id <= 0 || '' === $url ) {
+            continue;
+        }
+        $room = $wpdb->get_row( $wpdb->prepare( "SELECT id, room_name FROM {$rooms_table} WHERE id = %d LIMIT 1", $room_id ), ARRAY_A );
+        if ( ! $room ) {
+            continue;
+        }
+        $response = wp_remote_get( $url, [ 'timeout' => 20 ] );
+        if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
+            continue;
+        }
+        $events = simple_hotel_crm_parse_ics_content( wp_remote_retrieve_body( $response ) );
+        foreach ( array_slice( $events, 0, 8 ) as $event ) {
+            $uid = trim( (string) ( $event['UID'] ?? '' ) );
+            $preview[] = [
+                'room_name' => (string) $room['room_name'],
+                'uid' => $uid,
+                'group_key' => simple_hotel_crm_extract_booking_com_ics_group_key( $event, $room_id ),
+                'check_in' => simple_hotel_crm_parse_ics_date_value( $event['DTSTART'] ?? '' ),
+                'check_out' => simple_hotel_crm_parse_ics_date_value( $event['DTEND'] ?? '' ),
+                'summary' => trim( (string) ( $event['SUMMARY'] ?? '' ) ),
+            ];
+        }
+    }
+
+    return $preview;
+}
+
 function simple_hotel_crm_clear_booking_com_ics_staged_rows() {
     global $wpdb;
 
