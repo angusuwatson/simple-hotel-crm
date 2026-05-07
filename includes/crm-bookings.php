@@ -99,7 +99,7 @@ function simple_hotel_crm_calculate_room_pricing( array $line, int $nights, int 
     $children = max( 0, (int) ( $line['children'] ?? 0 ) );
     $babies = max( 0, (int) ( $line['babies'] ?? 0 ) );
     $guest_count = $adults + $children + $babies;
-    $occupancy_adults = $adults;
+    $occupancy_adults = $adults + $children;
     $pricing_row = $crm_room_id > 0 ? simple_hotel_crm_get_room_pricing_for_occupancy( $crm_room_id, $occupancy_adults ) : null;
 
     $manual_room_rate_amount = max( 0, (float) simple_hotel_crm_normalize_decimal( $line['room_rate_amount'] ?? 0 ) );

@@ -844,7 +844,7 @@ function simple_hotel_crm_find_booking_merge_candidates() {
 
     $groups = [];
     foreach ( $rows as $row ) {
-        if ( ! empty( $row['internal_notes'] ) && false !== strpos( (string) $row['internal_notes'], '[MERGED_INTO_BOOKING:' ) ) {
+        if ( ! empty( $row['internal_notes'] ) && false !== strpos( (string) $row['internal_notes'], '[MERGED_ARCHIVE]' ) ) {
             continue;
         }
         $key = (string) $row['source_channel'] . '|' . (string) $row['check_in_date'] . '|' . (string) $row['check_out_date'];
@@ -903,8 +903,8 @@ function simple_hotel_crm_merge_bookings( $primary_booking_id, $merge_booking_id
                 $wpdb->insert( $booking_nights_table, $night_payload );
             }
         }
-        $merged_note = trim( (string) $booking['internal_notes'] . ' [MERGED_INTO_BOOKING:' . (int) $primary_booking_id . ']' );
-        $wpdb->update( $bookings_table, [ 'internal_notes' => $merged_note, 'is_deleted' => 1, 'deleted_at' => current_time( 'mysql' ) ], [ 'id' => $merge_booking_id ], [ '%s', '%d', '%s' ], [ '%d' ] );
+        $merged_note = trim( (string) $booking['internal_notes'] . ' [MERGED_ARCHIVE] [MERGED_INTO_BOOKING:' . (int) $primary_booking_id . ']' );
+        $wpdb->update( $bookings_table, [ 'internal_notes' => $merged_note ], [ 'id' => $merge_booking_id ], [ '%s' ], [ '%d' ] );
     }
     simple_hotel_crm_recalculate_booking_header_totals();
     $wpdb->query( 'COMMIT' );
@@ -1505,7 +1505,9 @@ window.simpleHotelCrmBookingComCommissionPercent = {$booking_com_commission_perc
   function rateSource(row, nights){
     var room=row.querySelector("select[name*='[room_sync_id]']");
     var adults=row.querySelector("input[name*='[adults]']");
-    var base=((window.simpleHotelCrmRoomPricing||{})[room&&room.value]||{})[parseInt(adults&&adults.value||0,10)]||0;
+    var children=row.querySelector("input[name*='[children]']");
+    var occupancy=(parseInt(adults&&adults.value||0,10)||0)+(parseInt(children&&children.value||0,10)||0);
+    var base=((window.simpleHotelCrmRoomPricing||{})[room&&room.value]||{})[occupancy]||0;
     return {base:base, total:base>0?(base*nights):0};
   }
   function upd(forceAuto){
@@ -1548,7 +1550,7 @@ window.simpleHotelCrmBookingComCommissionPercent = {$booking_com_commission_perc
     upd(false);
   });
   document.addEventListener('change',function(e){
-    if(e.target && e.target.matches("select[name*='[room_sync_id]'], input[name*='[adults]']")){
+    if(e.target && e.target.matches("select[name*='[room_sync_id]'], input[name*='[adults]'], input[name*='[children]']")){
       var row=e.target.closest('tr');
       var rate=row&&row.querySelector("input[name*='[room_rate_amount]']");
       if(rate){ delete rate.dataset.manualOverride; }
@@ -1812,7 +1814,9 @@ function simple_hotel_crm_render_add_booking_page() {
     function rateSource(box, nights){
         var room=box.querySelector("select[name*='[room_sync_id]']");
         var adults=box.querySelector("input[name*='[adults]']");
-        var base=((window.simpleHotelCrmRoomPricing||{})[room&&room.value]||{})[parseInt(adults&&adults.value||0,10)]||0;
+        var children=box.querySelector("input[name*='[children]']");
+        var occupancy=(parseInt(adults&&adults.value||0,10)||0)+(parseInt(children&&children.value||0,10)||0);
+        var base=((window.simpleHotelCrmRoomPricing||{})[room&&room.value]||{})[occupancy]||0;
         return {base:base,total:base>0?(base*nights):0};
     }
     function upd(forceAuto){
@@ -1856,7 +1860,7 @@ function simple_hotel_crm_render_add_booking_page() {
         upd(false);
     });
     document.addEventListener("change", function(e){
-        if(e.target && e.target.matches("select[name*='[room_sync_id]'], input[name*='[adults]']")){
+        if(e.target && e.target.matches("select[name*='[room_sync_id]'], input[name*='[adults]'], input[name*='[children]']")){
             var box=e.target.closest('fieldset');
             var rate=box&&box.querySelector("input[name*='[room_rate_amount]']");
             if(rate) delete rate.dataset.manualOverride;
