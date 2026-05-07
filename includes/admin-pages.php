@@ -825,7 +825,21 @@ function simple_hotel_crm_render_booking_transfers_page() {
     }
 
     echo '<div class="wrap"><h1>' . esc_html__( 'Booking Transfers', 'simple-hotel-crm' ) . '</h1><p>' . esc_html__( 'Target = newer booking. Source = older booking. Approve transfer when dates/rooms conflict and the newer booking should inherit guest or notes.', 'simple-hotel-crm' ) . '</p>';
-    if ( isset( $_POST['simple_hotel_crm_transfer_booking'] ) ) {
+    if ( isset( $_POST['simple_hotel_crm_transfer_booking_bulk'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_transfer_booking_bulk' );
+        $pairs = isset( $_POST['transfer_pairs'] ) && is_array( $_POST['transfer_pairs'] ) ? wp_unslash( $_POST['transfer_pairs'] ) : [];
+        $done = 0;
+        foreach ( $pairs as $pair ) {
+            if ( empty( $pair['selected'] ) ) {
+                continue;
+            }
+            $result = simple_hotel_crm_transfer_booking_details( absint( $pair['target_booking_id'] ?? 0 ), absint( $pair['source_booking_id'] ?? 0 ) );
+            if ( ! is_wp_error( $result ) ) {
+                $done++;
+            }
+        }
+        echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Transfer complete. Approved %d pair(s).', 'simple-hotel-crm' ), $done ) ) . '</p></div>';
+    } elseif ( isset( $_POST['simple_hotel_crm_transfer_booking'] ) ) {
         check_admin_referer( 'simple_hotel_crm_transfer_booking' );
         $result = simple_hotel_crm_transfer_booking_details( absint( $_POST['target_booking_id'] ?? 0 ), absint( $_POST['source_booking_id'] ?? 0 ) );
         echo '<div class="notice ' . esc_attr( is_wp_error( $result ) ? 'notice-error' : 'notice-success' ) . '"><p>' . esc_html( is_wp_error( $result ) ? $result->get_error_message() : __( 'Booking transfer complete.', 'simple-hotel-crm' ) ) . '</p></div>';
@@ -835,11 +849,16 @@ function simple_hotel_crm_render_booking_transfers_page() {
         echo '<p>' . esc_html__( 'No likely booking transfer pairs found.', 'simple-hotel-crm' ) . '</p></div>';
         return;
     }
-    echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Newer target', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Older source', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Dates', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Diff', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Why matched', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Action', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
-    foreach ( $candidates as $pair ) {
+    echo '<form method="post">';
+    wp_nonce_field( 'simple_hotel_crm_transfer_booking_bulk' );
+    echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Select', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Newer target', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Older source', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Dates', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Diff', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Why matched', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Action', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
+    foreach ( $candidates as $index => $pair ) {
         $target = $pair['target'];
         $source = $pair['source'];
         echo '<tr>';
+        echo '<td><input type="checkbox" name="transfer_pairs[' . esc_attr( (string) $index ) . '][selected]" value="1" checked="checked" />';
+        echo '<input type="hidden" name="transfer_pairs[' . esc_attr( (string) $index ) . '][target_booking_id]" value="' . esc_attr( (string) $target['id'] ) . '" />';
+        echo '<input type="hidden" name="transfer_pairs[' . esc_attr( (string) $index ) . '][source_booking_id]" value="' . esc_attr( (string) $source['id'] ) . '" /></td>';
         echo '<td>#' . esc_html( (string) $target['id'] ) . ' ' . esc_html( trim( (string) $target['first_name'] . ' ' . (string) $target['last_name'] ) ?: __( '(no guest)', 'simple-hotel-crm' ) ) . '<br /><span class="description">' . esc_html( (string) $target['source_channel'] ) . '</span></td>';
         echo '<td>#' . esc_html( (string) $source['id'] ) . ' ' . esc_html( trim( (string) $source['first_name'] . ' ' . (string) $source['last_name'] ) ?: __( '(no guest)', 'simple-hotel-crm' ) ) . '<br /><span class="description">' . esc_html( (string) $source['source_channel'] ) . '</span></td>';
         echo '<td>' . esc_html( (string) $target['check_in_date'] ) . ' → ' . esc_html( (string) $target['check_out_date'] ) . '</td>';
@@ -851,15 +870,12 @@ function simple_hotel_crm_render_booking_transfers_page() {
         echo esc_html__( 'Source:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) $target['source_booking_id'] );
         echo '</td>';
         echo '<td>' . esc_html( (string) ( $pair['reason'] ?? '' ) ) . '</td>';
-        echo '<td><form method="post">';
-        wp_nonce_field( 'simple_hotel_crm_transfer_booking' );
-        echo '<input type="hidden" name="target_booking_id" value="' . esc_attr( (string) $target['id'] ) . '" />';
-        echo '<input type="hidden" name="source_booking_id" value="' . esc_attr( (string) $source['id'] ) . '" />';
-        submit_button( __( 'Approve Transfer', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_transfer_booking', false, [ 'onclick' => "return confirm('Transfer guest and notes from the older source booking into the newer target booking?');" ] );
-        echo '</form></td>';
+        echo '<td>—</td>';
         echo '</tr>';
     }
-    echo '</tbody></table></div>';
+    echo '</tbody></table>';
+    submit_button( __( 'Approve Selected Transfers', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_transfer_booking_bulk', false, [ 'onclick' => "return confirm('Approve all selected booking transfers?');" ] );
+    echo '</form></div>';
 }
 
 function simple_hotel_crm_render_guest_duplicates_page() {

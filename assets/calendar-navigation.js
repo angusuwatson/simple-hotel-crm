@@ -235,7 +235,6 @@
             if (month && year) {
                 window.history.replaceState({ month: month, year: year }, '', window.location.href);
             }
-            setTimeout(scrollToTodayIfVisible, 100);
         })();
     });
 })(jQuery);
