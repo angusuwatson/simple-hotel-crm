@@ -15,6 +15,7 @@ function simple_hotel_crm_register_admin_menu() {
     add_submenu_page( 'simple-hotel-crm', __( 'Rooms', 'simple-hotel-crm' ), __( 'Rooms', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-rooms', 'simple_hotel_crm_render_rooms_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Guests', 'simple-hotel-crm' ), __( 'Guests', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guests', 'simple_hotel_crm_render_guests_page' );
     add_submenu_page( null, __( 'Guest Duplicates', 'simple-hotel-crm' ), __( 'Guest Duplicates', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-duplicates', 'simple_hotel_crm_render_guest_duplicates_page' );
+    add_submenu_page( null, __( 'Booking Transfers', 'simple-hotel-crm' ), __( 'Booking Transfers', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-booking-transfers', 'simple_hotel_crm_render_booking_transfers_page' );
     add_submenu_page( null, __( 'Guest Detail', 'simple-hotel-crm' ), __( 'Guest Detail', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-detail', 'simple_hotel_crm_render_guest_detail_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Settings', 'simple-hotel-crm' ), __( 'Settings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-settings', 'simple_hotel_crm_render_settings_page' );
     
@@ -699,6 +700,109 @@ function simple_hotel_crm_merge_guests( $primary_guest_id, $duplicate_guest_id )
     }
     $wpdb->query( 'COMMIT' );
     return true;
+}
+
+function simple_hotel_crm_find_booking_transfer_candidates() {
+    global $wpdb;
+
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $candidates = [];
+    $rows = $wpdb->get_results(
+        "SELECT b.id, b.guest_id, b.check_in_date, b.check_out_date, b.source_channel, b.source_booking_id, b.status_code, b.booking_note, b.internal_notes, COUNT(br.id) AS room_count, g.first_name, g.last_name, g.email, g.phone
+         FROM {$bookings_table} b
+         LEFT JOIN {$booking_rooms_table} br ON br.booking_id = b.id
+         LEFT JOIN " . simple_hotel_crm_guests_table() . " g ON g.id = b.guest_id
+         WHERE b.is_deleted = 0 AND b.source_channel = 'booking_com'
+         GROUP BY b.id
+         ORDER BY b.check_in_date DESC, b.id DESC",
+        ARRAY_A
+    );
+
+    $bucket = [];
+    foreach ( $rows as $row ) {
+        $key = (string) $row['check_in_date'] . '|' . (string) $row['check_out_date'] . '|' . (int) $row['room_count'];
+        $bucket[ $key ][] = $row;
+    }
+    foreach ( $bucket as $group ) {
+        if ( count( $group ) < 2 ) {
+            continue;
+        }
+        usort( $group, static function( $a, $b ) { return (int) $b['id'] <=> (int) $a['id']; } );
+        $target = $group[0];
+        $source = $group[1];
+        if ( empty( $target['guest_id'] ) && ! empty( $source['guest_id'] ) ) {
+            $candidates[] = [ 'target' => $target, 'source' => $source ];
+        } elseif ( empty( $target['booking_note'] ) && ! empty( $source['booking_note'] ) ) {
+            $candidates[] = [ 'target' => $target, 'source' => $source ];
+        }
+    }
+
+    return $candidates;
+}
+
+function simple_hotel_crm_transfer_booking_details( $target_booking_id, $source_booking_id ) {
+    global $wpdb;
+
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $target = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bookings_table} WHERE id = %d LIMIT 1", $target_booking_id ), ARRAY_A );
+    $source = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bookings_table} WHERE id = %d LIMIT 1", $source_booking_id ), ARRAY_A );
+    if ( ! $target || ! $source ) {
+        return new WP_Error( 'missing_booking', __( 'One or both bookings not found.', 'simple-hotel-crm' ) );
+    }
+    $update = [];
+    foreach ( [ 'guest_id', 'booking_note', 'internal_notes', 'special_requests', 'contacted_date' ] as $field ) {
+        if ( empty( $target[ $field ] ) && ! empty( $source[ $field ] ) ) {
+            $update[ $field ] = $source[ $field ];
+        }
+    }
+    if ( empty( $update ) ) {
+        return new WP_Error( 'nothing_to_transfer', __( 'No empty fields to transfer.', 'simple-hotel-crm' ) );
+    }
+    $formats = [];
+    foreach ( $update as $value ) {
+        $formats[] = is_int( $value ) ? '%d' : '%s';
+    }
+    $wpdb->update( $bookings_table, $update, [ 'id' => $target_booking_id ], $formats, [ '%d' ] );
+    simple_hotel_crm_clear_calendar_cache();
+    return true;
+}
+
+function simple_hotel_crm_render_booking_transfers_page() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
+    }
+
+    echo '<div class="wrap"><h1>' . esc_html__( 'Booking Transfers', 'simple-hotel-crm' ) . '</h1><p>' . esc_html__( 'Approve transfer of guest and note data from an older Booking.com booking into a newer ICS booking with the same dates and room count.', 'simple-hotel-crm' ) . '</p>';
+    if ( isset( $_POST['simple_hotel_crm_transfer_booking'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_transfer_booking' );
+        $result = simple_hotel_crm_transfer_booking_details( absint( $_POST['target_booking_id'] ?? 0 ), absint( $_POST['source_booking_id'] ?? 0 ) );
+        echo '<div class="notice ' . esc_attr( is_wp_error( $result ) ? 'notice-error' : 'notice-success' ) . '"><p>' . esc_html( is_wp_error( $result ) ? $result->get_error_message() : __( 'Booking transfer complete.', 'simple-hotel-crm' ) ) . '</p></div>';
+    }
+    $candidates = simple_hotel_crm_find_booking_transfer_candidates();
+    if ( empty( $candidates ) ) {
+        echo '<p>' . esc_html__( 'No likely booking transfer pairs found.', 'simple-hotel-crm' ) . '</p></div>';
+        return;
+    }
+    echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Target', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Source', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Dates', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Action', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
+    foreach ( $candidates as $pair ) {
+        $target = $pair['target'];
+        $source = $pair['source'];
+        echo '<tr>';
+        echo '<td>#' . esc_html( (string) $target['id'] ) . ' ' . esc_html( trim( (string) $target['first_name'] . ' ' . (string) $target['last_name'] ) ?: __( '(no guest)', 'simple-hotel-crm' ) ) . '</td>';
+        echo '<td>#' . esc_html( (string) $source['id'] ) . ' ' . esc_html( trim( (string) $source['first_name'] . ' ' . (string) $source['last_name'] ) ?: __( '(no guest)', 'simple-hotel-crm' ) ) . '</td>';
+        echo '<td>' . esc_html( (string) $target['check_in_date'] ) . ' → ' . esc_html( (string) $target['check_out_date'] ) . '</td>';
+        echo '<td>' . esc_html( (string) $target['room_count'] ) . '</td>';
+        echo '<td><form method="post">';
+        wp_nonce_field( 'simple_hotel_crm_transfer_booking' );
+        echo '<input type="hidden" name="target_booking_id" value="' . esc_attr( (string) $target['id'] ) . '" />';
+        echo '<input type="hidden" name="source_booking_id" value="' . esc_attr( (string) $source['id'] ) . '" />';
+        submit_button( __( 'Transfer', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_transfer_booking', false, [ 'onclick' => "return confirm('Transfer guest and notes to target booking?');" ] );
+        echo '</form></td>';
+        echo '</tr>';
+    }
+    echo '</tbody></table></div>';
 }
 
 function simple_hotel_crm_render_guest_duplicates_page() {

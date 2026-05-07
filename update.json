@@ -1,7 +1,7 @@
 {
   "name": "LGF Bookings",
   "slug": "simple-hotel-crm",
-  "version": "1.8.8.69",
+  "version": "1.8.8.70",
   "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
   "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
   "requires": "6.0",
@@ -10,6 +10,6 @@
   "last_updated": "2026-05-05",
   "sections": {
     "description": "WordPress-native bookings CRM with calendar, bookings, guests, importer, room management, and GitHub-based updating.",
-    "changelog": "<ul><li>1.8.8.69: Add floating calendar sync button and relabel ICS import as skeleton sync.</li><li>1.8.8.68: Add admin reset tool for CRM booking data, room lines, nights, overlays, sync rows, and guests.</li><li>1.8.8.67: Add CSV repair import modes for existing booking headers and booking room lines from backups.</li><li>1.8.8.66: Protect enriched Booking.com bookings from ICS reimport and disable broad rebuild action for safety.</li><li>1.8.8.65: Add Booking.com ICS rebuild action to clear staged feed rows and reimport with current room mapping.</li><li>1.8.8.64: Make Booking.com ICS room staging fall back to CRM room IDs when sync/external room IDs are empty.</li><li>1.8.8.63: Fix Booking.com ICS settings fatal by loading global $wpdb in settings page.</li><li>1.8.8.62: Fix Booking.com ICS staged-night counting to increment only on successful inserts.</li><li>1.8.8.61: Add Booking.com ICS room-feed importer with per-room URLs and auto-stage into sync bookings.</li><li>1.8.8.60: Turn staged sync-booking migration into ongoing duplicate-safe CRM importer for future ICS automation.</li></ul>"
+    "changelog": "<ul><li>1.8.8.70: Add booking transfer approvals to move guest and note data from older Booking.com rows into newer ICS rows.</li><li>1.8.8.69: Add floating calendar sync button and relabel ICS import as skeleton sync.</li><li>1.8.8.68: Add admin reset tool for CRM booking data, room lines, nights, overlays, sync rows, and guests.</li><li>1.8.8.67: Add CSV repair import modes for existing booking headers and booking room lines from backups.</li><li>1.8.8.66: Protect enriched Booking.com bookings from ICS reimport and disable broad rebuild action for safety.</li><li>1.8.8.65: Add Booking.com ICS rebuild action to clear staged feed rows and reimport with current room mapping.</li><li>1.8.8.64: Make Booking.com ICS room staging fall back to CRM room IDs when sync/external room IDs are empty.</li><li>1.8.8.63: Fix Booking.com ICS settings fatal by loading global $wpdb in settings page.</li><li>1.8.8.62: Fix Booking.com ICS staged-night counting to increment only on successful inserts.</li><li>1.8.8.61: Add Booking.com ICS room-feed importer with per-room URLs and auto-stage into sync bookings.</li></ul>"
   }
 }
