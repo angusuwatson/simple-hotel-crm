@@ -571,7 +571,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         return;
     }
 
-    $booking_groups = $wpdb->get_results( "SELECT external_booking_id, MIN(guest_name) AS guest_name, MIN(phone) AS phone, MIN(source_channel) AS source_channel, MIN(status_code) AS status_code, MIN(check_in) AS check_in_date, MIN(check_out) AS check_out_date, MIN(source_created_at) AS source_created_at, MIN(import_notes) AS import_notes, MIN(invoice_ninja_client_id) AS invoice_ninja_client_id, MIN(invoice_ninja_invoice_id) AS invoice_ninja_invoice_id FROM {$sync_bookings_table} GROUP BY external_booking_id ORDER BY external_booking_id ASC", ARRAY_A );
+    $booking_groups = $wpdb->get_results( "SELECT external_booking_id, MIN(source_booking_id) AS source_booking_id, MIN(guest_name) AS guest_name, MIN(phone) AS phone, MIN(source_channel) AS source_channel, MIN(status_code) AS status_code, MIN(check_in) AS check_in_date, MIN(check_out) AS check_out_date, MIN(source_created_at) AS source_created_at, MIN(import_notes) AS import_notes, MIN(invoice_ninja_client_id) AS invoice_ninja_client_id, MIN(invoice_ninja_invoice_id) AS invoice_ninja_invoice_id FROM {$sync_bookings_table} GROUP BY external_booking_id ORDER BY external_booking_id ASC", ARRAY_A );
 
     foreach ( $booking_groups as $booking_group ) {
         $room_groups = $wpdb->get_results(
@@ -586,7 +586,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         }
 
         list( $first_name, $last_name ) = simple_hotel_crm_split_guest_name( $booking_group['guest_name'] );
-        $guest_note = 'Booking.com ICS import ' . (string) $booking_group['external_booking_id'];
+        $guest_note = 'Booking.com ICS import ' . (string) ( $booking_group['source_booking_id'] ?: $booking_group['external_booking_id'] );
         $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE notes LIKE %s LIMIT 1", '%' . $wpdb->esc_like( $guest_note ) . '%' ), ARRAY_A );
         if ( ! $guest ) {
             $guest_inserted = $wpdb->insert(
@@ -608,8 +608,20 @@ function simple_hotel_crm_import_sync_data_to_crm() {
             continue;
         }
 
-        $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$crm_bookings_table} WHERE source_channel = %s AND source_booking_id = %s LIMIT 1", (string) $booking_group['source_channel'], (string) $booking_group['external_booking_id'] ), ARRAY_A );
+        $booking = $wpdb->get_row(
+            $wpdb->prepare(
+                "SELECT * FROM {$crm_bookings_table} WHERE source_channel = %s AND (source_booking_id = %s OR source_booking_id = %s) LIMIT 1",
+                (string) $booking_group['source_channel'],
+                (string) ( $booking_group['source_booking_id'] ?: '' ),
+                (string) $booking_group['external_booking_id']
+            ),
+            ARRAY_A
+        );
         if ( 'booking_com' === (string) ( $booking_group['source_channel'] ?? '' ) && $booking ) {
+            $real_source_booking_id = (string) ( $booking_group['source_booking_id'] ?: '' );
+            if ( '' !== $real_source_booking_id && (string) $booking['source_booking_id'] !== $real_source_booking_id ) {
+                $wpdb->update( $crm_bookings_table, [ 'source_booking_id' => $real_source_booking_id ], [ 'id' => (int) $booking['id'] ], [ '%s' ], [ '%d' ] );
+            }
             continue;
         }
 
@@ -627,7 +639,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                 [
                     'guest_id' => (int) $guest['id'],
                     'source_channel' => (string) $booking_group['source_channel'],
-                    'source_booking_id' => (string) $booking_group['external_booking_id'],
+                    'source_booking_id' => (string) ( $booking_group['source_booking_id'] ?: $booking_group['external_booking_id'] ),
                     'status_code' => (string) $booking_group['status_code'],
                     'contacted_date' => ! empty( $booking_group['source_created_at'] ) ? substr( (string) $booking_group['source_created_at'], 0, 10 ) : null,
                     'check_in_date' => (string) $booking_group['check_in_date'],
