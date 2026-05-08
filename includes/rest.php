@@ -65,6 +65,12 @@ add_action( 'rest_api_init', function() {
             ],
         ],
     ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/room-day-note', [
+        'methods'  => 'POST',
+        'callback' => 'simple_hotel_crm_rest_save_room_day_note',
+        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
+    ] );
 } );
 
 function simple_hotel_crm_rest_table( WP_REST_Request $request ) {
@@ -95,6 +101,22 @@ function simple_hotel_crm_rest_save_daily_note( WP_REST_Request $request ) {
     simple_hotel_crm_clear_calendar_cache();
 
     return rest_ensure_response( [ 'success' => true, 'date' => $date, 'note' => $note ] );
+}
+
+function simple_hotel_crm_rest_save_room_day_note( WP_REST_Request $request ) {
+    $booking_id = absint( $request->get_param( 'booking_id' ) );
+    $booking_room_id = absint( $request->get_param( 'booking_room_id' ) );
+    $stay_date = sanitize_text_field( (string) $request->get_param( 'stay_date' ) );
+    $note = sanitize_textarea_field( (string) $request->get_param( 'note' ) );
+
+    if ( $booking_id <= 0 || $booking_room_id <= 0 || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $stay_date ) ) {
+        return new WP_Error( 'invalid_room_day_note', __( 'Invalid room-day note payload.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
+    }
+
+    simple_hotel_crm_upsert_booking_note( $booking_id, $note, $booking_room_id, $stay_date, 'night' );
+    simple_hotel_crm_clear_calendar_cache();
+
+    return rest_ensure_response( [ 'success' => true ] );
 }
 
 function simple_hotel_crm_rest_get_quick_booking( WP_REST_Request $request ) {

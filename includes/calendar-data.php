@@ -142,6 +142,7 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
             'check_out' => (string) $row['check_out_date'],
             'stay_date' => $date_str,
             'room_id' => $room_id,
+            'booking_room_id' => (int) $row['booking_room_id'],
             'reserved_room_id' => $reserved_room_id,
             'guest_name' => $guest_name,
             'phone' => (string) $row['phone'],

@@ -5,6 +5,7 @@
         var restUrl = simpleHotelCrm.restUrl;
         var dailyNotesUrl = simpleHotelCrm.dailyNotesUrl;
         var quickBookingUrl = simpleHotelCrm.quickBookingUrl;
+        var roomDayNoteUrl = simpleHotelCrm.roomDayNoteUrl;
         var nonce = simpleHotelCrm.nonce;
         var saveTimers = {};
 
@@ -203,6 +204,32 @@
             debounceSave('note:' + $input.data('note-date'), function() { saveDailyNote($input); });
         });
 
+        $(document).on('click', '[data-room-day-note-cell="1"]', function() {
+            var $cell = $(this);
+            var bookingId = $cell.data('booking-id');
+            var bookingRoomId = $cell.data('booking-room-id');
+            var stayDate = $cell.data('stay-date');
+            var currentNote = ($cell.data('note-text') || '').toString();
+            var nextNote = window.prompt('Room note for ' + stayDate, currentNote);
+            if (nextNote === null) return;
+            request({
+                url: roomDayNoteUrl,
+                method: 'POST',
+                data: { booking_id: bookingId, booking_room_id: bookingRoomId, stay_date: stayDate, note: nextNote },
+                success: function(response) {
+                    if (response && response.success) {
+                        var params = new URLSearchParams(window.location.search);
+                        loadMonth(params.get('month') || new Date().getMonth() + 1, params.get('year') || new Date().getFullYear(), false);
+                    } else {
+                        alert('Save failed.');
+                    }
+                },
+                error: function(xhr) {
+                    console.error(xhr.responseText);
+                    alert((xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Save failed.');
+                }
+            });
+        });
 
         window.addEventListener('popstate', function(e) {
             if (e.state && e.state.month && e.state.year) {

@@ -93,7 +93,7 @@ $scroll_to_today = ( (int) $month === $today_month && (int) $year === $today_yea
                                     $cell_classes[] = 'has-booking';
                                 }
                             ?>
-                                <td class="<?php echo esc_attr( implode( ' ', $cell_classes ) ); ?>" data-room-color="<?php echo esc_attr( $row_color ); ?>" style="--room-fill: <?php echo esc_attr( $row_color ); ?>;">
+                                <td class="<?php echo esc_attr( implode( ' ', $cell_classes ) ); ?>" data-room-color="<?php echo esc_attr( $row_color ); ?>" style="--room-fill: <?php echo esc_attr( $row_color ); ?>;"<?php echo ( $booking && 'room-name-row' === $row['class'] ) ? ' data-room-day-note-cell="1" data-booking-id="' . esc_attr( $booking->id ) . '" data-booking-room-id="' . esc_attr( $booking->booking_room_id ?? '' ) . '" data-stay-date="' . esc_attr( $date_str ) . '" data-note-text="' . esc_attr( (string) ( $booking->booking_note ?? '' ) ) . '"' : ''; ?>>
                                     <?php if ( $booking && 'room-name-row' === $row['class'] ) : ?>
                                         <?php echo esc_html( $booking->booking_note ?? '' ); ?>
                                     <?php elseif ( $booking && 'guest-row' === $row['class'] ) : ?>
