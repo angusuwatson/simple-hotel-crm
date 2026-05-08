@@ -188,13 +188,15 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
         'internal_notes' => $internal_notes,
     ], [ 'id' => $booking_id ], [ '%s', '%s', '%s', '%s', '%s' ], [ '%d' ] );
 
-    $wpdb->update( $sync_bookings_table, [
-        'status_code' => $status_code,
-        'guest_name' => $guest_name,
-        'phone' => $phone,
-        'import_notes' => $internal_notes,
-        'source_created_at' => $contacted_date ?: ( $booking['contacted_date'] ?: current_time( 'mysql' ) ),
-    ], [ 'external_booking_id' => $booking_id ], [ '%s', '%s', '%s', '%s', '%s' ], [ '%d' ] );
+    if ( ! empty( $booking['source_booking_id'] ) ) {
+        $wpdb->update( $sync_bookings_table, [
+            'status_code' => $status_code,
+            'guest_name' => $guest_name,
+            'phone' => $phone,
+            'import_notes' => $internal_notes,
+            'source_created_at' => $contacted_date ?: ( $booking['contacted_date'] ?: current_time( 'mysql' ) ),
+        ], [ 'source_booking_id' => (string) $booking['source_booking_id'] ], [ '%s', '%s', '%s', '%s', '%s' ], [ '%s' ] );
+    }
 
     if ( $reserved_room_id > 0 ) {
         $existing_overlay = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$overlay_table} WHERE reserved_room_id = %d", $reserved_room_id ), ARRAY_A );
@@ -208,7 +210,7 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
             'room_id' => isset( $existing_overlay['room_id'] ) ? (int) $existing_overlay['room_id'] : 0,
             'extras_formula' => $extras['formula'],
             'extras_total' => $extras['total'],
-            'manual_guest_name' => (string) ( $existing_overlay['manual_guest_name'] ?? '' ),
+            'manual_guest_name' => $guest_name,
             'manual_adults' => isset( $existing_overlay['manual_adults'] ) && '' !== (string) $existing_overlay['manual_adults'] ? (int) $existing_overlay['manual_adults'] : null,
             'manual_children' => isset( $existing_overlay['manual_children'] ) && '' !== (string) $existing_overlay['manual_children'] ? (int) $existing_overlay['manual_children'] : null,
             'manual_tarif' => isset( $existing_overlay['manual_tarif'] ) ? simple_hotel_crm_normalize_decimal( $existing_overlay['manual_tarif'] ) : null,
