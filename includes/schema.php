@@ -9,6 +9,7 @@ function simple_hotel_crm_install_tables() {
     $charset_collate = $wpdb->get_charset_collate();
     $daily_notes_table = simple_hotel_crm_daily_notes_table();
     $overlay_table     = simple_hotel_crm_booking_overlay_table();
+    $booking_notes_table = simple_hotel_crm_booking_notes_table();
     $sync_rooms_table  = simple_hotel_crm_sync_rooms_table();
     $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
     $crm_rooms_table   = simple_hotel_crm_rooms_table();
@@ -45,6 +46,22 @@ function simple_hotel_crm_install_tables() {
         UNIQUE KEY reserved_room_id (reserved_room_id),
         KEY booking_id (booking_id),
         KEY room_id (room_id)
+    ) {$charset_collate};";
+
+    $sql_booking_notes = "CREATE TABLE {$booking_notes_table} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        booking_id bigint(20) unsigned NOT NULL,
+        booking_room_id bigint(20) unsigned NULL,
+        stay_date date NULL,
+        note_scope varchar(20) NOT NULL DEFAULT 'booking',
+        note_text longtext NULL,
+        created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY booking_id (booking_id),
+        KEY booking_room_id (booking_room_id),
+        KEY stay_date (stay_date),
+        KEY note_scope (note_scope)
     ) {$charset_collate};";
 
     $sql_sync_rooms = "CREATE TABLE {$sync_rooms_table} (
@@ -240,6 +257,7 @@ function simple_hotel_crm_install_tables() {
 
     dbDelta( $sql_daily_notes );
     dbDelta( $sql_overlays );
+    dbDelta( $sql_booking_notes );
     dbDelta( $sql_sync_rooms );
     dbDelta( $sql_sync_bookings );
     dbDelta( $sql_crm_rooms );
@@ -266,6 +284,11 @@ function simple_hotel_crm_daily_notes_table() {
 function simple_hotel_crm_booking_overlay_table() {
     global $wpdb;
     return $wpdb->prefix . 'simple_hotel_crm_booking_overlays';
+}
+
+function simple_hotel_crm_booking_notes_table() {
+    global $wpdb;
+    return $wpdb->prefix . 'simple_hotel_crm_booking_notes';
 }
 
 function simple_hotel_crm_sync_rooms_table() {

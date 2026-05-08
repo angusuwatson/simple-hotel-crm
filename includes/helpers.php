@@ -623,6 +623,7 @@ function simple_hotel_crm_reset_crm_data() {
         simple_hotel_crm_booking_room_nights_table(),
         simple_hotel_crm_booking_rooms_table(),
         simple_hotel_crm_booking_overlay_table(),
+        simple_hotel_crm_booking_notes_table(),
         simple_hotel_crm_sync_bookings_table(),
         simple_hotel_crm_bookings_table(),
         simple_hotel_crm_guests_table(),

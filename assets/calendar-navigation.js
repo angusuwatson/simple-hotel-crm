@@ -111,7 +111,6 @@
                     $form.find('[name="guest_name"]').val(response.guest_name || '');
                     $form.find('[name="phone"]').val(response.phone || '');
                     $form.find('[name="email"]').val(response.email || '');
-                    $form.find('[name="contacted_date"]').val(response.contacted_date || '');
                     $form.find('[name="extras_formula"]').val(response.extras_formula || '');
                     $form.find('[name="booking_note"]').val(response.booking_note || '');
                     $form.find('[name="internal_notes"]').val(response.internal_notes || '');

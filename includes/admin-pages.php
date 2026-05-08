@@ -67,9 +67,10 @@ function simple_hotel_crm_render_bookings_page() {
     $bookings_table = simple_hotel_crm_bookings_table();
     $guests_table = simple_hotel_crm_guests_table();
     $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
-    $view = ( isset( $_GET['view'] ) && in_array( $_GET['view'], [ 'trash', 'archive' ], true ) ) ? sanitize_key( $_GET['view'] ) : 'active';
+    $view = ( isset( $_GET['view'] ) && in_array( $_GET['view'], [ 'trash', 'archive', 'cancelled' ], true ) ) ? sanitize_key( $_GET['view'] ) : 'active';
     $is_deleted = 'trash' === $view ? 1 : 0;
-    $archive_sql = 'active' === $view ? " AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%') " : '';
+    $archive_sql = 'active' === $view ? " AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%') " : ( 'archive' === $view ? " AND b.internal_notes LIKE '%[MERGED_ARCHIVE]%' " : '' );
+    $status_sql = 'cancelled' === $view ? " AND b.status_code = 'cancelled' " : " AND b.status_code <> 'cancelled' ";
     $sortable = [ 'id' => 'b.id', 'guest' => 'guest_name', 'check_in' => 'b.check_in_date', 'check_out' => 'b.check_out_date', 'rooms' => 'room_count', 'status' => 'b.status_code', 'channel' => 'b.source_channel', 'commission' => 'commission_amount', 'total' => 'b.total_amount' ];
     $search = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
     $orderby_key = isset( $_GET['orderby'] ) && isset( $sortable[ $_GET['orderby'] ] ) ? $_GET['orderby'] : 'check_in';
@@ -173,7 +174,7 @@ function simple_hotel_crm_render_bookings_page() {
              FROM {$bookings_table} b
              JOIN {$guests_table} g ON g.id = b.guest_id
              LEFT JOIN {$booking_rooms_table} br ON br.booking_id = b.id
-             WHERE b.is_deleted = %d {$archive_sql} {$search_sql}
+             WHERE b.is_deleted = %d {$archive_sql} {$status_sql} {$search_sql}
              GROUP BY b.id, b.guest_id, b.status_code, b.check_in_date, b.check_out_date, b.source_channel, b.total_amount, b.created_at, guest_name
              ORDER BY {$order_sql} {$order}
              LIMIT %d OFFSET %d",
@@ -183,7 +184,7 @@ function simple_hotel_crm_render_bookings_page() {
     );
     $total_bookings = (int) $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$bookings_table} b JOIN {$guests_table} g ON g.id = b.guest_id WHERE b.is_deleted = %d {$archive_sql} {$search_sql}",
+            "SELECT COUNT(*) FROM {$bookings_table} b JOIN {$guests_table} g ON g.id = b.guest_id WHERE b.is_deleted = %d {$archive_sql} {$status_sql} {$search_sql}",
             array_merge( [ $is_deleted ], $search_params )
         )
     );
@@ -198,7 +199,7 @@ function simple_hotel_crm_render_bookings_page() {
                 FROM {$booking_rooms_table}
                 GROUP BY booking_id
              ) room_totals ON room_totals.booking_id = b.id
-             WHERE b.is_deleted = %d {$archive_sql} {$search_sql}",
+             WHERE b.is_deleted = %d {$archive_sql} {$status_sql} {$search_sql}",
             array_merge( [ $is_deleted ], $search_params )
         ),
         ARRAY_A
@@ -209,14 +210,15 @@ function simple_hotel_crm_render_bookings_page() {
              FROM {$booking_rooms_table} br
              JOIN {$bookings_table} b ON b.id = br.booking_id
              JOIN {$guests_table} g ON g.id = b.guest_id
-             WHERE b.is_deleted = %d {$archive_sql} {$search_sql}",
+             WHERE b.is_deleted = %d {$archive_sql} {$status_sql} {$search_sql}",
             array_merge( [ $is_deleted ], $search_params )
         )
     ) : 0.0;
     $page_count = (int) ceil( $total_bookings / $per_page );
 
-    $active_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE is_deleted = 0 AND (internal_notes IS NULL OR internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')" );
-    $archive_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE is_deleted = 0 AND internal_notes LIKE '%[MERGED_ARCHIVE]%" );
+    $active_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE is_deleted = 0 AND status_code <> 'cancelled' AND (internal_notes IS NULL OR internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')" );
+    $cancelled_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE is_deleted = 0 AND status_code = 'cancelled' AND (internal_notes IS NULL OR internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')" );
+    $archive_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE is_deleted = 0 AND internal_notes LIKE '%[MERGED_ARCHIVE]%'" );
     $trash_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE is_deleted = 1" );
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( 'Bookings', 'simple-hotel-crm' ) . ' <a class="page-title-action" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-add-booking' ) ) . '">' . esc_html__( 'Add Booking', 'simple-hotel-crm' ) . '</a></h1>';
@@ -231,7 +233,7 @@ function simple_hotel_crm_render_bookings_page() {
     echo '</select> ';
     echo '<button type="submit" class="button">' . esc_html__( 'Search', 'simple-hotel-crm' ) . '</button>';
     echo '</form>';
-    echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings&view=active' ) ) . '">' . esc_html__( 'Active', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $active_count ) . ')</a> | <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings&view=archive' ) ) . '">' . esc_html__( 'Merged archive', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $archive_count ) . ')</a> | <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings&view=trash' ) ) . '">' . esc_html__( 'Trash', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $trash_count ) . ')</a></p>';
+    echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings&view=active' ) ) . '">' . esc_html__( 'Confirmed / active', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $active_count ) . ')</a> | <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings&view=cancelled' ) ) . '">' . esc_html__( 'Cancelled', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $cancelled_count ) . ')</a> | <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings&view=archive' ) ) . '">' . esc_html__( 'Merged archive', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $archive_count ) . ')</a> | <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings&view=trash' ) ) . '">' . esc_html__( 'Trash', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $trash_count ) . ')</a></p>';
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_bulk_bookings' );
     echo '<p><select name="bulk_action"><option value="">' . esc_html__( 'Bulk actions', 'simple-hotel-crm' ) . '</option><option value="delete">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</option><option value="restore">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</option><option value="cancel">' . esc_html__( 'Mark cancelled', 'simple-hotel-crm' ) . '</option><option value="confirm">' . esc_html__( 'Mark confirmed', 'simple-hotel-crm' ) . '</option></select> ';

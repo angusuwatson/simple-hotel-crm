@@ -149,6 +149,7 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
     $phone = sanitize_text_field( (string) $request->get_param( 'phone' ) );
     $email = sanitize_email( (string) $request->get_param( 'email' ) );
     $status_code = sanitize_text_field( (string) $request->get_param( 'status_code' ) );
+    $has_contacted_date = null !== $request->get_param( 'contacted_date' );
     $contacted_date = sanitize_text_field( (string) $request->get_param( 'contacted_date' ) );
     $booking_note = sanitize_textarea_field( (string) $request->get_param( 'booking_note' ) );
     $extras_formula_raw = (string) $request->get_param( 'extras_formula' );
@@ -160,7 +161,7 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
     if ( ! isset( simple_hotel_crm_get_booking_status_options()[ $status_code ] ) ) {
         return new WP_Error( 'invalid_status_code', __( 'Please select a valid booking status.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
     }
-    if ( '' !== $contacted_date && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $contacted_date ) ) {
+    if ( $has_contacted_date && '' !== $contacted_date && ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $contacted_date ) ) {
         return new WP_Error( 'invalid_contacted_date', __( 'Contacted date is invalid.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
     }
 
@@ -182,12 +183,17 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
         'email' => $email,
     ], [ 'id' => (int) $booking['guest_id'] ], [ '%s', '%s', '%s', '%s' ], [ '%d' ] );
 
-    $wpdb->update( $bookings_table, [
+    $booking_update = [
         'status_code' => $status_code,
-        'contacted_date' => $contacted_date ?: null,
         'booking_note' => $booking_note,
         'internal_notes' => $internal_notes,
-    ], [ 'id' => $booking_id ], [ '%s', '%s', '%s', '%s', '%s' ], [ '%d' ] );
+    ];
+    $booking_update_formats = [ '%s', '%s', '%s' ];
+    if ( $has_contacted_date ) {
+        $booking_update['contacted_date'] = $contacted_date ?: null;
+        $booking_update_formats[] = '%s';
+    }
+    $wpdb->update( $bookings_table, $booking_update, [ 'id' => $booking_id ], $booking_update_formats, [ '%d' ] );
 
     if ( ! empty( $booking['source_booking_id'] ) ) {
         $wpdb->update( $sync_bookings_table, [
@@ -195,7 +201,7 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
             'guest_name' => $guest_name,
             'phone' => $phone,
             'import_notes' => $internal_notes,
-            'source_created_at' => $contacted_date ?: ( $booking['contacted_date'] ?: current_time( 'mysql' ) ),
+            'source_created_at' => ( $has_contacted_date ? $contacted_date : $booking['contacted_date'] ) ?: current_time( 'mysql' ),
         ], [ 'source_booking_id' => (string) $booking['source_booking_id'] ], [ '%s', '%s', '%s', '%s', '%s' ], [ '%s' ] );
     }
 
