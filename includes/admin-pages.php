@@ -1456,6 +1456,22 @@ function simple_hotel_crm_render_booking_detail_page() {
         wp_die( esc_html__( 'Booking not found.', 'simple-hotel-crm' ) );
     }
 
+    $booking_notes_rows = $wpdb->get_results( $wpdb->prepare( "SELECT booking_room_id, stay_date, note_scope, note_text FROM " . simple_hotel_crm_booking_notes_table() . " WHERE booking_id = %d ORDER BY booking_room_id ASC, stay_date ASC", $booking_id ), ARRAY_A );
+    $booking_note_summary = [ 'booking' => '', 'rooms' => [], 'days' => [] ];
+    foreach ( $booking_notes_rows as $note_row ) {
+        $scope = (string) ( $note_row['note_scope'] ?? '' );
+        $room_note_room_id = (int) ( $note_row['booking_room_id'] ?? 0 );
+        $stay_date = (string) ( $note_row['stay_date'] ?? '' );
+        $note_text = (string) ( $note_row['note_text'] ?? '' );
+        if ( 'booking' === $scope && 0 === $room_note_room_id && '' === $stay_date ) {
+            $booking_note_summary['booking'] = $note_text;
+        } elseif ( '' !== $stay_date && $room_note_room_id > 0 ) {
+            $booking_note_summary['days'][] = [ 'booking_room_id' => $room_note_room_id, 'stay_date' => $stay_date, 'note_text' => $note_text ];
+        } elseif ( $room_note_room_id > 0 ) {
+            $booking_note_summary['rooms'][ $room_note_room_id ] = $note_text;
+        }
+    }
+
     $room_pricing_table = simple_hotel_crm_room_pricing_table();
     $overlay_table = simple_hotel_crm_booking_overlay_table();
     $rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.*, r.room_name, r.room_code, r.sync_room_id, o.booking_note AS room_note_legacy, o.extras_formula FROM {$booking_rooms_table} br JOIN {$rooms_table} r ON r.id = br.room_id LEFT JOIN {$overlay_table} o ON o.reserved_room_id = br.legacy_reserved_room_id WHERE br.booking_id = %d ORDER BY r.sort_order ASC, r.room_name ASC", $booking_id ), ARRAY_A );
@@ -1527,6 +1543,33 @@ function simple_hotel_crm_render_booking_detail_page() {
     echo '<tr><th>' . esc_html__( 'Booking note', 'simple-hotel-crm' ) . '</th><td><input type="text" name="booking_note" class="regular-text" value="' . esc_attr( (string) $booking['booking_note'] ) . '" /></td></tr>';
     echo '<tr><th>' . esc_html__( 'Internal notes', 'simple-hotel-crm' ) . '</th><td><textarea name="internal_notes" rows="5" class="large-text">' . esc_textarea( (string) $booking['internal_notes'] ) . '</textarea></td></tr>';
     echo '</table>';
+    echo '<h2>' . esc_html__( 'Stored Notes', 'simple-hotel-crm' ) . '</h2>';
+    echo '<div class="card" style="padding:12px;margin:12px 0;max-width:100%;">';
+    echo '<p><strong>' . esc_html__( 'Booking note', 'simple-hotel-crm' ) . ':</strong> ' . esc_html( $booking_note_summary['booking'] ?: __( '(empty)', 'simple-hotel-crm' ) ) . '</p>';
+    if ( ! empty( $booking_note_summary['rooms'] ) ) {
+        echo '<p><strong>' . esc_html__( 'Room notes', 'simple-hotel-crm' ) . ':</strong></p><ul style="margin-left:20px;">';
+        foreach ( $rooms as $room ) {
+            $room_note_text = $booking_note_summary['rooms'][ (int) $room['id'] ] ?? '';
+            if ( '' === $room_note_text ) { continue; }
+            echo '<li><strong>' . esc_html( (string) $room['room_code'] . ' - ' . (string) $room['room_name'] ) . ':</strong> ' . esc_html( $room_note_text ) . '</li>';
+        }
+        echo '</ul>';
+    }
+    if ( ! empty( $booking_note_summary['days'] ) ) {
+        echo '<p><strong>' . esc_html__( 'Day notes', 'simple-hotel-crm' ) . ':</strong></p><ul style="margin-left:20px;">';
+        foreach ( $booking_note_summary['days'] as $day_note ) {
+            $room_label = '';
+            foreach ( $rooms as $room ) {
+                if ( (int) $room['id'] === (int) $day_note['booking_room_id'] ) {
+                    $room_label = (string) $room['room_code'] . ' - ' . (string) $room['room_name'];
+                    break;
+                }
+            }
+            echo '<li><strong>' . esc_html( $day_note['stay_date'] ) . ( $room_label ? ' · ' . esc_html( $room_label ) : '' ) . ':</strong> ' . esc_html( (string) $day_note['note_text'] ) . '</li>';
+        }
+        echo '</ul>';
+    }
+    echo '</div>';
     echo '<h2>' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</h2>';
     echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Remove', 'simple-hotel-crm' ) . '</th><th>ID</th><th>' . esc_html__( 'Room', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Room note', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Adults', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Children', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Babies', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Rate', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Discount', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Discount value', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Extras formula', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Extras total', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Tax', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Commission', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Total', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
     foreach ( $rooms as $index => $room ) {
