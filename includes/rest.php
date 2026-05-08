@@ -130,7 +130,8 @@ function simple_hotel_crm_rest_get_quick_booking( WP_REST_Request $request ) {
         'status_code' => (string) $booking['status_code'],
         'source_channel' => (string) $booking['source_channel'],
         'contacted_date' => (string) $booking['contacted_date'],
-        'booking_note' => (string) $booking['booking_note'],
+        'booking_note' => (string) ( $overlay['booking_note'] ?? $booking['booking_note'] ),
+        'booking_note_global' => (string) $booking['booking_note'],
         'extras_formula' => (string) ( $overlay['extras_formula'] ?? '' ),
         'internal_notes' => (string) $booking['internal_notes'],
         'status_options' => simple_hotel_crm_get_booking_status_options(),
@@ -208,6 +209,7 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
             'booking_id' => $booking_id,
             'reserved_room_id' => $reserved_room_id,
             'room_id' => isset( $existing_overlay['room_id'] ) ? (int) $existing_overlay['room_id'] : 0,
+            'booking_note' => $booking_note,
             'extras_formula' => $extras['formula'],
             'extras_total' => $extras['total'],
             'manual_guest_name' => $guest_name,
@@ -216,7 +218,7 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
             'manual_tarif' => isset( $existing_overlay['manual_tarif'] ) ? simple_hotel_crm_normalize_decimal( $existing_overlay['manual_tarif'] ) : null,
             'manual_commission' => isset( $existing_overlay['manual_commission'] ) ? simple_hotel_crm_normalize_decimal( $existing_overlay['manual_commission'] ) : null,
         ];
-        $overlay_formats = [ '%d', '%d', '%d', '%s', '%f', '%s', '%d', '%d', '%f', '%f' ];
+        $overlay_formats = [ '%d', '%d', '%d', '%s', '%s', '%f', '%s', '%d', '%d', '%f', '%f' ];
         if ( ! empty( $existing_overlay ) ) {
             $wpdb->update( $overlay_table, $overlay_payload, [ 'reserved_room_id' => $reserved_room_id ], $overlay_formats, [ '%d' ] );
         } else {

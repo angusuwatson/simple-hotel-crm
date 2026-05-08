@@ -127,6 +127,8 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
             $matrix[ $room_id ][ $date_str ] = [ 'booking' => null, 'is_checkin' => false, 'is_checkout' => false ];
         }
 
+        $room_booking_note = isset( $overlay['booking_note'] ) && '' !== trim( (string) $overlay['booking_note'] ) ? (string) $overlay['booking_note'] : (string) ( $row['booking_note'] ?? '' );
+
         $booking_payload = (object) [
             'id' => (int) $row['booking_id'],
             'status' => (string) $row['status_code'],
@@ -154,7 +156,8 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
                 : simple_hotel_crm_calculate_channel_commission( (string) $row['source_channel'], (float) ( ( isset( $row['subtotal_amount'] ) && (float) $row['subtotal_amount'] > 0 ) ? $row['subtotal_amount'] : $row['room_rate_amount'] ) ),
             'extras_formula' => $extras_formula,
             'extras_total' => null !== $extras_total ? $extras_total : ( (float) $row['extras_amount'] > 0 ? (float) $row['extras_amount'] : null ),
-            'booking_note' => (string) ( $row['booking_note'] ?? '' ),
+            'booking_note' => $room_booking_note,
+            'booking_note_global' => (string) ( $row['booking_note'] ?? '' ),
             'import_notes' => (string) ( $row['internal_notes'] ?? '' ),
             'tourist_tax_amount' => (float) $row['tourist_tax_amount'],
             'reservation_total_amount' => (float) $row['booking_total_amount'],
