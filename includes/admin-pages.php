@@ -1176,11 +1176,13 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     $crm_booking_rooms_table = simple_hotel_crm_booking_rooms_table();
     $crm_booking_nights_table = simple_hotel_crm_booking_room_nights_table();
     $overlay_table = simple_hotel_crm_booking_overlay_table();
+    $booking_notes_table = simple_hotel_crm_booking_notes_table();
 
     extract( $validated, EXTR_SKIP );
     $status_code = sanitize_text_field( (string) ( $data['status_code'] ?? 'confirmed' ) );
     $source_channel = sanitize_text_field( (string) ( $data['source_channel'] ?? 'direct' ) );
     $booking_note = sanitize_textarea_field( (string) ( $data['booking_note'] ?? '' ) );
+    simple_hotel_crm_upsert_booking_note( $booking_id, $booking_note, null, null, 'booking' );
     $import_notes = sanitize_textarea_field( (string) ( $data['import_notes'] ?? '' ) );
     $source_created_at = ( '' !== $contacted_date ? $contacted_date : current_time( 'mysql' ) );
 
@@ -1226,6 +1228,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
         $wpdb->query( "DELETE FROM {$crm_booking_nights_table} WHERE booking_room_id IN (" . implode( ',', array_map( 'intval', $room_ids ) ) . ")" );
     }
     $wpdb->delete( $crm_booking_rooms_table, [ 'booking_id' => $booking_id ], [ '%d' ] );
+    $wpdb->query( $wpdb->prepare( "DELETE FROM {$booking_notes_table} WHERE booking_id = %d AND booking_room_id IS NOT NULL", $booking_id ) );
 
     $next_legacy_room_id = max( 1, (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_room_id), 0) + 1 FROM {$sync_bookings_table}" ) );
     if ( ! empty( $overlay_map ) ) {
@@ -1299,6 +1302,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
             $wpdb->insert( $overlay_table, $overlay_payload, $overlay_formats );
         }
         $crm_booking_room_id = (int) $wpdb->insert_id;
+        simple_hotel_crm_upsert_booking_note( $booking_id, $room_note, $crm_booking_room_id, null, 'room' );
         $base_price_nightly = simple_hotel_crm_distribute_amounts( $line['base_price_amount'], $nights );
         $discount_nightly = simple_hotel_crm_distribute_amounts( $line['discount_amount'], $nights );
         $subtotal_nightly = simple_hotel_crm_distribute_amounts( $line['subtotal_amount'], $nights );
@@ -1454,7 +1458,14 @@ function simple_hotel_crm_render_booking_detail_page() {
 
     $room_pricing_table = simple_hotel_crm_room_pricing_table();
     $overlay_table = simple_hotel_crm_booking_overlay_table();
-    $rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.*, r.room_name, r.room_code, r.sync_room_id, o.booking_note AS room_note, o.extras_formula FROM {$booking_rooms_table} br JOIN {$rooms_table} r ON r.id = br.room_id LEFT JOIN {$overlay_table} o ON o.reserved_room_id = br.legacy_reserved_room_id WHERE br.booking_id = %d ORDER BY r.sort_order ASC, r.room_name ASC", $booking_id ), ARRAY_A );
+    $rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.*, r.room_name, r.room_code, r.sync_room_id, o.booking_note AS room_note_legacy, o.extras_formula FROM {$booking_rooms_table} br JOIN {$rooms_table} r ON r.id = br.room_id LEFT JOIN {$overlay_table} o ON o.reserved_room_id = br.legacy_reserved_room_id WHERE br.booking_id = %d ORDER BY r.sort_order ASC, r.room_name ASC", $booking_id ), ARRAY_A );
+    foreach ( $rooms as &$room ) {
+        $room['room_note'] = simple_hotel_crm_get_booking_note_text( $booking_id, (int) $room['id'] );
+        if ( '' === (string) $room['room_note'] ) {
+            $room['room_note'] = (string) ( $room['room_note_legacy'] ?? '' );
+        }
+    }
+    unset( $room );
     foreach ( $rooms as &$room ) {
         $room['room_sync_id'] = (string) $room['room_id'];
     }

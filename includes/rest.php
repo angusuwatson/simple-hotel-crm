@@ -122,6 +122,13 @@ function simple_hotel_crm_rest_get_quick_booking( WP_REST_Request $request ) {
         return new WP_Error( 'booking_not_found', __( 'Booking not found.', 'simple-hotel-crm' ), [ 'status' => 404 ] );
     }
 
+    $booking_room_id = 0;
+    if ( $reserved_room_id > 0 ) {
+        $booking_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM " . simple_hotel_crm_booking_rooms_table() . " WHERE legacy_reserved_room_id = %d LIMIT 1", $reserved_room_id ) );
+    }
+    $room_note = $booking_room_id > 0 ? simple_hotel_crm_get_booking_note_text( (int) $booking['id'], $booking_room_id ) : '';
+    $booking_note_global = simple_hotel_crm_get_booking_note_text( (int) $booking['id'] );
+
     return rest_ensure_response( [
         'id' => (int) $booking['id'],
         'guest_name' => trim( (string) $booking['first_name'] . ' ' . (string) $booking['last_name'] ),
@@ -130,8 +137,8 @@ function simple_hotel_crm_rest_get_quick_booking( WP_REST_Request $request ) {
         'status_code' => (string) $booking['status_code'],
         'source_channel' => (string) $booking['source_channel'],
         'contacted_date' => (string) $booking['contacted_date'],
-        'booking_note' => (string) ( $overlay['booking_note'] ?? $booking['booking_note'] ),
-        'booking_note_global' => (string) $booking['booking_note'],
+        'booking_note' => '' !== $room_note ? $room_note : (string) ( $overlay['booking_note'] ?? $booking_note_global ),
+        'booking_note_global' => $booking_note_global,
         'extras_formula' => (string) ( $overlay['extras_formula'] ?? '' ),
         'internal_notes' => (string) $booking['internal_notes'],
         'status_options' => simple_hotel_crm_get_booking_status_options(),
@@ -185,10 +192,9 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
 
     $booking_update = [
         'status_code' => $status_code,
-        'booking_note' => $booking_note,
         'internal_notes' => $internal_notes,
     ];
-    $booking_update_formats = [ '%s', '%s', '%s' ];
+    $booking_update_formats = [ '%s', '%s' ];
     if ( $has_contacted_date ) {
         $booking_update['contacted_date'] = $contacted_date ?: null;
         $booking_update_formats[] = '%s';
@@ -211,6 +217,11 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
         if ( ! $extras['valid'] ) {
             return new WP_Error( 'invalid_extras_formula', __( 'Extras formula only supports numbers joined with +.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
         }
+        $booking_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM " . simple_hotel_crm_booking_rooms_table() . " WHERE legacy_reserved_room_id = %d LIMIT 1", $reserved_room_id ) );
+        if ( $booking_room_id > 0 ) {
+            simple_hotel_crm_upsert_booking_note( $booking_id, $booking_note, $booking_room_id, null, 'room' );
+        }
+
         $overlay_payload = [
             'booking_id' => $booking_id,
             'reserved_room_id' => $reserved_room_id,

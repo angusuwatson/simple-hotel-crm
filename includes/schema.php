@@ -386,6 +386,71 @@ function simple_hotel_crm_repair_booking_room_links() {
     }
 }
 
+function simple_hotel_crm_get_booking_note_text( $booking_id, $booking_room_id = null, $stay_date = null ) {
+    global $wpdb;
+
+    $booking_notes_table = simple_hotel_crm_booking_notes_table();
+    $booking_id = absint( $booking_id );
+    if ( $booking_id <= 0 ) {
+        return '';
+    }
+
+    if ( null !== $booking_room_id && null !== $stay_date ) {
+        $note = $wpdb->get_var( $wpdb->prepare( "SELECT note_text FROM {$booking_notes_table} WHERE booking_id = %d AND booking_room_id = %d AND stay_date = %s LIMIT 1", $booking_id, absint( $booking_room_id ), (string) $stay_date ) );
+        if ( null !== $note && '' !== trim( (string) $note ) ) {
+            return (string) $note;
+        }
+    }
+    if ( null !== $booking_room_id ) {
+        $note = $wpdb->get_var( $wpdb->prepare( "SELECT note_text FROM {$booking_notes_table} WHERE booking_id = %d AND booking_room_id = %d AND stay_date IS NULL LIMIT 1", $booking_id, absint( $booking_room_id ) ) );
+        if ( null !== $note && '' !== trim( (string) $note ) ) {
+            return (string) $note;
+        }
+    }
+
+    $note = $wpdb->get_var( $wpdb->prepare( "SELECT note_text FROM {$booking_notes_table} WHERE booking_id = %d AND booking_room_id IS NULL AND stay_date IS NULL LIMIT 1", $booking_id ) );
+    return null !== $note ? (string) $note : '';
+}
+
+function simple_hotel_crm_upsert_booking_note( $booking_id, $note_text, $booking_room_id = null, $stay_date = null, $note_scope = 'booking' ) {
+    global $wpdb;
+
+    $booking_notes_table = simple_hotel_crm_booking_notes_table();
+    $booking_id = absint( $booking_id );
+    $booking_room_id = null !== $booking_room_id ? absint( $booking_room_id ) : null;
+    $stay_date = null !== $stay_date && '' !== $stay_date ? (string) $stay_date : null;
+    $note_text = sanitize_textarea_field( (string) $note_text );
+    if ( $booking_id <= 0 ) {
+        return false;
+    }
+
+    $where_sql = "booking_id = %d AND " . ( null === $booking_room_id ? 'booking_room_id IS NULL' : 'booking_room_id = %d' ) . " AND " . ( null === $stay_date ? 'stay_date IS NULL' : 'stay_date = %s' );
+    $params = [ $booking_id ];
+    if ( null !== $booking_room_id ) { $params[] = $booking_room_id; }
+    if ( null !== $stay_date ) { $params[] = $stay_date; }
+    $existing_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$booking_notes_table} WHERE {$where_sql} LIMIT 1", $params ) );
+
+    if ( '' === trim( $note_text ) ) {
+        if ( $existing_id > 0 ) {
+            return false !== $wpdb->delete( $booking_notes_table, [ 'id' => $existing_id ], [ '%d' ] );
+        }
+        return true;
+    }
+
+    $payload = [
+        'booking_id' => $booking_id,
+        'booking_room_id' => $booking_room_id,
+        'stay_date' => $stay_date,
+        'note_scope' => (string) $note_scope,
+        'note_text' => $note_text,
+    ];
+    $formats = [ '%d', '%d', '%s', '%s', '%s' ];
+    if ( $existing_id > 0 ) {
+        return false !== $wpdb->update( $booking_notes_table, $payload, [ 'id' => $existing_id ], $formats, [ '%d' ] );
+    }
+    return false !== $wpdb->insert( $booking_notes_table, $payload, $formats );
+}
+
 function simple_hotel_crm_migrate_overlay_notes_to_booking_notes() {
     global $wpdb;
 
@@ -393,18 +458,15 @@ function simple_hotel_crm_migrate_overlay_notes_to_booking_notes() {
     $crm_booking_rooms_table = simple_hotel_crm_booking_rooms_table();
     $overlay_table = simple_hotel_crm_booking_overlay_table();
 
-    $wpdb->query(
-        "UPDATE {$crm_bookings_table} b
-         JOIN (
-            SELECT br.booking_id, MIN(o.booking_note) AS booking_note
-            FROM {$crm_booking_rooms_table} br
-            JOIN {$overlay_table} o ON o.reserved_room_id = br.legacy_reserved_room_id
-            WHERE o.booking_note IS NOT NULL AND o.booking_note <> ''
-            GROUP BY br.booking_id
-         ) notes ON notes.booking_id = b.id
-         SET b.booking_note = notes.booking_note
-         WHERE (b.booking_note IS NULL OR b.booking_note = '')"
-    );
+    $booking_rows = $wpdb->get_results( "SELECT id, booking_note FROM {$crm_bookings_table} WHERE booking_note IS NOT NULL AND booking_note <> ''", ARRAY_A );
+    foreach ( $booking_rows as $booking_row ) {
+        simple_hotel_crm_upsert_booking_note( (int) $booking_row['id'], (string) $booking_row['booking_note'], null, null, 'booking' );
+    }
+
+    $room_rows = $wpdb->get_results( "SELECT br.booking_id, br.id AS booking_room_id, o.booking_note FROM {$crm_booking_rooms_table} br JOIN {$overlay_table} o ON o.reserved_room_id = br.legacy_reserved_room_id WHERE o.booking_note IS NOT NULL AND o.booking_note <> ''", ARRAY_A );
+    foreach ( $room_rows as $room_row ) {
+        simple_hotel_crm_upsert_booking_note( (int) $room_row['booking_id'], (string) $room_row['booking_note'], (int) $room_row['booking_room_id'], null, 'room' );
+    }
 }
 
 function simple_hotel_crm_backfill_pricing_amounts() {
