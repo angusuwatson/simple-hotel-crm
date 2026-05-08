@@ -124,6 +124,9 @@ function simple_hotel_crm_render_bookings_page() {
         } elseif ( 'cancel' === $action ) {
             $wpdb->query( "UPDATE {$bookings_table} SET status_code = 'cancelled' WHERE id IN (" . implode( ',', $booking_ids ) . ")" );
             echo '<div class="notice notice-success"><p>' . esc_html__( 'Selected bookings marked cancelled.', 'simple-hotel-crm' ) . '</p></div>';
+        } elseif ( 'confirm' === $action ) {
+            $wpdb->query( "UPDATE {$bookings_table} SET status_code = 'confirmed' WHERE id IN (" . implode( ',', $booking_ids ) . ")" );
+            echo '<div class="notice notice-success"><p>' . esc_html__( 'Selected bookings marked confirmed.', 'simple-hotel-crm' ) . '</p></div>';
         }
         simple_hotel_crm_clear_calendar_cache();
     }
@@ -231,7 +234,7 @@ function simple_hotel_crm_render_bookings_page() {
     echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings&view=active' ) ) . '">' . esc_html__( 'Active', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $active_count ) . ')</a> | <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings&view=archive' ) ) . '">' . esc_html__( 'Merged archive', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $archive_count ) . ')</a> | <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings&view=trash' ) ) . '">' . esc_html__( 'Trash', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $trash_count ) . ')</a></p>';
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_bulk_bookings' );
-    echo '<p><select name="bulk_action"><option value="">' . esc_html__( 'Bulk actions', 'simple-hotel-crm' ) . '</option><option value="delete">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</option><option value="restore">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</option><option value="cancel">' . esc_html__( 'Mark cancelled', 'simple-hotel-crm' ) . '</option></select> ';
+    echo '<p><select name="bulk_action"><option value="">' . esc_html__( 'Bulk actions', 'simple-hotel-crm' ) . '</option><option value="delete">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</option><option value="restore">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</option><option value="cancel">' . esc_html__( 'Mark cancelled', 'simple-hotel-crm' ) . '</option><option value="confirm">' . esc_html__( 'Mark confirmed', 'simple-hotel-crm' ) . '</option></select> ';
     submit_button( __( 'Apply', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_bulk_apply', false );
     if ( 'trash' === $view ) {
         echo ' <span class="description">' . esc_html__( 'Delete will permanently remove trashed bookings.', 'simple-hotel-crm' ) . '</span>';
@@ -587,7 +590,7 @@ function simple_hotel_crm_render_guests_page() {
     echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guests&view=active' ) ) . '">' . esc_html__( 'Active', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $active_count ) . ')</a> | <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guests&view=trash' ) ) . '">' . esc_html__( 'Trash', 'simple-hotel-crm' ) . ' (' . esc_html( (string) $trash_count ) . ')</a></p>';
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_bulk_guests' );
-    echo '<p><select name="bulk_action"><option value="">' . esc_html__( 'Bulk actions', 'simple-hotel-crm' ) . '</option><option value="delete">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</option><option value="restore">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</option><option value="cancel">' . esc_html__( 'Mark cancelled', 'simple-hotel-crm' ) . '</option></select> ';
+    echo '<p><select name="bulk_action"><option value="">' . esc_html__( 'Bulk actions', 'simple-hotel-crm' ) . '</option><option value="delete">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</option><option value="restore">' . esc_html__( 'Restore', 'simple-hotel-crm' ) . '</option><option value="cancel">' . esc_html__( 'Mark cancelled', 'simple-hotel-crm' ) . '</option><option value="confirm">' . esc_html__( 'Mark confirmed', 'simple-hotel-crm' ) . '</option></select> ';
     submit_button( __( 'Apply', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_bulk_apply_guests', false );
     if ( 'trash' === $view ) {
         echo ' <span class="description">' . esc_html__( 'Delete will permanently remove trashed guests.', 'simple-hotel-crm' ) . '</span>';
