@@ -1457,7 +1457,9 @@ function simple_hotel_crm_render_booking_detail_page() {
     }
 
     $booking_notes_rows = $wpdb->get_results( $wpdb->prepare( "SELECT booking_room_id, stay_date, note_scope, note_text FROM " . simple_hotel_crm_booking_notes_table() . " WHERE booking_id = %d ORDER BY booking_room_id ASC, stay_date ASC", $booking_id ), ARRAY_A );
+    $booking_adjustment_rows = $wpdb->get_results( $wpdb->prepare( "SELECT booking_room_id, stay_date, adjustment_kind, formula, amount FROM " . simple_hotel_crm_booking_adjustments_table() . " WHERE booking_id = %d ORDER BY booking_room_id ASC, stay_date ASC", $booking_id ), ARRAY_A );
     $booking_note_summary = [ 'booking' => '', 'rooms' => [], 'days' => [] ];
+    $booking_extras_summary = [];
     foreach ( $booking_notes_rows as $note_row ) {
         $scope = (string) ( $note_row['note_scope'] ?? '' );
         $room_note_room_id = (int) ( $note_row['booking_room_id'] ?? 0 );
@@ -1470,6 +1472,17 @@ function simple_hotel_crm_render_booking_detail_page() {
         } elseif ( $room_note_room_id > 0 ) {
             $booking_note_summary['rooms'][ $room_note_room_id ] = $note_text;
         }
+    }
+    foreach ( $booking_adjustment_rows as $adjustment_row ) {
+        if ( 'extras' !== (string) ( $adjustment_row['adjustment_kind'] ?? '' ) ) {
+            continue;
+        }
+        $booking_extras_summary[] = [
+            'booking_room_id' => (int) ( $adjustment_row['booking_room_id'] ?? 0 ),
+            'stay_date' => (string) ( $adjustment_row['stay_date'] ?? '' ),
+            'formula' => (string) ( $adjustment_row['formula'] ?? '' ),
+            'amount' => (float) ( $adjustment_row['amount'] ?? 0 ),
+        ];
     }
 
     $room_pricing_table = simple_hotel_crm_room_pricing_table();
@@ -1526,20 +1539,16 @@ function simple_hotel_crm_render_booking_detail_page() {
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_save_booking_' . $booking_id );
     echo '<table class="form-table">';
-    echo '<tr><th>' . esc_html__( 'Guest', 'simple-hotel-crm' ) . '</th><td><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guest-detail&guest_id=' . absint( $booking['guest_id'] ) ) ) . '">' . esc_html( trim( (string) $booking['first_name'] . ' ' . (string) $booking['last_name'] ) ) . '</a></td></tr>';
-    echo '<tr><th>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</th><td><select name="status_code">';
+    echo '<tr><th>' . esc_html__( 'Guest / Status / Channel', 'simple-hotel-crm' ) . '</th><td><div class="simple-hotel-crm-admin-inline-fields"><label>' . esc_html__( 'Guest', 'simple-hotel-crm' ) . '<br><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guest-detail&guest_id=' . absint( $booking['guest_id'] ) ) ) . '">' . esc_html( trim( (string) $booking['first_name'] . ' ' . (string) $booking['last_name'] ) ) . '</a></label><label>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '<br><select name="status_code">';
     foreach ( simple_hotel_crm_get_booking_status_options() as $code => $label ) {
         echo '<option value="' . esc_attr( $code ) . '"' . selected( (string) $booking['status_code'], $code, false ) . '>' . esc_html( $label ) . '</option>';
     }
-    echo '</select></td></tr>';
-    echo '<tr><th>' . esc_html__( 'Channel', 'simple-hotel-crm' ) . '</th><td><select name="source_channel">';
+    echo '</select></label><label>' . esc_html__( 'Channel', 'simple-hotel-crm' ) . '<br><select name="source_channel">';
     foreach ( simple_hotel_crm_get_booking_channel_options() as $code => $label ) {
         echo '<option value="' . esc_attr( $code ) . '"' . selected( (string) $booking['source_channel'], $code, false ) . '>' . esc_html( $label ) . '</option>';
     }
-    echo '</select></td></tr>';
-    echo '<tr><th>' . esc_html__( 'Contacted date', 'simple-hotel-crm' ) . '</th><td><input type="date" name="contacted_date" value="' . esc_attr( (string) $booking['contacted_date'] ) . '" /></td></tr>';
-    echo '<tr><th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th><td><input type="date" name="check_in_date" value="' . esc_attr( (string) $booking['check_in_date'] ) . '" /></td></tr>';
-    echo '<tr><th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th><td><input type="date" name="check_out_date" value="' . esc_attr( (string) $booking['check_out_date'] ) . '" /></td></tr>';
+    echo '</select></label></div></td></tr>';
+    echo '<tr><th>' . esc_html__( 'Dates', 'simple-hotel-crm' ) . '</th><td><div class="simple-hotel-crm-admin-inline-fields"><label>' . esc_html__( 'Contacted', 'simple-hotel-crm' ) . '<br><input type="date" name="contacted_date" value="' . esc_attr( (string) $booking['contacted_date'] ) . '" /></label><label>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '<br><input type="date" name="check_in_date" value="' . esc_attr( (string) $booking['check_in_date'] ) . '" /></label><label>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '<br><input type="date" name="check_out_date" value="' . esc_attr( (string) $booking['check_out_date'] ) . '" /></label></div></td></tr>';
     echo '<tr><th>' . esc_html__( 'Booking note', 'simple-hotel-crm' ) . '</th><td><input type="text" name="booking_note" class="regular-text" value="' . esc_attr( (string) $booking['booking_note'] ) . '" /></td></tr>';
     echo '<tr><th>' . esc_html__( 'Internal notes', 'simple-hotel-crm' ) . '</th><td><textarea name="internal_notes" rows="5" class="large-text">' . esc_textarea( (string) $booking['internal_notes'] ) . '</textarea></td></tr>';
     echo '</table>';
@@ -1566,6 +1575,29 @@ function simple_hotel_crm_render_booking_detail_page() {
                 }
             }
             echo '<li><strong>' . esc_html( $day_note['stay_date'] ) . ( $room_label ? ' · ' . esc_html( $room_label ) : '' ) . ':</strong> ' . esc_html( (string) $day_note['note_text'] ) . '</li>';
+        }
+        echo '</ul>';
+    }
+    echo '</div>';
+    echo '<h2>' . esc_html__( 'Stored Extras', 'simple-hotel-crm' ) . '</h2>';
+    echo '<div class="card" style="padding:12px;margin:12px 0;max-width:100%;">';
+    if ( empty( $booking_extras_summary ) ) {
+        echo '<p>' . esc_html__( 'No day-specific extras saved.', 'simple-hotel-crm' ) . '</p>';
+    } else {
+        echo '<ul style="margin-left:20px;">';
+        foreach ( $booking_extras_summary as $extra_row ) {
+            $room_label = '';
+            foreach ( $rooms as $room ) {
+                if ( (int) $room['id'] === (int) $extra_row['booking_room_id'] ) {
+                    $room_label = (string) $room['room_code'] . ' - ' . (string) $room['room_name'];
+                    break;
+                }
+            }
+            $extra_text = number_format( (float) $extra_row['amount'], 2, '.', '' );
+            if ( '' !== (string) $extra_row['formula'] ) {
+                $extra_text .= ' (' . (string) $extra_row['formula'] . ')';
+            }
+            echo '<li><strong>' . esc_html( $extra_row['stay_date'] ) . ( $room_label ? ' · ' . esc_html( $room_label ) : '' ) . ':</strong> ' . esc_html( $extra_text ) . '</li>';
         }
         echo '</ul>';
     }
