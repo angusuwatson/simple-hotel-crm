@@ -86,10 +86,20 @@
             return $('.simple-hotel-crm-modal');
         }
 
+        function getRoomNoteModal() {
+            return $('.simple-hotel-crm-room-note-modal');
+        }
+
         function closeModal() {
             var $modal = getModal();
             $modal.hide().attr('aria-hidden', 'true');
             $modal.find('.simple-hotel-crm-quick-booking-message').removeClass('error success').text('');
+        }
+
+        function closeRoomNoteModal() {
+            var $modal = getRoomNoteModal();
+            $modal.hide().attr('aria-hidden', 'true');
+            $modal.find('.simple-hotel-crm-room-note-message').removeClass('error success').text('');
         }
 
         function openQuickBooking(bookingId, reservedRoomId) {
@@ -133,6 +143,10 @@
 
         $(document).on('click', '.simple-hotel-crm-modal-backdrop, .simple-hotel-crm-modal-close', function() {
             closeModal();
+        });
+
+        $(document).on('click', '.simple-hotel-crm-room-note-close', function() {
+            closeRoomNoteModal();
         });
 
         $(document).on('click', '.simple-hotel-crm-copy-button', function() {
@@ -206,27 +220,42 @@
 
         $(document).on('click', '[data-room-day-note-cell="1"]', function() {
             var $cell = $(this);
-            var bookingId = $cell.data('booking-id');
-            var bookingRoomId = $cell.data('booking-room-id');
-            var stayDate = $cell.data('stay-date');
-            var currentNote = ($cell.data('note-text') || '').toString();
-            var nextNote = window.prompt('Room note for ' + stayDate, currentNote);
-            if (nextNote === null) return;
+            var $modal = getRoomNoteModal();
+            var $form = $modal.find('.simple-hotel-crm-room-note-form');
+            $form.find('[name="booking_id"]').val($cell.data('booking-id') || '');
+            $form.find('[name="booking_room_id"]').val($cell.data('booking-room-id') || '');
+            $form.find('[name="stay_date"]').val($cell.data('stay-date') || '');
+            $form.find('[name="note"]').val(($cell.data('note-text') || '').toString());
+            $modal.find('.simple-hotel-crm-room-note-message').removeClass('error success').text('');
+            $modal.show().attr('aria-hidden', 'false');
+        });
+
+        $(document).on('click', '.simple-hotel-crm-room-note-modal .simple-hotel-crm-modal-backdrop', function() {
+            closeRoomNoteModal();
+        });
+
+        $(document).on('submit', '.simple-hotel-crm-room-note-form', function(e) {
+            e.preventDefault();
+            var $form = $(this);
+            var $message = $form.find('.simple-hotel-crm-room-note-message');
+            $message.removeClass('error success').text('Saving...');
             request({
                 url: roomDayNoteUrl,
                 method: 'POST',
-                data: { booking_id: bookingId, booking_room_id: bookingRoomId, stay_date: stayDate, note: nextNote },
+                data: $form.serialize(),
                 success: function(response) {
                     if (response && response.success) {
+                        $message.addClass('success').text('Saved.');
                         var params = new URLSearchParams(window.location.search);
                         loadMonth(params.get('month') || new Date().getMonth() + 1, params.get('year') || new Date().getFullYear(), false);
+                        setTimeout(closeRoomNoteModal, 400);
                     } else {
-                        alert('Save failed.');
+                        $message.addClass('error').text('Save failed.');
                     }
                 },
                 error: function(xhr) {
                     console.error(xhr.responseText);
-                    alert((xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Save failed.');
+                    $message.addClass('error').text((xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Save failed.');
                 }
             });
         });

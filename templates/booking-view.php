@@ -176,4 +176,22 @@ $scroll_to_today = ( (int) $month === $today_month && (int) $year === $today_yea
             </form>
         </div>
     </div>
+
+    <div class="simple-hotel-crm-room-note-modal" style="display:none;" aria-hidden="true">
+        <div class="simple-hotel-crm-modal-backdrop"></div>
+        <div class="simple-hotel-crm-modal-dialog">
+            <button type="button" class="simple-hotel-crm-room-note-close" aria-label="<?php esc_attr_e( 'Close', 'simple-hotel-crm' ); ?>">×</button>
+            <h2><?php esc_html_e( 'Edit Room Day Note', 'simple-hotel-crm' ); ?></h2>
+            <form class="simple-hotel-crm-room-note-form">
+                <input type="hidden" name="booking_id" value="" />
+                <input type="hidden" name="booking_room_id" value="" />
+                <input type="hidden" name="stay_date" value="" />
+                <p><label><?php esc_html_e( 'Note', 'simple-hotel-crm' ); ?><br><textarea name="note" rows="5" class="large-text"></textarea></label></p>
+                <p class="simple-hotel-crm-quick-booking-actions">
+                    <button type="submit" class="button button-primary"><?php esc_html_e( 'Save note', 'simple-hotel-crm' ); ?></button>
+                </p>
+                <div class="simple-hotel-crm-room-note-message" aria-live="polite"></div>
+            </form>
+        </div>
+    </div>
 </div>
