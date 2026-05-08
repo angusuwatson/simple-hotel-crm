@@ -492,8 +492,9 @@ function simple_hotel_crm_mark_missing_booking_com_bookings_cancelled( array $se
            AND is_deleted = 0
            AND (internal_notes IS NULL OR internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')
            AND source_booking_id <> ''
+           AND check_out_date >= %s
            AND source_booking_id NOT IN ({$placeholders})",
-        $params
+        array_merge( [ 'booking_com', current_time( 'Y-m-d' ) ], $seen_uids )
     );
     return (int) $wpdb->query( $query );
 }
