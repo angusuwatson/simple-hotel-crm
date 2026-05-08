@@ -95,7 +95,7 @@ $scroll_to_today = ( (int) $month === $today_month && (int) $year === $today_yea
                             ?>
                                 <td class="<?php echo esc_attr( implode( ' ', $cell_classes ) ); ?>" data-room-color="<?php echo esc_attr( $row_color ); ?>" style="--room-fill: <?php echo esc_attr( $row_color ); ?>;"<?php echo ( $booking && 'room-name-row' === $row['class'] ) ? ' data-room-day-note-cell="1" data-booking-id="' . esc_attr( $booking->id ) . '" data-booking-room-id="' . esc_attr( $booking->booking_room_id ?? '' ) . '" data-stay-date="' . esc_attr( $date_str ) . '" data-note-text="' . esc_attr( (string) ( $booking->booking_note ?? '' ) ) . '"' : ''; ?>>
                                     <?php if ( $booking && 'room-name-row' === $row['class'] ) : ?>
-                                        <?php echo esc_html( $booking->booking_note ?? '' ); ?>
+                                        <?php if ( ! empty( $booking->has_day_note ) ) : ?><span class="simple-hotel-crm-note-indicator" aria-hidden="true">📝</span><?php endif; ?><?php echo esc_html( $booking->booking_note ?? '' ); ?>
                                     <?php elseif ( $booking && 'guest-row' === $row['class'] ) : ?>
                                         <a class="calendar-booking-link quick-booking-trigger" href="<?php echo esc_url( $booking_detail_url ); ?>" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>"><?php echo esc_html( $display_value ); ?></a>
                                     <?php elseif ( $booking && 'occupancy-row' === $row['class'] ) : ?>

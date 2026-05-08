@@ -357,7 +357,8 @@
     text-decoration: underline;
 }
 
-.simple-hotel-crm-modal {
+.simple-hotel-crm-modal,
+.simple-hotel-crm-room-note-modal {
     position: fixed;
     inset: 0;
     z-index: 99999;
@@ -461,8 +462,15 @@
     flex-wrap: nowrap;
 }
 
-.simple-hotel-crm-quick-booking-message.error { color: #b42318; }
-.simple-hotel-crm-quick-booking-message.success { color: #027a48; }
+.simple-hotel-crm-quick-booking-message.error, .simple-hotel-crm-room-note-message.error { color: #b42318; }
+.simple-hotel-crm-quick-booking-message.success, .simple-hotel-crm-room-note-message.success { color: #027a48; }
+
+.simple-hotel-crm-note-indicator {
+    display: inline-block;
+    margin-right: 4px;
+    font-size: 12px;
+    line-height: 1;
+}
 
 @media (max-width: 768px) {
     .calendar-month-tab { min-width: 60px; padding: 6px 9px; font-size: 14px; }
