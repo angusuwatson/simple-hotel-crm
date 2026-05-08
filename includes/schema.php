@@ -10,6 +10,7 @@ function simple_hotel_crm_install_tables() {
     $daily_notes_table = simple_hotel_crm_daily_notes_table();
     $overlay_table     = simple_hotel_crm_booking_overlay_table();
     $booking_notes_table = simple_hotel_crm_booking_notes_table();
+    $booking_adjustments_table = simple_hotel_crm_booking_adjustments_table();
     $sync_rooms_table  = simple_hotel_crm_sync_rooms_table();
     $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
     $crm_rooms_table   = simple_hotel_crm_rooms_table();
@@ -62,6 +63,22 @@ function simple_hotel_crm_install_tables() {
         KEY booking_room_id (booking_room_id),
         KEY stay_date (stay_date),
         KEY note_scope (note_scope)
+    ) {$charset_collate};";
+
+    $sql_booking_adjustments = "CREATE TABLE {$booking_adjustments_table} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        booking_id bigint(20) unsigned NOT NULL,
+        booking_room_id bigint(20) unsigned NOT NULL,
+        stay_date date NOT NULL,
+        adjustment_kind varchar(20) NOT NULL DEFAULT 'extras',
+        formula text NULL,
+        amount decimal(10,2) NOT NULL DEFAULT 0.00,
+        created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        UNIQUE KEY booking_room_day_kind (booking_room_id, stay_date, adjustment_kind),
+        KEY booking_id (booking_id),
+        KEY stay_date (stay_date)
     ) {$charset_collate};";
 
     $sql_sync_rooms = "CREATE TABLE {$sync_rooms_table} (
@@ -258,6 +275,7 @@ function simple_hotel_crm_install_tables() {
     dbDelta( $sql_daily_notes );
     dbDelta( $sql_overlays );
     dbDelta( $sql_booking_notes );
+    dbDelta( $sql_booking_adjustments );
     dbDelta( $sql_sync_rooms );
     dbDelta( $sql_sync_bookings );
     dbDelta( $sql_crm_rooms );
@@ -289,6 +307,11 @@ function simple_hotel_crm_booking_overlay_table() {
 function simple_hotel_crm_booking_notes_table() {
     global $wpdb;
     return $wpdb->prefix . 'simple_hotel_crm_booking_notes';
+}
+
+function simple_hotel_crm_booking_adjustments_table() {
+    global $wpdb;
+    return $wpdb->prefix . 'simple_hotel_crm_booking_adjustments';
 }
 
 function simple_hotel_crm_sync_rooms_table() {
@@ -449,6 +472,60 @@ function simple_hotel_crm_upsert_booking_note( $booking_id, $note_text, $booking
         return false !== $wpdb->update( $booking_notes_table, $payload, [ 'id' => $existing_id ], $formats, [ '%d' ] );
     }
     return false !== $wpdb->insert( $booking_notes_table, $payload, $formats );
+}
+
+function simple_hotel_crm_get_booking_adjustment( $booking_room_id, $stay_date, $kind = 'extras' ) {
+    global $wpdb;
+
+    $table = simple_hotel_crm_booking_adjustments_table();
+    return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE booking_room_id = %d AND stay_date = %s AND adjustment_kind = %s LIMIT 1", absint( $booking_room_id ), (string) $stay_date, (string) $kind ), ARRAY_A );
+}
+
+function simple_hotel_crm_upsert_booking_adjustment( $booking_id, $booking_room_id, $stay_date, $kind, $formula, $amount ) {
+    global $wpdb;
+
+    $table = simple_hotel_crm_booking_adjustments_table();
+    $existing = simple_hotel_crm_get_booking_adjustment( $booking_room_id, $stay_date, $kind );
+    $formula = sanitize_text_field( (string) $formula );
+    $amount = round( max( 0, (float) $amount ), 2 );
+
+    if ( '' === $formula && $amount <= 0 ) {
+        if ( ! empty( $existing['id'] ) ) {
+            return false !== $wpdb->delete( $table, [ 'id' => (int) $existing['id'] ], [ '%d' ] );
+        }
+        return true;
+    }
+
+    $payload = [
+        'booking_id' => absint( $booking_id ),
+        'booking_room_id' => absint( $booking_room_id ),
+        'stay_date' => (string) $stay_date,
+        'adjustment_kind' => (string) $kind,
+        'formula' => $formula,
+        'amount' => $amount,
+    ];
+    $formats = [ '%d', '%d', '%s', '%s', '%s', '%f' ];
+    if ( ! empty( $existing['id'] ) ) {
+        return false !== $wpdb->update( $table, $payload, [ 'id' => (int) $existing['id'] ], $formats, [ '%d' ] );
+    }
+    return false !== $wpdb->insert( $table, $payload, $formats );
+}
+
+function simple_hotel_crm_recalculate_booking_room_totals_from_nights( $booking_room_id ) {
+    global $wpdb;
+
+    $booking_room_id = absint( $booking_room_id );
+    if ( $booking_room_id <= 0 ) {
+        return false;
+    }
+
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+    $totals = $wpdb->get_row( $wpdb->prepare( "SELECT COALESCE(SUM(extras_amount),0) AS extras_amount, COALESCE(SUM(total_amount),0) AS total_amount FROM {$booking_nights_table} WHERE booking_room_id = %d", $booking_room_id ), ARRAY_A );
+    return false !== $wpdb->update( $booking_rooms_table, [
+        'extras_amount' => (float) ( $totals['extras_amount'] ?? 0 ),
+        'total_amount' => (float) ( $totals['total_amount'] ?? 0 ),
+    ], [ 'id' => $booking_room_id ], [ '%f', '%f' ], [ '%d' ] );
 }
 
 function simple_hotel_crm_migrate_overlay_notes_to_booking_notes() {

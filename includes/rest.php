@@ -71,6 +71,12 @@ add_action( 'rest_api_init', function() {
         'callback' => 'simple_hotel_crm_rest_save_room_day_note',
         'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
     ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/room-day-extras', [
+        'methods'  => 'POST',
+        'callback' => 'simple_hotel_crm_rest_save_room_day_extras',
+        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
+    ] );
 } );
 
 function simple_hotel_crm_rest_table( WP_REST_Request $request ) {
@@ -114,6 +120,40 @@ function simple_hotel_crm_rest_save_room_day_note( WP_REST_Request $request ) {
     }
 
     simple_hotel_crm_upsert_booking_note( $booking_id, $note, $booking_room_id, $stay_date, 'night' );
+    simple_hotel_crm_clear_calendar_cache();
+
+    return rest_ensure_response( [ 'success' => true ] );
+}
+
+function simple_hotel_crm_rest_save_room_day_extras( WP_REST_Request $request ) {
+    global $wpdb;
+
+    $booking_id = absint( $request->get_param( 'booking_id' ) );
+    $booking_room_id = absint( $request->get_param( 'booking_room_id' ) );
+    $stay_date = sanitize_text_field( (string) $request->get_param( 'stay_date' ) );
+    $formula_raw = (string) $request->get_param( 'formula' );
+    $amount_raw = (string) $request->get_param( 'amount' );
+    $extras = simple_hotel_crm_evaluate_extras_formula( $formula_raw );
+    $amount = '' !== trim( $amount_raw ) ? (float) simple_hotel_crm_normalize_decimal( $amount_raw ) : (float) $extras['total'];
+
+    if ( $booking_id <= 0 || $booking_room_id <= 0 || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $stay_date ) ) {
+        return new WP_Error( 'invalid_room_day_extras', __( 'Invalid room-day extras payload.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
+    }
+    if ( ! $extras['valid'] && '' !== trim( $formula_raw ) ) {
+        return new WP_Error( 'invalid_extras_formula', __( 'Extras formula only supports numbers joined with +.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
+    }
+
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+    $night = $wpdb->get_row( $wpdb->prepare( "SELECT room_rate_amount, tourist_tax_amount FROM {$booking_nights_table} WHERE booking_room_id = %d AND stay_date = %s LIMIT 1", $booking_room_id, $stay_date ), ARRAY_A );
+    if ( ! $night ) {
+        return new WP_Error( 'booking_night_not_found', __( 'Booking night not found.', 'simple-hotel-crm' ), [ 'status' => 404 ] );
+    }
+
+    simple_hotel_crm_upsert_booking_adjustment( $booking_id, $booking_room_id, $stay_date, 'extras', $extras['valid'] ? $extras['formula'] : '', $amount );
+    $total_amount = round( (float) $night['room_rate_amount'] + $amount + (float) $night['tourist_tax_amount'], 2 );
+    $wpdb->update( $booking_nights_table, [ 'extras_amount' => $amount, 'total_amount' => $total_amount ], [ 'booking_room_id' => $booking_room_id, 'stay_date' => $stay_date ], [ '%f', '%f' ], [ '%d', '%s' ] );
+    simple_hotel_crm_recalculate_booking_room_totals_from_nights( $booking_room_id );
+    simple_hotel_crm_recalculate_booking_header_totals();
     simple_hotel_crm_clear_calendar_cache();
 
     return rest_ensure_response( [ 'success' => true ] );

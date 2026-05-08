@@ -6,6 +6,7 @@
         var dailyNotesUrl = simpleHotelCrm.dailyNotesUrl;
         var quickBookingUrl = simpleHotelCrm.quickBookingUrl;
         var roomDayNoteUrl = simpleHotelCrm.roomDayNoteUrl;
+        var roomDayExtrasUrl = simpleHotelCrm.roomDayExtrasUrl;
         var nonce = simpleHotelCrm.nonce;
         var saveTimers = {};
 
@@ -102,6 +103,16 @@
             $modal.find('.simple-hotel-crm-room-note-message').removeClass('error success').text('');
         }
 
+        function getRoomExtrasModal() {
+            return $('.simple-hotel-crm-room-extras-modal');
+        }
+
+        function closeRoomExtrasModal() {
+            var $modal = getRoomExtrasModal();
+            $modal.hide().attr('aria-hidden', 'true');
+            $modal.find('.simple-hotel-crm-room-extras-message').removeClass('error success').text('');
+        }
+
         function openQuickBooking(bookingId, reservedRoomId) {
             var $modal = getModal();
             var $form = $modal.find('.simple-hotel-crm-quick-booking-form');
@@ -147,6 +158,10 @@
 
         $(document).on('click', '.simple-hotel-crm-room-note-close', function() {
             closeRoomNoteModal();
+        });
+
+        $(document).on('click', '.simple-hotel-crm-room-extras-close', function() {
+            closeRoomExtrasModal();
         });
 
         $(document).on('click', '.simple-hotel-crm-copy-button', function() {
@@ -249,6 +264,49 @@
                         var params = new URLSearchParams(window.location.search);
                         loadMonth(params.get('month') || new Date().getMonth() + 1, params.get('year') || new Date().getFullYear(), false);
                         setTimeout(closeRoomNoteModal, 400);
+                    } else {
+                        $message.addClass('error').text('Save failed.');
+                    }
+                },
+                error: function(xhr) {
+                    console.error(xhr.responseText);
+                    $message.addClass('error').text((xhr.responseJSON && xhr.responseJSON.message) ? xhr.responseJSON.message : 'Save failed.');
+                }
+            });
+        });
+
+        $(document).on('click', '[data-room-day-extras-cell="1"]', function() {
+            var $cell = $(this);
+            var $modal = getRoomExtrasModal();
+            var $form = $modal.find('.simple-hotel-crm-room-extras-form');
+            $form.find('[name="booking_id"]').val($cell.data('booking-id') || '');
+            $form.find('[name="booking_room_id"]').val($cell.data('booking-room-id') || '');
+            $form.find('[name="stay_date"]').val($cell.data('stay-date') || '');
+            $form.find('[name="formula"]').val(($cell.data('extras-formula') || '').toString());
+            $form.find('[name="amount"]').val(($cell.data('extras-amount') || '').toString());
+            $modal.find('.simple-hotel-crm-room-extras-message').removeClass('error success').text('');
+            $modal.show().attr('aria-hidden', 'false');
+        });
+
+        $(document).on('click', '.simple-hotel-crm-room-extras-modal .simple-hotel-crm-modal-backdrop', function() {
+            closeRoomExtrasModal();
+        });
+
+        $(document).on('submit', '.simple-hotel-crm-room-extras-form', function(e) {
+            e.preventDefault();
+            var $form = $(this);
+            var $message = $form.find('.simple-hotel-crm-room-extras-message');
+            $message.removeClass('error success').text('Saving...');
+            request({
+                url: roomDayExtrasUrl,
+                method: 'POST',
+                data: $form.serialize(),
+                success: function(response) {
+                    if (response && response.success) {
+                        $message.addClass('success').text('Saved.');
+                        var params = new URLSearchParams(window.location.search);
+                        loadMonth(params.get('month') || new Date().getMonth() + 1, params.get('year') || new Date().getFullYear(), false);
+                        setTimeout(closeRoomExtrasModal, 400);
                     } else {
                         $message.addClass('error').text('Save failed.');
                     }
