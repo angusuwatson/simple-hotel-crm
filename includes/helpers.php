@@ -201,19 +201,99 @@ function simple_hotel_crm_evaluate_extras_formula( $formula ) {
         return [ 'formula' => '', 'total' => null, 'valid' => true ];
     }
 
-    if ( ! preg_match( '/^\d+(?:[\.,]\d+)?(?:\+\d+(?:[\.,]\d+)?)*$/', $formula ) ) {
+    $normalized = str_replace( ',', '.', $formula );
+    if ( ! preg_match( '/^[0-9+\-*\/().]+$/', $normalized ) ) {
         return [ 'formula' => '=' . $formula, 'total' => null, 'valid' => false ];
     }
 
-    $parts = explode( '+', str_replace( ',', '.', $formula ) );
-    $total = 0.0;
-    foreach ( $parts as $part ) {
-        $total += (float) $part;
+    preg_match_all( '/\d+(?:\.\d+)?|[+\-*\/()]?/', $normalized, $matches );
+    $tokens = array_values( array_filter( $matches[0], static function( $token ) { return '' !== $token; } ) );
+    if ( empty( $tokens ) ) {
+        return [ 'formula' => '=' . $formula, 'total' => null, 'valid' => false ];
+    }
+
+    $values = [];
+    $ops = [];
+    $precedence = [ '+' => 1, '-' => 1, '*' => 2, '/' => 2 ];
+    $apply = static function( &$values, $op ) {
+        if ( count( $values ) < 2 ) {
+            return false;
+        }
+        $b = array_pop( $values );
+        $a = array_pop( $values );
+        switch ( $op ) {
+            case '+': $values[] = $a + $b; return true;
+            case '-': $values[] = $a - $b; return true;
+            case '*': $values[] = $a * $b; return true;
+            case '/':
+                if ( abs( $b ) < 0.0000001 ) {
+                    return false;
+                }
+                $values[] = $a / $b;
+                return true;
+        }
+        return false;
+    };
+
+    $prev = null;
+    foreach ( $tokens as $token ) {
+        if ( preg_match( '/^\d+(?:\.\d+)?$/', $token ) ) {
+            $values[] = (float) $token;
+            $prev = 'number';
+            continue;
+        }
+        if ( '(' === $token ) {
+            $ops[] = $token;
+            $prev = '(';
+            continue;
+        }
+        if ( ')' === $token ) {
+            while ( ! empty( $ops ) && '(' !== end( $ops ) ) {
+                if ( ! $apply( $values, array_pop( $ops ) ) ) {
+                    return [ 'formula' => '=' . $formula, 'total' => null, 'valid' => false ];
+                }
+            }
+            if ( empty( $ops ) || '(' !== end( $ops ) ) {
+                return [ 'formula' => '=' . $formula, 'total' => null, 'valid' => false ];
+            }
+            array_pop( $ops );
+            $prev = ')';
+            continue;
+        }
+        if ( in_array( $token, [ '+', '-', '*', '/' ], true ) ) {
+            if ( null === $prev || in_array( $prev, [ '(', 'op' ], true ) ) {
+                if ( '-' === $token ) {
+                    $values[] = 0.0;
+                } else {
+                    return [ 'formula' => '=' . $formula, 'total' => null, 'valid' => false ];
+                }
+            }
+            while ( ! empty( $ops ) && isset( $precedence[ end( $ops ) ] ) && $precedence[ end( $ops ) ] >= $precedence[ $token ] ) {
+                if ( ! $apply( $values, array_pop( $ops ) ) ) {
+                    return [ 'formula' => '=' . $formula, 'total' => null, 'valid' => false ];
+                }
+            }
+            $ops[] = $token;
+            $prev = 'op';
+            continue;
+        }
+        return [ 'formula' => '=' . $formula, 'total' => null, 'valid' => false ];
+    }
+
+    while ( ! empty( $ops ) ) {
+        $op = array_pop( $ops );
+        if ( '(' === $op || ')' === $op || ! $apply( $values, $op ) ) {
+            return [ 'formula' => '=' . $formula, 'total' => null, 'valid' => false ];
+        }
+    }
+
+    if ( 1 !== count( $values ) ) {
+        return [ 'formula' => '=' . $formula, 'total' => null, 'valid' => false ];
     }
 
     return [
         'formula' => '=' . $formula,
-        'total'   => round( $total, 2 ),
+        'total'   => round( (float) $values[0], 2 ),
         'valid'   => true,
     ];
 }

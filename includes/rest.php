@@ -140,7 +140,7 @@ function simple_hotel_crm_rest_save_room_day_extras( WP_REST_Request $request ) 
         return new WP_Error( 'invalid_room_day_extras', __( 'Invalid room-day extras payload.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
     }
     if ( ! $extras['valid'] && '' !== trim( $formula_raw ) ) {
-        return new WP_Error( 'invalid_extras_formula', __( 'Extras formula only supports numbers joined with +.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
+        return new WP_Error( 'invalid_extras_formula', __( 'Extras formula supports numbers with +, -, * and /.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
     }
 
     $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
@@ -279,7 +279,7 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
         $existing_overlay = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$overlay_table} WHERE reserved_room_id = %d", $reserved_room_id ), ARRAY_A );
         $extras = simple_hotel_crm_evaluate_extras_formula( $extras_formula_raw );
         if ( ! $extras['valid'] ) {
-            return new WP_Error( 'invalid_extras_formula', __( 'Extras formula only supports numbers joined with +.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
+            return new WP_Error( 'invalid_extras_formula', __( 'Extras formula supports numbers with +, -, * and /.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
         }
         $booking_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM " . simple_hotel_crm_booking_rooms_table() . " WHERE legacy_reserved_room_id = %d LIMIT 1", $reserved_room_id ) );
         if ( $has_booking_note && $booking_room_id > 0 ) {

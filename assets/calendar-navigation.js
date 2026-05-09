@@ -294,6 +294,13 @@
             $form.find('[name="amount"]').val(($cell.data('extras-amount') || '').toString());
             $modal.find('.simple-hotel-crm-room-extras-message').removeClass('error success').text('');
             $modal.show().attr('aria-hidden', 'false');
+            setTimeout(function() {
+                var field = $form.find('[name="formula"]').get(0);
+                if (field) {
+                    field.focus();
+                    field.setSelectionRange(field.value.length, field.value.length);
+                }
+            }, 10);
         });
 
         $(document).on('click', '.simple-hotel-crm-room-extras-modal .simple-hotel-crm-modal-backdrop', function() {
