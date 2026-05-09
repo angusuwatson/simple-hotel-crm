@@ -1440,7 +1440,7 @@ function simple_hotel_crm_render_booking_detail_page() {
             'source_channel' => sanitize_text_field( wp_unslash( $_POST['source_channel'] ?? '' ) ),
             'status_code' => sanitize_text_field( wp_unslash( $_POST['status_code'] ?? '' ) ),
             'contacted_date' => sanitize_text_field( wp_unslash( $_POST['contacted_date'] ?? '' ) ),
-            'booking_note' => sanitize_textarea_field( wp_unslash( $_POST['booking_note'] ?? '' ) ),
+            'booking_note' => array_key_exists( 'booking_note', $_POST ) ? sanitize_textarea_field( wp_unslash( $_POST['booking_note'] ) ) : simple_hotel_crm_get_booking_note_text( $booking_id ),
             'import_notes' => sanitize_textarea_field( wp_unslash( $_POST['internal_notes'] ?? '' ) ),
             'room_lines' => $posted_room_lines,
         ];
