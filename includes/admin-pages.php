@@ -1276,6 +1276,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
             $wpdb->query( 'ROLLBACK' );
             return new WP_Error( 'booking_room_insert_failed', __( 'Could not save booking rooms.', 'simple-hotel-crm' ) );
         }
+        $crm_booking_room_id = (int) $wpdb->insert_id;
         if ( isset( $overlay_map[ $crm_room_id ] ) && (int) $overlay_map[ $crm_room_id ] !== $legacy_reserved_room_id ) {
             simple_hotel_crm_copy_booking_overlay( (int) $overlay_map[ $crm_room_id ], $legacy_reserved_room_id, $booking_id, $crm_room_id );
         }
@@ -1301,7 +1302,6 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
         } else {
             $wpdb->insert( $overlay_table, $overlay_payload, $overlay_formats );
         }
-        $crm_booking_room_id = (int) $wpdb->insert_id;
         simple_hotel_crm_upsert_booking_note( $booking_id, $room_note, $crm_booking_room_id, null, 'room' );
         $base_price_nightly = simple_hotel_crm_distribute_amounts( $line['base_price_amount'], $nights );
         $discount_nightly = simple_hotel_crm_distribute_amounts( $line['discount_amount'], $nights );
