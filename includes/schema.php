@@ -1,6 +1,13 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
+function simple_hotel_crm_add_processed_flag() {
+    global $wpdb;
+    
+    $table_name = simple_hotel_crm_bookings_table();
+    $wpdb->query("ALTER TABLE $table_name ADD COLUMN is_processed TINYINT(1) NOT NULL DEFAULT 0;");
+}
+
 function simple_hotel_crm_install_tables() {
     global $wpdb;
 

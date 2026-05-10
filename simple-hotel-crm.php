@@ -10,8 +10,8 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SIMPLE_HOTEL_CRM_VERSION', '1.8.9.13' );
-define( 'SIMPLE_HOTEL_CRM_DB_VERSION', '12' );
+define( 'SIMPLE_HOTEL_CRM_VERSION', '1.8.9.14' );
+define( 'SIMPLE_HOTEL_CRM_DB_VERSION', '13' );
 define( 'SIMPLE_HOTEL_CRM_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
 register_activation_hook( __FILE__, 'simple_hotel_crm_activate' );
@@ -19,6 +19,7 @@ add_action( 'plugins_loaded', 'simple_hotel_crm_maybe_upgrade' );
 
 function simple_hotel_crm_activate() {
     simple_hotel_crm_install_tables();
+    simple_hotel_crm_add_processed_flag();
 }
 
 function simple_hotel_crm_maybe_upgrade() {

@@ -10,6 +10,7 @@ function simple_hotel_crm_register_admin_menu() {
     add_menu_page( __( 'LGF Bookings', 'simple-hotel-crm' ), __( 'LGF Bookings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm', 'simple_hotel_crm_render_admin_page', 'dashicons-chart-pie', 58 );
     add_submenu_page( 'simple-hotel-crm', __( 'Calendar', 'simple-hotel-crm' ), __( 'Calendar', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm', 'simple_hotel_crm_render_admin_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Bookings', 'simple-hotel-crm' ), __( 'Bookings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-bookings', 'simple_hotel_crm_render_bookings_page' );
+    add_submenu_page( 'simple-hotel-crm', __( 'Merge Bookings', 'simple-hotel-crm' ), __( 'Merge Bookings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-merge-bookings', 'simple_hotel_crm_render_booking_merge_page' );
     add_submenu_page( null, __( 'Add Booking', 'simple-hotel-crm' ), __( 'Add Booking', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-add-booking', 'simple_hotel_crm_render_add_booking_page' );
     add_submenu_page( null, __( 'Booking Detail', 'simple-hotel-crm' ), __( 'Booking Detail', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-booking-detail', 'simple_hotel_crm_render_booking_detail_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Rooms', 'simple-hotel-crm' ), __( 'Rooms', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-rooms', 'simple_hotel_crm_render_rooms_page' );
@@ -1408,6 +1409,185 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
 
     simple_hotel_crm_clear_calendar_cache();
     return true;
+}
+
+function simple_hotel_crm_merge_booking_com_rooms($booking_ids) {
+    global $wpdb;
+    
+    // Start transaction
+    $wpdb->query('START TRANSACTION');
+    
+    try {
+        // Create new booking from the first booking in the list
+        $first_booking = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM " . simple_hotel_crm_bookings_table() . " WHERE id = %d LIMIT 1",
+            $booking_ids[0]
+        ), ARRAY_A);
+        
+        // Create new booking
+        $new_booking_id = simple_hotel_crm_create_booking_from_rooms($booking_ids);
+        
+        // Mark original rooms as processed
+        foreach ($booking_ids as $booking_id) {
+            $wpdb->update(
+                simple_hotel_crm_bookings_table(),
+                ['is_processed' => 1],
+                ['id' => $booking_id],
+                ['%d'],
+                ['%d']
+            );
+        }
+        
+        // Commit transaction
+        $wpdb->query('COMMIT');
+        
+        return $new_booking_id;
+    } catch (Exception $e) {
+        // Rollback on error
+        $wpdb->query('ROLLBACK');
+        throw $e;
+    }
+}
+
+function simple_hotel_crm_create_booking_from_rooms($booking_ids) {
+    global $wpdb;
+    
+    // Start transaction
+    $wpdb->query('START TRANSACTION');
+    
+    try {
+        // Get all rooms for these bookings
+        $rooms = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM " . simple_hotel_crm_booking_rooms_table() . " WHERE booking_id IN (" . implode(',', array_map('intval', $booking_ids)) . ")"
+        ), ARRAY_A);
+        
+        // Get the first booking to use as template
+        $first_booking = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM " . simple_hotel_crm_bookings_table() . " WHERE id = %d LIMIT 1",
+            $booking_ids[0]
+        ), ARRAY_A);
+        
+        // Create new booking
+        $new_booking = array_merge($first_booking, [
+            'id' => 0, // Will be auto-incremented
+            'is_processed' => 0,
+            'total_amount' => array_sum(array_column($rooms, 'total_amount')),
+            'room_rate_amount' => array_sum(array_column($rooms, 'room_rate_amount')),
+            'extras_amount' => array_sum(array_column($rooms, 'extras_amount')),
+            'tourist_tax_amount' => array_sum(array_column($rooms, 'tourist_tax_amount')),
+            'adults' => array_sum(array_column($rooms, 'adults')),
+            'children' => array_sum(array_column($rooms, 'children')),
+            'babies' => array_sum(array_column($rooms, 'babies'))
+        ]);
+        
+        // Insert new booking
+        $wpdb->insert(simple_hotel_crm_bookings_table(), $new_booking);
+        $new_booking_id = $wpdb->insert_id;
+        
+        // Add all rooms to new booking
+        foreach ($rooms as $room) {
+            $room['id'] = 0; // Will be auto-incremented
+            $room['booking_id'] = $new_booking_id;
+            $wpdb->insert(simple_hotel_crm_booking_rooms_table(), $room);
+            $new_room_id = $wpdb->insert_id;
+            
+            // Copy room nights
+            $room_nights = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM " . simple_hotel_crm_booking_room_nights_table() . " WHERE booking_room_id = %d",
+                $room['id']
+            ), ARRAY_A);
+            
+            foreach ($room_nights as $night) {
+                $night['id'] = 0;
+                $night['booking_room_id'] = $new_room_id; // ID of the newly inserted room
+                $wpdb->insert(simple_hotel_crm_booking_room_nights_table(), $night);
+            }
+            
+            // Copy booking overlay
+            $overlay = $wpdb->get_row($wpdb->prepare(
+                "SELECT * FROM " . simple_hotel_crm_booking_overlay_table() . " WHERE reserved_room_id = %d LIMIT 1",
+                $room['legacy_reserved_room_id']
+            ), ARRAY_A);
+            
+            if ($overlay) {
+                unset($overlay['id']);
+                $overlay['reserved_room_id'] = $room['legacy_reserved_room_id']; // Keep the same reserved_room_id
+                $overlay['booking_id'] = $new_booking_id;
+                $wpdb->insert(simple_hotel_crm_booking_overlay_table(), $overlay);
+            }
+            
+            // Copy booking notes
+            $notes = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM " . simple_hotel_crm_booking_notes_table() . " WHERE booking_id = %d AND booking_room_id = %d",
+                $room['booking_id'], $room['id']
+            ), ARRAY_A);
+            
+            foreach ($notes as $note) {
+                unset($note['id']);
+                $note['booking_id'] = $new_booking_id;
+                $note['booking_room_id'] = $new_room_id;
+                $wpdb->insert(simple_hotel_crm_booking_notes_table(), $note);
+            }
+            
+            // Copy booking adjustments
+            $adjustments = $wpdb->get_results($wpdb->prepare(
+                "SELECT * FROM " . simple_hotel_crm_booking_adjustments_table() . " WHERE booking_id = %d AND booking_room_id = %d",
+                $room['booking_id'], $room['id']
+            ), ARRAY_A);
+            
+            foreach ($adjustments as $adjustment) {
+                unset($adjustment['id']);
+                $adjustment['booking_id'] = $new_booking_id;
+                $adjustment['booking_room_id'] = $new_room_id;
+                $wpdb->insert(simple_hotel_crm_booking_adjustments_table(), $adjustment);
+            }
+        }
+        
+        // Commit transaction
+        $wpdb->query('COMMIT');
+        
+        return $new_booking_id;
+    } catch (Exception $e) {
+        // Rollback on error
+        $wpdb->query('ROLLBACK');
+        throw $e;
+    }
+}
+
+function simple_hotel_crm_render_booking_merge_page() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'simple_hotel-crm' ) );
+    }
+    
+    global $wpdb;
+    
+    if ( isset( $_POST['simple_hotel_crm_merge_bookings'] ) ) {
+        $booking_ids = array_map( 'intval', $_POST['booking_ids'] );
+        if ( ! empty( $booking_ids ) ) {
+            try {
+                $new_booking_id = simple_hotel_crm_merge_booking_com_rooms($booking_ids);
+                wp_redirect(admin_url('admin.php?page=simple-hotel-crm-booking-detail&booking_id=' . $new_booking_id));
+                exit;
+            } catch (Exception $e) {
+                wp_die( esc_html__( 'Error merging bookings: ', 'simple-hotel-crm' ) . $e->getMessage() );
+            }
+        }
+    }
+    
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $guests_table = simple_hotel_crm_guests_table();
+    
+    $bookings = $wpdb->get_results(
+        $wpdb->prepare("SELECT b.*, g.first_name, g.last_name
+            FROM {$bookings_table} b
+            JOIN {$guests_table} g ON g.id = b.guest_id
+            WHERE b.is_deleted = 0
+            AND b.is_processed = 0
+            ORDER BY b.check_in_date ASC"),
+        ARRAY_A
+    );
+    
+    include plugin_dir_path(__FILE__) . '../templates/booking-merge.php';
 }
 
 function simple_hotel_crm_render_booking_detail_page() {
