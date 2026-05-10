@@ -97,7 +97,6 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
                AND b.status_code IN ('pending', 'confirmed', 'checked_in', 'cancelled')
                AND brn.stay_date >= %s
                AND brn.stay_date < %s
-               AND b.is_processed = 0
              ORDER BY brn.stay_date ASC, b.id ASC, br.id ASC",
             $first_day_str,
             $month_after_last_day_str
