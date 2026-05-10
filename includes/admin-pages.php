@@ -70,7 +70,7 @@ function simple_hotel_crm_render_bookings_page() {
     $view = ( isset( $_GET['view'] ) && in_array( $_GET['view'], [ 'trash', 'archive', 'cancelled' ], true ) ) ? sanitize_key( $_GET['view'] ) : 'active';
     $is_deleted = 'trash' === $view ? 1 : 0;
     $archive_sql = 'active' === $view ? " AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%') " : ( 'archive' === $view ? " AND b.internal_notes LIKE '%[MERGED_ARCHIVE]%' " : '' );
-    $status_sql = 'cancelled' === $view ? " AND b.status_code = 'cancelled' " : " AND b.status_code <> 'cancelled' ";
+    $status_sql = 'cancelled' === $view ? " AND b.status_code = 'cancelled' " : ( 'active' === $view ? " AND b.status_code <> 'cancelled' " : '' );
     $sortable = [ 'id' => 'b.id', 'guest' => 'guest_name', 'check_in' => 'b.check_in_date', 'check_out' => 'b.check_out_date', 'rooms' => 'room_count', 'status' => 'b.status_code', 'channel' => 'b.source_channel', 'commission' => 'commission_amount', 'total' => 'b.total_amount' ];
     $search = isset( $_GET['s'] ) ? sanitize_text_field( wp_unslash( $_GET['s'] ) ) : '';
     $orderby_key = isset( $_GET['orderby'] ) && isset( $sortable[ $_GET['orderby'] ] ) ? $_GET['orderby'] : 'check_in';
