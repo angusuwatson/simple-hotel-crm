@@ -1555,39 +1555,7 @@ function simple_hotel_crm_create_booking_from_rooms($booking_ids) {
 }
 
 function simple_hotel_crm_render_booking_merge_page() {
-    if ( ! simple_hotel_crm_user_can_access() ) {
-        wp_die( esc_html__( 'You do not have permission to access this page.', 'simple_hotel-crm' ) );
-    }
-    
-    global $wpdb;
-    
-    if ( isset( $_POST['simple_hotel_crm_merge_bookings'] ) ) {
-        $booking_ids = array_map( 'intval', $_POST['booking_ids'] );
-        if ( ! empty( $booking_ids ) ) {
-            try {
-                $new_booking_id = simple_hotel_crm_merge_booking_com_rooms($booking_ids);
-                wp_redirect(admin_url('admin.php?page=simple-hotel-crm-booking-detail&booking_id=' . $new_booking_id));
-                exit;
-            } catch (Exception $e) {
-                wp_die( esc_html__( 'Error merging bookings: ', 'simple-hotel-crm' ) . $e->getMessage() );
-            }
-        }
-    }
-    
-    $bookings_table = simple_hotel_crm_bookings_table();
-    $guests_table = simple_hotel_crm_guests_table();
-    
-    $bookings = $wpdb->get_results(
-        $wpdb->prepare("SELECT b.*, g.first_name, g.last_name
-            FROM {$bookings_table} b
-            JOIN {$guests_table} g ON g.id = b.guest_id
-            WHERE b.is_deleted = 0
-            AND b.is_processed = 0
-            ORDER BY b.check_in_date ASC"),
-        ARRAY_A
-    );
-    
-    include plugin_dir_path(__FILE__) . '../templates/booking-merge.php';
+    simple_hotel_crm_render_booking_merges_page();
 }
 
 function simple_hotel_crm_render_booking_detail_page() {
