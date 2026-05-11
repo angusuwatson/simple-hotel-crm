@@ -822,7 +822,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                     'total_amount' => $booking_total,
                     'currency' => 'EUR',
                     'booking_note' => '',
-                    'internal_notes' => (string) $booking_group['import_notes'],
+                    'internal_notes' => trim( '[ICS_SKELETON] ' . (string) $booking_group['import_notes'] ),
                     'invoice_ninja_client_id' => (string) $booking_group['invoice_ninja_client_id'],
                     'invoice_ninja_invoice_id' => (string) $booking_group['invoice_ninja_invoice_id'],
                 ],

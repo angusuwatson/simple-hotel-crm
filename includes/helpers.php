@@ -564,17 +564,18 @@ function simple_hotel_crm_mark_missing_booking_com_bookings_cancelled( array $se
         return 0;
     }
     $placeholders = implode( ',', array_fill( 0, count( $seen_uids ), '%s' ) );
-    $params = array_merge( [ 'booking_com' ], $seen_uids );
     $query = $wpdb->prepare(
         "UPDATE {$bookings_table}
          SET status_code = 'cancelled'
          WHERE source_channel = %s
            AND is_deleted = 0
-           AND (internal_notes IS NULL OR internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')
+           AND status_code = 'confirmed'
+           AND internal_notes LIKE %s
+           AND internal_notes NOT LIKE '%[MERGED_ARCHIVE]%'
            AND source_booking_id <> ''
            AND check_out_date >= %s
            AND source_booking_id NOT IN ({$placeholders})",
-        array_merge( [ 'booking_com', current_time( 'Y-m-d' ) ], $seen_uids )
+        array_merge( [ 'booking_com', '%[ICS_SKELETON]%', current_time( 'Y-m-d' ) ], $seen_uids )
     );
     return (int) $wpdb->query( $query );
 }
