@@ -94,6 +94,7 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
                 GROUP BY booking_id
              ) room_counts ON room_counts.booking_id = b.id
              WHERE b.is_deleted = 0
+               AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')
                AND b.status_code IN ('pending', 'confirmed', 'checked_in', 'cancelled')
                AND brn.stay_date >= %s
                AND brn.stay_date < %s
