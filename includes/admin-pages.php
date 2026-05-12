@@ -3040,18 +3040,33 @@ function simple_hotel_crm_map_motopress_booking_preview_row( $row ) {
     $row = is_array( $row ) ? $row : [];
 
     $guest_name = '';
-    if ( ! empty( $row['guest_name'] ) ) {
-        $guest_name = trim( (string) $row['guest_name'] );
-    } elseif ( ! empty( $row['customer']['full_name'] ) ) {
+    // Try customer name first
+    if ( ! empty( $row['customer']['full_name'] ) ) {
         $guest_name = trim( (string) $row['customer']['full_name'] );
-    } else {
-        $first_name = trim( (string) ( $row['first_name'] ?? $row['customer']['first_name'] ?? '' ) );
-        $last_name  = trim( (string) ( $row['last_name'] ?? $row['customer']['last_name'] ?? '' ) );
+    } elseif ( ! empty( $row['customer']['first_name'] ) || ! empty( $row['customer']['last_name'] ) ) {
+        $first_name = trim( (string) $row['customer']['first_name'] );
+        $last_name = trim( (string) $row['customer']['last_name'] );
         $guest_name = trim( $first_name . ' ' . $last_name );
     }
-
-    if ( '' === $guest_name && ! empty( $row['reserved_accommodations'][0]['guest_name'] ) ) {
+    // Then try booking-level name
+    elseif ( ! empty( $row['guest_name'] ) ) {
+        $guest_name = trim( (string) $row['guest_name'] );
+    }
+    // Then try first/last name from booking
+    elseif ( ! empty( $row['first_name'] ) || ! empty( $row['last_name'] ) ) {
+        $first_name = trim( (string) $row['first_name'] );
+        $last_name = trim( (string) $row['last_name'] );
+        $guest_name = trim( $first_name . ' ' . $last_name );
+    }
+    // Then try accommodation guest name
+    elseif ( ! empty( $row['reserved_accommodations'][0]['guest_name'] ) ) {
         $guest_name = trim( (string) $row['reserved_accommodations'][0]['guest_name'] );
+    }
+    // Fallback to customer fields if nothing else
+    elseif ( ! empty( $row['customer']['first_name'] ) || ! empty( $row['customer']['last_name'] ) ) {
+        $first_name = trim( (string) $row['customer']['first_name'] );
+        $last_name = trim( (string) $row['customer']['last_name'] );
+        $guest_name = trim( $first_name . ' ' . $last_name );
     }
 
     $status = sanitize_key( (string) ( $row['status'] ?? $row['status_code'] ?? 'confirmed' ) );
