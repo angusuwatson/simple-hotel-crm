@@ -53,6 +53,9 @@ function simple_hotel_crm_render_admin_page() {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
 
+    $month = isset( $_GET['month'] ) ? intval( $_GET['month'] ) : intval( date( 'n' ) );
+    $year  = isset( $_GET['year'] ) ? intval( $_GET['year'] ) : intval( date( 'Y' ) );
+
     if ( isset( $_POST['simple_hotel_crm_calendar_sync_ics'] ) ) {
         check_admin_referer( 'simple_hotel_crm_calendar_sync_ics', 'simple_hotel_crm_calendar_sync_ics_nonce' );
         $ics_import_results = simple_hotel_crm_import_booking_com_ics_feeds();
@@ -77,24 +80,24 @@ function simple_hotel_crm_render_admin_page() {
         exit;
     }
 
-    $month = isset( $_GET['month'] ) ? intval( $_GET['month'] ) : intval( date( 'n' ) );
-    $year  = isset( $_GET['year'] ) ? intval( $_GET['year'] ) : intval( date( 'Y' ) );
     $calendar_data = simple_hotel_crm_get_calendar_data( $month, $year );
 
-    echo '<div class="wrap">';
+    $sync_notice = null;
     if ( isset( $_GET['sync_done'] ) ) {
         $sync_notice = get_transient( 'simple_hotel_crm_admin_sync_notice_' . get_current_user_id() );
         delete_transient( 'simple_hotel_crm_admin_sync_notice_' . get_current_user_id() );
-        if ( ! empty( $sync_notice['success'] ) ) {
-            echo '<div class="notice notice-success"><p>' . esc_html( (string) $sync_notice['success'] ) . '</p></div>';
+    }
+
+    echo '<div class="wrap">';
+    if ( ! empty( $sync_notice['success'] ) ) {
+        echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( (string) $sync_notice['success'] ) . '</p></div>';
+    }
+    if ( ! empty( $sync_notice['errors'] ) && is_array( $sync_notice['errors'] ) ) {
+        echo '<div class="notice notice-warning is-dismissible"><ul>';
+        foreach ( $sync_notice['errors'] as $error ) {
+            echo '<li>' . esc_html( (string) $error ) . '</li>';
         }
-        if ( ! empty( $sync_notice['errors'] ) && is_array( $sync_notice['errors'] ) ) {
-            echo '<div class="notice notice-warning"><ul>';
-            foreach ( $sync_notice['errors'] as $error ) {
-                echo '<li>' . esc_html( (string) $error ) . '</li>';
-            }
-            echo '</ul></div>';
-        }
+        echo '</ul></div>';
     }
     if ( isset( $_GET['created_booking'] ) ) {
         echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Booking %d created.', 'simple-hotel-crm' ), absint( $_GET['created_booking'] ) ) ) . '</p></div>';
