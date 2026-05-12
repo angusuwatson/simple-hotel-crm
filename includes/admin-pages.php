@@ -24,6 +24,30 @@ function simple_hotel_crm_register_admin_menu() {
     add_submenu_page( null, __( 'Import', 'simple-hotel-crm' ), __( 'Import', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-import', 'simple_hotel_crm_render_import_page' );
 }
 
+function simple_hotel_crm_sync_all_motopress_rooms() {
+    if ( ! function_exists( 'MPHB' ) || ! method_exists( MPHB(), 'postTypes' ) || ! method_exists( MPHB(), 'getQueuedSynchronizer' ) ) {
+        return new WP_Error( 'motopress_unavailable', __( 'MotoPress plugin not available.', 'simple-hotel-crm' ) );
+    }
+
+    $room_post_type = MPHB()->postTypes()->room()->getPostType();
+    $room_ids = get_posts( [
+        'post_type' => $room_post_type,
+        'post_status' => 'publish',
+        'fields' => 'ids',
+        'posts_per_page' => -1,
+        'orderby' => 'ID',
+        'order' => 'ASC',
+    ] );
+
+    $room_ids = array_values( array_filter( array_map( 'absint', $room_ids ) ) );
+    if ( empty( $room_ids ) ) {
+        return 0;
+    }
+
+    MPHB()->getQueuedSynchronizer()->sync( $room_ids );
+    return count( $room_ids );
+}
+
 function simple_hotel_crm_render_admin_page() {
     if ( ! simple_hotel_crm_user_can_access() ) {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
@@ -32,13 +56,26 @@ function simple_hotel_crm_render_admin_page() {
     if ( isset( $_POST['simple_hotel_crm_calendar_sync_ics'] ) ) {
         check_admin_referer( 'simple_hotel_crm_calendar_sync_ics', 'simple_hotel_crm_calendar_sync_ics_nonce' );
         $ics_import_results = simple_hotel_crm_import_booking_com_ics_feeds();
-        echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'ICS skeleton sync complete. Feeds: %1$d, Events: %2$d, Staged nights: %3$d, Skipped: %4$d', 'simple-hotel-crm' ), (int) ( $ics_import_results['feeds'] ?? 0 ), (int) ( $ics_import_results['events'] ?? 0 ), (int) ( $ics_import_results['staged'] ?? 0 ), (int) ( $ics_import_results['skipped'] ?? 0 ) ) ) . '</p></div>';
+        $motopress_sync_result = simple_hotel_crm_sync_all_motopress_rooms();
+        $motopress_synced_count = is_wp_error( $motopress_sync_result ) ? 0 : (int) $motopress_sync_result;
+        $sync_message = sprintf(
+            __( 'Calendar sync complete. ICS feeds: %1$d, Events: %2$d, Staged nights: %3$d, Skipped: %4$d. MotoPress rooms queued: %5$d.', 'simple-hotel-crm' ),
+            (int) ( $ics_import_results['feeds'] ?? 0 ),
+            (int) ( $ics_import_results['events'] ?? 0 ),
+            (int) ( $ics_import_results['staged'] ?? 0 ),
+            (int) ( $ics_import_results['skipped'] ?? 0 ),
+            $motopress_synced_count
+        );
+        echo '<div class="notice notice-success"><p>' . esc_html( $sync_message ) . '</p></div>';
         if ( ! empty( $ics_import_results['errors'] ) ) {
             echo '<div class="notice notice-warning"><ul>';
             foreach ( $ics_import_results['errors'] as $error ) {
                 echo '<li>' . esc_html( $error ) . '</li>';
             }
             echo '</ul></div>';
+        }
+        if ( is_wp_error( $motopress_sync_result ) ) {
+            echo '<div class="notice notice-warning"><p>' . esc_html( $motopress_sync_result->get_error_message() ) . '</p></div>';
         }
     }
 
@@ -54,7 +91,7 @@ function simple_hotel_crm_render_admin_page() {
     echo '<a class="simple-hotel-crm-floating-add-booking" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-add-booking' ) ) . '" aria-label="' . esc_attr__( 'Add Booking', 'simple-hotel-crm' ) . '">+</a>';
     echo '<form method="post" class="simple-hotel-crm-floating-sync-form">';
     wp_nonce_field( 'simple_hotel_crm_calendar_sync_ics', 'simple_hotel_crm_calendar_sync_ics_nonce' );
-    echo '<button type="submit" name="simple_hotel_crm_calendar_sync_ics" value="1" class="simple-hotel-crm-floating-sync">' . esc_html__( 'Sync ICS', 'simple-hotel-crm' ) . '</button>';
+    echo '<button type="submit" name="simple_hotel_crm_calendar_sync_ics" value="1" class="simple-hotel-crm-floating-sync" aria-label="' . esc_attr__( 'Sync calendars', 'simple-hotel-crm' ) . '" title="' . esc_attr__( 'Sync Booking.com ICS and all MotoPress rooms', 'simple-hotel-crm' ) . '"><span class="dashicons dashicons-update"></span></button>';
     echo '</form>';
     echo '</div>';
 }

@@ -96,10 +96,21 @@
     border-radius: 999px;
     background: #2f6f3e;
     color: #fff;
-    padding: 10px 14px;
+    width: 42px;
+    height: 42px;
+    padding: 0;
     line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     cursor: pointer;
+}
+
+.simple-hotel-crm-floating-sync .dashicons {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
 }
 
 .simple-hotel-crm-floating-sync:hover {
