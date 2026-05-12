@@ -2362,17 +2362,6 @@ function simple_hotel_crm_find_guest_for_import_row( $row, $create_if_missing = 
     // }
 
     if ( $create_if_missing && ( $first_name || $last_name || $email || $phone ) ) {
-        // Debug: log guest data being inserted
-        error_log( 'Attempting to create guest: ' . print_r( [
-            'first_name' => $first_name,
-            'last_name' => $last_name,
-            'email' => $email,
-            'phone' => $phone,
-            'address_line_1' => sanitize_text_field( $row['address_line_1'] ?? '' ),
-            'city' => sanitize_text_field( $row['city'] ?? '' ),
-            'postcode' => sanitize_text_field( $row['postcode'] ?? '' ),
-            'country' => sanitize_text_field( $row['country'] ?? '' ),
-        ], true ) );
 
         $guest_id = $wpdb->insert( $table, [
             'first_name' => $first_name,
