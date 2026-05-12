@@ -56,6 +56,38 @@ function simple_hotel_crm_sync_all_motopress_rooms() {
         return new WP_Error( 'motopress_unavailable', __( 'MotoPress plugin not available.', 'simple-hotel-crm' ) );
     }
 
+    // Try REST API approach first (like preview/import)
+    $consumer_key = get_option( 'simple_hotel_crm_motopress_consumer_key', '' );
+    $consumer_secret = get_option( 'simple_hotel_crm_motopress_consumer_secret', '' );
+    if ( $consumer_key && $consumer_secret ) {
+        $response = wp_remote_get( 'https://lagrangefleurie.fr/wp-json/mphb/v1/bookings?per_page=100', [
+            'headers' => [
+                'Authorization' => 'Basic ' . base64_encode( $consumer_key . ':' . $consumer_secret ),
+            ],
+            'timeout' => 20,
+        ] );
+        if ( ! is_wp_error( $response ) ) {
+            $code = wp_remote_retrieve_response_code( $response );
+            $data = json_decode( wp_remote_retrieve_body( $response ), true );
+            if ( 200 === $code && is_array( $data ) && ! empty( $data ) ) {
+                $preview_rows = $data;
+                $preview_mapped_rows = array_map( 'simple_hotel_crm_map_motopress_booking_preview_row', $preview_rows );
+                $import_rows = [];
+                foreach ( $preview_mapped_rows as $index => $mapped_row ) {
+                    $analysis_row = simple_hotel_crm_analyze_motopress_booking_preview_row( $mapped_row );
+                    if ( 'new' === ( $analysis_row['status'] ?? '' ) ) {
+                        $import_rows[] = $mapped_row;
+                    }
+                }
+                if ( ! empty( $import_rows ) ) {
+                    $import_result = simple_hotel_crm_import_bookings_csv( $import_rows, false );
+                    return count( $import_rows );
+                }
+            }
+        }
+    }
+
+    // Fallback to background synchronizer
     $room_ids = array_values( array_filter( array_map( 'absint', (array) MPHB()->getSyncUrlsRepository()->getAllRoomIds() ) ) );
     if ( empty( $room_ids ) ) {
         return new WP_Error( 'motopress_no_rooms', __( 'No MotoPress rooms with sync URLs found.', 'simple-hotel-crm' ) );
