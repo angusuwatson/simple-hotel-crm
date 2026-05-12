@@ -1690,7 +1690,7 @@ function simple_hotel_crm_render_booking_detail_page() {
     }
     
     if ( isset( $_POST['simple_hotel_crm_save_booking'] ) && $booking ) {
-        check_admin_referer( 'simple_hotel_crm_save_booking_' . $booking_id );
+        check_admin_referer( 'simple_hotel_crm_save_booking' );
         $posted_room_lines = array_values( array_filter( $posted_room_lines, function( $line ) {
             return empty( $line['remove'] );
         } ) );
@@ -1802,7 +1802,7 @@ function simple_hotel_crm_render_booking_detail_page() {
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm' ) ) . '">← ' . esc_html__( 'Back to Calendar', 'simple-hotel-crm' ) . '</a>';
     echo '</p>';
     echo '<form method="post">';
-    wp_nonce_field( 'simple_hotel_crm_save_booking_' . $booking_id );
+    wp_nonce_field( 'simple_hotel_crm_save_booking' );
     echo '<table class="form-table">';
     echo '<tr><th>' . esc_html__( 'Guest / Status / Channel', 'simple-hotel-crm' ) . '</th><td><div class="simple-hotel-crm-admin-inline-fields" style="display:flex;gap:12px;flex-wrap:nowrap;align-items:flex-end;"><label style="flex:1 1 34%;min-width:220px;">' . esc_html__( 'Guest', 'simple-hotel-crm' ) . '<br><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guest-detail&guest_id=' . absint( $booking['guest_id'] ) ) ) . '">' . esc_html( trim( (string) $booking['first_name'] . ' ' . (string) $booking['last_name'] ) ) . '</a></label><label style="flex:1 1 33%;min-width:180px;">' . esc_html__( 'Status', 'simple-hotel-crm' ) . '<br><select name="status_code">';
     foreach ( simple_hotel_crm_get_booking_status_options() as $code => $label ) {
