@@ -2374,9 +2374,6 @@ function simple_hotel_crm_find_guest_for_import_row( $row, $create_if_missing = 
             'country' => sanitize_text_field( $row['country'] ?? '' ),
         ], true ) );
 
-        // Debug: log the exact data being inserted
-        error_log( 'Guest creation - Inserting data: first_name="' . $first_name . '", last_name="' . $last_name . '", email="' . $email . '", phone="' . $phone . '"' );
-
         $guest_id = $wpdb->insert( $table, [
             'first_name' => $first_name,
             'last_name' => $last_name,
@@ -2390,20 +2387,8 @@ function simple_hotel_crm_find_guest_for_import_row( $row, $create_if_missing = 
             'updated_at' => current_time( 'mysql' ),
         ], [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ] );
 
-        // Debug: log guest ID result and any database errors
-        error_log( 'Guest creation result: ' . ( $guest_id ? 'success - ID: ' . $guest_id : 'failed - wpdb error: ' . print_r( $wpdb->last_error, true ) ) );
-
         if ( $guest_id ) {
-            $new_guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $guest_id ), ARRAY_A );
-            
-            // Debug: log the newly created guest details
-            error_log( 'Created new guest from DB: ID ' . $guest_id . ' - first_name="' . ($new_guest['first_name'] ?? 'NULL') . '", last_name="' . ($new_guest['last_name'] ?? 'NULL') . '", email="' . ($new_guest['email'] ?? 'NULL') . '", phone="' . ($new_guest['phone'] ?? 'NULL') . '"' );
-            
-            // Additional check: see if there are multiple guests with similar data
-            $similar_guests = $wpdb->get_results( $wpdb->prepare( "SELECT id, first_name, last_name, email, phone FROM {$table} WHERE first_name = %s OR last_name = %s OR email = %s OR phone = %s LIMIT 5", $first_name, $last_name, $email, $phone ), ARRAY_A );
-            error_log( 'Similar guests found: ' . print_r( $similar_guests, true ) );
-            
-            return $new_guest;
+            return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $guest_id ), ARRAY_A );
         }
     }
 
@@ -2498,14 +2483,6 @@ function simple_hotel_crm_import_bookings_csv( $rows, $dry_run = false ) {
         
         $guest = simple_hotel_crm_find_guest_for_import_row( $guest_data, false );
         
-        // Debug: log guest finding result
-        error_log( 'Booking import - Guest finding result: ' . print_r( [
-            'row_index' => $index + 2,
-            'guest_data' => $guest_data,
-            'found_guest_id' => $guest['id'] ?? 'none',
-            'found_guest_name' => ($guest['first_name'] ?? '') . ' ' . ($guest['last_name'] ?? ''),
-        ], true ) );
-        
         // If no guest found, create one with full details
         if ( ! $guest ) {
             $full_guest_data = [
@@ -2521,9 +2498,6 @@ function simple_hotel_crm_import_bookings_csv( $rows, $dry_run = false ) {
             ];
             
             $guest = simple_hotel_crm_find_guest_for_import_row( $full_guest_data, true );
-            
-            // Debug: log guest creation result
-            error_log( 'Booking import - Created new guest: ID ' . ($guest['id'] ?? 'none') . ' - ' . ($guest['first_name'] ?? '') . ' ' . ($guest['last_name'] ?? ''));
         }
         
         if ( ! $guest ) {
@@ -2542,9 +2516,6 @@ function simple_hotel_crm_import_bookings_csv( $rows, $dry_run = false ) {
             continue;
         }
 
-        // Debug: log booking creation with guest ID
-        error_log( 'Booking import - Creating booking with guest_id: ' . (int) $guest['id'] . ' for booking: ' . ($row['external_booking_id'] ?? 'no-id') );
-        
         $wpdb->insert( $bookings_table, [
             'guest_id' => (int) $guest['id'],
             'source_channel' => sanitize_text_field( $row['source_channel'] ?? 'direct' ),
@@ -2557,11 +2528,6 @@ function simple_hotel_crm_import_bookings_csv( $rows, $dry_run = false ) {
             'booking_note' => sanitize_textarea_field( $row['booking_note'] ?? '' ),
             'internal_notes' => sanitize_textarea_field( $row['internal_notes'] ?? '' ),
         ], [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ] );
-        
-        // Debug: log the actual guest ID that was inserted
-        $new_booking_id = $wpdb->insert_id;
-        $actual_guest_id = $wpdb->get_var( $wpdb->prepare( "SELECT guest_id FROM {$bookings_table} WHERE id = %d", $new_booking_id ) );
-        error_log( 'Booking import - Booking ' . $new_booking_id . ' actually has guest_id: ' . $actual_guest_id );
         $summary['created']++;
     }
 
