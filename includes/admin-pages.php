@@ -2037,7 +2037,9 @@ function simple_hotel_crm_render_guest_detail_page() {
         $booking_id = absint( $_POST['booking_id'] ?? 0 );
         $target_guest_id = absint( $_POST['target_guest_id'] ?? 0 );
         
-        if ( $booking_id > 0 && $target_guest_id > 0 ) {
+        if ( ! isset( $_POST['_wpnonce'] ) || ! wp_verify_nonce( $_POST['_wpnonce'], 'simple_hotel_crm_transfer_booking_' . $booking_id ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'Invalid request.', 'simple-hotel-crm' ) . '</p></div>';
+        } elseif ( $booking_id > 0 && $target_guest_id > 0 ) {
             $wpdb->update( $bookings_table, [ 'guest_id' => $target_guest_id ], [ 'id' => $booking_id ] );
             echo '<div class="notice notice-success"><p>' . esc_html__( 'Booking transferred to the selected guest.', 'simple-hotel-crm' ) . '</p></div>';
             echo '<script>location.reload();</script>';
@@ -2090,15 +2092,18 @@ function simple_hotel_crm_render_guest_detail_page() {
         
         // Handle transfer submission
         if ( isset( $_POST['simple_hotel_crm_transfer_bookings'] ) ) {
-            check_admin_referer( 'simple_hotel_crm_transfer_bookings_' . $guest_id );
-            $target_guest_id = absint( $_POST['target_guest_id'] ?? 0 );
-            
-            if ( $target_guest_id > 0 ) {
-                $wpdb->update( $bookings_table, [ 'guest_id' => $target_guest_id ], [ 'guest_id' => $guest_id ] );
-                echo '<div class="notice notice-success"><p>' . esc_html__( 'All bookings transferred to the selected guest.', 'simple-hotel-crm' ) . '</p></div>';
-                echo '<script>location.reload();</script>';
+            if ( ! isset( $_POST['_wpnonce'] ) || ! wp_verify_nonce( $_POST['_wpnonce'], 'simple_hotel_crm_transfer_bookings_' . $guest_id ) ) {
+                echo '<div class="notice notice-error"><p>' . esc_html__( 'Invalid request.', 'simple-hotel-crm' ) . '</p></div>';
             } else {
-                echo '<div class="notice notice-error"><p>' . esc_html__( 'Invalid target guest selected.', 'simple-hotel-crm' ) . '</p></div>';
+                $target_guest_id = absint( $_POST['target_guest_id'] ?? 0 );
+                
+                if ( $target_guest_id > 0 ) {
+                    $wpdb->update( $bookings_table, [ 'guest_id' => $target_guest_id ], [ 'guest_id' => $guest_id ] );
+                    echo '<div class="notice notice-success"><p>' . esc_html__( 'All bookings transferred to the selected guest.', 'simple-hotel-crm' ) . '</p></div>';
+                    echo '<script>location.reload();</script>';
+                } else {
+                    echo '<div class="notice notice-error"><p>' . esc_html__( 'Invalid target guest selected.', 'simple-hotel-crm' ) . '</p></div>';
+                }
             }
         }
         
@@ -2118,6 +2123,7 @@ function simple_hotel_crm_render_guest_detail_page() {
                 echo '<td>';
                 echo '<form method="post" class="transfer-booking-form" style="display:inline;">';
                 wp_nonce_field( 'simple_hotel_crm_transfer_booking_' . absint( $booking['id'] ) );
+                echo '<input type="hidden" name="booking_id" value="' . esc_attr( absint( $booking['id'] ) ) . '" />';
                 
                 // Get all guests except current one and the booking's current guest
                 $current_guest_id = $guest_id;
