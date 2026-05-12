@@ -2359,9 +2359,14 @@ function simple_hotel_crm_find_guest_for_import_row( $row, $create_if_missing = 
             'last_name' => $last_name,
             'email' => $email,
             'phone' => $phone,
+            'address_line_1' => sanitize_text_field( $row['address_line_1'] ?? '' ),
+            'city' => sanitize_text_field( $row['city'] ?? '' ),
+            'postcode' => sanitize_text_field( $row['postcode'] ?? '' ),
+            'country' => sanitize_text_field( $row['country'] ?? '' ),
+            'state' => sanitize_text_field( $row['state'] ?? '' ),
             'created_at' => current_time( 'mysql' ),
             'updated_at' => current_time( 'mysql' ),
-        ], [ '%s', '%s', '%s', '%s', '%s', '%s' ] );
+        ], [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ] );
         if ( $guest_id ) {
             return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $guest_id ), ARRAY_A );
         }
