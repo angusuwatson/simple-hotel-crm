@@ -3063,6 +3063,17 @@ function simple_hotel_crm_analyze_motopress_booking_preview_row( $mapped_row ) {
     $mapped_row = is_array( $mapped_row ) ? $mapped_row : [];
     $issues = [];
 
+    // Skip cancelled bookings - only import confirmed bookings
+    $status_code = strtolower( $mapped_row['status_code'] ?? 'confirmed' );
+    if ( 'cancelled' === $status_code || 'cancelled' === $status_code ) {
+        return [
+            'guest_match' => false,
+            'booking_match' => false,
+            'status' => 'skipped',
+            'issues' => ['cancelled_booking'],
+        ];
+    }
+
     if ( empty( $mapped_row['guest_name'] ) ) {
         $issues[] = 'missing_guest_name';
     }
