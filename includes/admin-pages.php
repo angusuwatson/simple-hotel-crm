@@ -2376,10 +2376,9 @@ function simple_hotel_crm_find_guest_for_import_row( $row, $create_if_missing = 
             'city' => sanitize_text_field( $row['city'] ?? '' ),
             'postcode' => sanitize_text_field( $row['postcode'] ?? '' ),
             'country' => sanitize_text_field( $row['country'] ?? '' ),
-            'state' => sanitize_text_field( $row['state'] ?? '' ),
             'created_at' => current_time( 'mysql' ),
             'updated_at' => current_time( 'mysql' ),
-        ], [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ] );
+        ], [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ] );
 
         // Debug: log guest ID result
         error_log( 'Guest creation result: ' . ( $guest_id ? 'success - ID: ' . $guest_id : 'failed' ) );
