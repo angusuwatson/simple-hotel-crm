@@ -58,25 +58,23 @@ function simple_hotel_crm_render_admin_page() {
         $ics_import_results = simple_hotel_crm_import_booking_com_ics_feeds();
         $motopress_sync_result = simple_hotel_crm_sync_all_motopress_rooms();
         $motopress_synced_count = is_wp_error( $motopress_sync_result ) ? 0 : (int) $motopress_sync_result;
-        $sync_message = sprintf(
-            __( 'Calendar sync complete. ICS feeds: %1$d, Events: %2$d, Staged nights: %3$d, Skipped: %4$d. MotoPress rooms queued: %5$d.', 'simple-hotel-crm' ),
-            (int) ( $ics_import_results['feeds'] ?? 0 ),
-            (int) ( $ics_import_results['events'] ?? 0 ),
-            (int) ( $ics_import_results['staged'] ?? 0 ),
-            (int) ( $ics_import_results['skipped'] ?? 0 ),
-            $motopress_synced_count
-        );
-        echo '<div class="notice notice-success"><p>' . esc_html( $sync_message ) . '</p></div>';
-        if ( ! empty( $ics_import_results['errors'] ) ) {
-            echo '<div class="notice notice-warning"><ul>';
-            foreach ( $ics_import_results['errors'] as $error ) {
-                echo '<li>' . esc_html( $error ) . '</li>';
-            }
-            echo '</ul></div>';
-        }
-        if ( is_wp_error( $motopress_sync_result ) ) {
-            echo '<div class="notice notice-warning"><p>' . esc_html( $motopress_sync_result->get_error_message() ) . '</p></div>';
-        }
+        $sync_notice = [
+            'success' => sprintf(
+                __( 'Calendar sync complete. ICS feeds: %1$d, Events: %2$d, Staged nights: %3$d, Skipped: %4$d. MotoPress rooms queued: %5$d.', 'simple-hotel-crm' ),
+                (int) ( $ics_import_results['feeds'] ?? 0 ),
+                (int) ( $ics_import_results['events'] ?? 0 ),
+                (int) ( $ics_import_results['staged'] ?? 0 ),
+                (int) ( $ics_import_results['skipped'] ?? 0 ),
+                $motopress_synced_count
+            ),
+            'errors' => array_values( array_filter( array_merge(
+                ! empty( $ics_import_results['errors'] ) ? (array) $ics_import_results['errors'] : [],
+                is_wp_error( $motopress_sync_result ) ? [ $motopress_sync_result->get_error_message() ] : []
+            ) ) ),
+        ];
+        set_transient( 'simple_hotel_crm_admin_sync_notice_' . get_current_user_id(), $sync_notice, 5 * MINUTE_IN_SECONDS );
+        wp_safe_redirect( admin_url( 'admin.php?page=simple-hotel-crm&month=' . $month . '&year=' . $year . '&sync_done=1' ) );
+        exit;
     }
 
     $month = isset( $_GET['month'] ) ? intval( $_GET['month'] ) : intval( date( 'n' ) );
@@ -84,6 +82,20 @@ function simple_hotel_crm_render_admin_page() {
     $calendar_data = simple_hotel_crm_get_calendar_data( $month, $year );
 
     echo '<div class="wrap">';
+    if ( isset( $_GET['sync_done'] ) ) {
+        $sync_notice = get_transient( 'simple_hotel_crm_admin_sync_notice_' . get_current_user_id() );
+        delete_transient( 'simple_hotel_crm_admin_sync_notice_' . get_current_user_id() );
+        if ( ! empty( $sync_notice['success'] ) ) {
+            echo '<div class="notice notice-success"><p>' . esc_html( (string) $sync_notice['success'] ) . '</p></div>';
+        }
+        if ( ! empty( $sync_notice['errors'] ) && is_array( $sync_notice['errors'] ) ) {
+            echo '<div class="notice notice-warning"><ul>';
+            foreach ( $sync_notice['errors'] as $error ) {
+                echo '<li>' . esc_html( (string) $error ) . '</li>';
+            }
+            echo '</ul></div>';
+        }
+    }
     if ( isset( $_GET['created_booking'] ) ) {
         echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Booking %d created.', 'simple-hotel-crm' ), absint( $_GET['created_booking'] ) ) ) . '</p></div>';
     }
