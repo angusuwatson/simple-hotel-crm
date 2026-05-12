@@ -3144,9 +3144,20 @@ function simple_hotel_crm_map_motopress_booking_preview_row( $row ) {
     $customer = $row['customer'] ?? [];
     $accommodation = $row['reserved_accommodations'][0] ?? [];
 
+    // Extract first_name and last_name from the guest_name if we have it
+    $first_name = '';
+    $last_name = '';
+    if (!empty($guest_name)) {
+        $name_parts = explode(' ', $guest_name, 2);
+        $first_name = $name_parts[0] ?? '';
+        $last_name = $name_parts[1] ?? '';
+    }
+
     return [
         'external_booking_id' => (string) ( $row['id'] ?? '' ),
         'guest_name'          => $guest_name,
+        'first_name'          => $first_name,
+        'last_name'           => $last_name,
         'guest_email'         => (string) ( $customer['email'] ?? '' ),
         'phone'               => (string) ( $customer['phone'] ?? '' ),
         'address_line_1'      => (string) ( $customer['address1'] ?? '' ),
