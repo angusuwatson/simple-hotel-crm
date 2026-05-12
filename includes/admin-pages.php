@@ -2349,16 +2349,17 @@ function simple_hotel_crm_find_guest_for_import_row( $row, $create_if_missing = 
     //     }
     // }
 
-    $target_name = simple_hotel_crm_normalize_import_name( trim( $first_name . ' ' . $last_name ) ?: (string) ( $row['guest_name'] ?? '' ) );
-    if ( '' !== $target_name ) {
-        $guests = $wpdb->get_results( "SELECT * FROM {$table}", ARRAY_A );
-        foreach ( $guests as $guest ) {
-            $guest_name = simple_hotel_crm_normalize_import_name( trim( (string) ( $guest['first_name'] ?? '' ) . ' ' . (string) ( $guest['last_name'] ?? '' ) ) );
-            if ( $guest_name === $target_name ) {
-                return $guest;
-            }
-        }
-    }
+    // Fuzzy name matching also disabled to prevent false matches
+    // $target_name = simple_hotel_crm_normalize_import_name( trim( $first_name . ' ' . $last_name ) ?: (string) ( $row['guest_name'] ?? '' ) );
+    // if ( '' !== $target_name ) {
+    //     $guests = $wpdb->get_results( "SELECT * FROM {$table}", ARRAY_A );
+    //     foreach ( $guests as $guest ) {
+    //         $guest_name = simple_hotel_crm_normalize_import_name( trim( (string) ( $guest['first_name'] ?? '' ) . ' ' . (string) ( $guest['last_name'] ?? '' ) ) );
+    //         if ( $guest_name === $target_name ) {
+    //             return $guest;
+    //         }
+    //     }
+    // }
 
     if ( $create_if_missing && ( $first_name || $last_name || $email || $phone ) ) {
         // Debug: log guest data being inserted
