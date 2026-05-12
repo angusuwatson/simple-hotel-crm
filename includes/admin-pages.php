@@ -2374,6 +2374,9 @@ function simple_hotel_crm_find_guest_for_import_row( $row, $create_if_missing = 
             'country' => sanitize_text_field( $row['country'] ?? '' ),
         ], true ) );
 
+        // Debug: log the exact data being inserted
+        error_log( 'Guest creation - Inserting data: first_name="' . $first_name . '", last_name="' . $last_name . '", email="' . $email . '", phone="' . $phone . '"' );
+
         $guest_id = $wpdb->insert( $table, [
             'first_name' => $first_name,
             'last_name' => $last_name,
@@ -2387,14 +2390,18 @@ function simple_hotel_crm_find_guest_for_import_row( $row, $create_if_missing = 
             'updated_at' => current_time( 'mysql' ),
         ], [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ] );
 
-        // Debug: log guest ID result
-        error_log( 'Guest creation result: ' . ( $guest_id ? 'success - ID: ' . $guest_id : 'failed' ) );
+        // Debug: log guest ID result and any database errors
+        error_log( 'Guest creation result: ' . ( $guest_id ? 'success - ID: ' . $guest_id : 'failed - wpdb error: ' . print_r( $wpdb->last_error, true ) ) );
 
         if ( $guest_id ) {
             $new_guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $guest_id ), ARRAY_A );
             
             // Debug: log the newly created guest details
-            error_log( 'Created new guest: ID ' . $guest_id . ' - ' . $new_guest['first_name'] . ' ' . $new_guest['last_name'] . ' - Email: ' . $new_guest['email'] . ' - Phone: ' . $new_guest['phone'] );
+            error_log( 'Created new guest from DB: ID ' . $guest_id . ' - first_name="' . ($new_guest['first_name'] ?? 'NULL') . '", last_name="' . ($new_guest['last_name'] ?? 'NULL') . '", email="' . ($new_guest['email'] ?? 'NULL') . '", phone="' . ($new_guest['phone'] ?? 'NULL') . '"' );
+            
+            // Additional check: see if there are multiple guests with similar data
+            $similar_guests = $wpdb->get_results( $wpdb->prepare( "SELECT id, first_name, last_name, email, phone FROM {$table} WHERE first_name = %s OR last_name = %s OR email = %s OR phone = %s LIMIT 5", $first_name, $last_name, $email, $phone ), ARRAY_A );
+            error_log( 'Similar guests found: ' . print_r( $similar_guests, true ) );
             
             return $new_guest;
         }
