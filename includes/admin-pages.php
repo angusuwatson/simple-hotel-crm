@@ -1797,7 +1797,10 @@ function simple_hotel_crm_render_booking_detail_page() {
 
     echo '<div class="wrap">';
     echo '<h1>' . esc_html__( 'Booking Detail', 'simple-hotel-crm' ) . ' #' . esc_html( (string) $booking_id ) . '</h1>';
-    echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings' ) ) . '">← ' . esc_html__( 'Back to Bookings', 'simple-hotel-crm' ) . '</a></p>';
+    echo '<p>';
+    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings' ) ) . '">← ' . esc_html__( 'Back to Bookings', 'simple-hotel-crm' ) . '</a> | ';
+    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm' ) ) . '">← ' . esc_html__( 'Back to Calendar', 'simple-hotel-crm' ) . '</a>';
+    echo '</p>';
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_save_booking_' . $booking_id );
     echo '<table class="form-table">';
