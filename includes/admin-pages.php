@@ -2312,7 +2312,7 @@ function simple_hotel_crm_normalize_import_name( $value ) {
     return trim( preg_replace( '/\s+/', ' ', (string) $value ) );
 }
 
-function simple_hotel_crm_find_guest_for_import_row( $row ) {
+function simple_hotel_crm_find_guest_for_import_row( $row, $create_if_missing = false ) {
     global $wpdb;
     $table = simple_hotel_crm_guests_table();
     $first_name = sanitize_text_field( $row['first_name'] ?? '' );
@@ -2350,6 +2350,20 @@ function simple_hotel_crm_find_guest_for_import_row( $row ) {
             if ( $guest_name === $target_name ) {
                 return $guest;
             }
+        }
+    }
+
+    if ( $create_if_missing && ( $first_name || $last_name || $email || $phone ) ) {
+        $guest_id = $wpdb->insert( $table, [
+            'first_name' => $first_name,
+            'last_name' => $last_name,
+            'email' => $email,
+            'phone' => $phone,
+            'created_at' => current_time( 'mysql' ),
+            'updated_at' => current_time( 'mysql' ),
+        ], [ '%s', '%s', '%s', '%s', '%s', '%s' ] );
+        if ( $guest_id ) {
+            return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $guest_id ), ARRAY_A );
         }
     }
 
@@ -2433,9 +2447,9 @@ function simple_hotel_crm_import_bookings_csv( $rows, $dry_run = false ) {
             continue;
         }
 
-        $guest = simple_hotel_crm_find_guest_for_import_row( [ 'email' => $guest_email, 'guest_name' => $guest_name ] );
+        $guest = simple_hotel_crm_find_guest_for_import_row( [ 'email' => $guest_email, 'guest_name' => $guest_name ], true );
         if ( ! $guest ) {
-            $summary['errors'][] = sprintf( __( 'Bookings row %d: guest not found.', 'simple-hotel-crm' ), $index + 2 );
+            $summary['errors'][] = sprintf( __( 'Bookings row %d: guest not found and could not be created.', 'simple-hotel-crm' ), $index + 2 );
             continue;
         }
 
