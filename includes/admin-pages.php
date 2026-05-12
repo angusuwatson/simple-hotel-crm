@@ -3074,11 +3074,8 @@ function simple_hotel_crm_map_motopress_booking_preview_row( $row ) {
         $status = 'confirmed';
     }
 
-    // Map channel - MotoPress "website" = our "website", "booking_com" = our "booking_com"
-    $source_channel = 'booking_com';
-    if ( ! empty( $row['source'] ) && 'website' === strtolower( (string) $row['source'] ) ) {
-        $source_channel = 'website';
-    }
+    // MotoPress syncs always use "website" channel
+    $source_channel = 'website';
 
     return [
         'external_booking_id' => (string) ( $row['id'] ?? '' ),
