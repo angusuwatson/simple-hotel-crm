@@ -3077,11 +3077,20 @@ function simple_hotel_crm_map_motopress_booking_preview_row( $row ) {
     // MotoPress syncs always use "website" channel
     $source_channel = 'website';
 
+    // Extract guest details from customer and accommodation data
+    $customer = $row['customer'] ?? [];
+    $accommodation = $row['reserved_accommodations'][0] ?? [];
+
     return [
         'external_booking_id' => (string) ( $row['id'] ?? '' ),
         'guest_name'          => $guest_name,
-        'guest_email'         => (string) ( $row['email'] ?? $row['customer']['email'] ?? '' ),
-        'phone'               => (string) ( $row['phone'] ?? $row['customer']['phone'] ?? '' ),
+        'guest_email'         => (string) ( $customer['email'] ?? '' ),
+        'phone'               => (string) ( $customer['phone'] ?? '' ),
+        'address_line_1'      => (string) ( $customer['address1'] ?? '' ),
+        'city'                => (string) ( $customer['city'] ?? '' ),
+        'postcode'            => (string) ( $customer['zip'] ?? '' ),
+        'country'             => (string) ( $customer['country'] ?? '' ),
+        'state'               => (string) ( $customer['state'] ?? '' ),
         'check_in'            => (string) ( $row['check_in_date'] ?? $row['checkInDate'] ?? '' ),
         'check_out'           => (string) ( $row['check_out_date'] ?? $row['checkOutDate'] ?? '' ),
         'contacted_date'      => (string) ( $row['date_created'] ?? '' ),
