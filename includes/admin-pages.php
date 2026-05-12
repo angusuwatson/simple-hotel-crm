@@ -2452,7 +2452,20 @@ function simple_hotel_crm_import_bookings_csv( $rows, $dry_run = false ) {
             continue;
         }
 
-        $guest = simple_hotel_crm_find_guest_for_import_row( [ 'email' => $guest_email, 'guest_name' => $guest_name ], true );
+        // Pass all available guest details for creation
+        $guest_data = [
+            'email' => $guest_email,
+            'guest_name' => $guest_name,
+            'first_name' => sanitize_text_field( $row['first_name'] ?? '' ),
+            'last_name' => sanitize_text_field( $row['last_name'] ?? '' ),
+            'phone' => sanitize_text_field( $row['phone'] ?? '' ),
+            'address_line_1' => sanitize_text_field( $row['address_line_1'] ?? '' ),
+            'city' => sanitize_text_field( $row['city'] ?? '' ),
+            'postcode' => sanitize_text_field( $row['postcode'] ?? '' ),
+            'country' => sanitize_text_field( $row['country'] ?? '' ),
+            'state' => sanitize_text_field( $row['state'] ?? '' ),
+        ];
+        $guest = simple_hotel_crm_find_guest_for_import_row( $guest_data, true );
         if ( ! $guest ) {
             $summary['errors'][] = sprintf( __( 'Bookings row %d: guest not found and could not be created.', 'simple-hotel-crm' ), $index + 2 );
             continue;
