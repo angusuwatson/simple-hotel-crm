@@ -3066,6 +3066,8 @@ function simple_hotel_crm_analyze_motopress_booking_preview_row( $mapped_row ) {
     $guest = simple_hotel_crm_find_guest_for_import_row( [
         'email' => $mapped_row['guest_email'] ?? '',
         'guest_name' => $mapped_row['guest_name'] ?? '',
+        'first_name' => $mapped_row['first_name'] ?? '',
+        'last_name' => $mapped_row['last_name'] ?? '',
         'phone' => $mapped_row['phone'] ?? '',
     ] );
     $booking = simple_hotel_crm_find_booking_for_import_row( $mapped_row, (int) ( $guest['id'] ?? 0 ) );
