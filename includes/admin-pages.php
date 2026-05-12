@@ -2011,7 +2011,44 @@ function simple_hotel_crm_render_guest_detail_page() {
     echo '</table>';
     submit_button( __( 'Save Guest', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_save_guest' );
     echo '</form>';
+    
+    // Add Transfer to Guest functionality
     if ( $guest_id > 0 ) {
+        echo '<h2>' . esc_html__( 'Transfer Bookings', 'simple-hotel-crm' ) . '</h2>';
+        echo '<form method="post">';
+        wp_nonce_field( 'simple_hotel_crm_transfer_bookings_' . $guest_id );
+        
+        // Get all guests except current one
+        $all_guests = $wpdb->get_results( $wpdb->prepare( "SELECT id, first_name, last_name FROM {$guests_table} WHERE id != %d AND is_deleted = 0 ORDER BY last_name, first_name", $guest_id ), ARRAY_A );
+        
+        if ( ! empty( $all_guests ) ) {
+            echo '<select name="target_guest_id" class="regular-text">';
+            echo '<option value="0">' . esc_html__( 'Select guest to transfer to...', 'simple-hotel-crm' ) . '</option>';
+            foreach ( $all_guests as $other_guest ) {
+                $guest_name = trim( (string) $other_guest['first_name'] . ' ' . (string) $other_guest['last_name'] );
+                echo '<option value="' . esc_attr( (string) $other_guest['id'] ) . '">' . esc_html( $guest_name ) . '</option>';
+            }
+            echo '</select> ';
+            submit_button( __( 'Transfer Bookings', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_transfer_bookings' );
+        } else {
+            echo '<p>' . esc_html__( 'No other guests available to transfer to.', 'simple-hotel-crm' ) . '</p>';
+        }
+        echo '</form>';
+        
+        // Handle transfer submission
+        if ( isset( $_POST['simple_hotel_crm_transfer_bookings'] ) ) {
+            check_admin_referer( 'simple_hotel_crm_transfer_bookings_' . $guest_id );
+            $target_guest_id = absint( $_POST['target_guest_id'] ?? 0 );
+            
+            if ( $target_guest_id > 0 ) {
+                $wpdb->update( $bookings_table, [ 'guest_id' => $target_guest_id ], [ 'guest_id' => $guest_id ] );
+                echo '<div class="notice notice-success"><p>' . esc_html__( 'All bookings transferred to the selected guest.', 'simple-hotel-crm' ) . '</p></div>';
+                echo '<script>location.reload();</script>';
+            } else {
+                echo '<div class="notice notice-error"><p>' . esc_html__( 'Invalid target guest selected.', 'simple-hotel-crm' ) . '</p></div>';
+            }
+        }
+        
         echo '<h2>' . esc_html__( 'Bookings', 'simple-hotel-crm' ) . '</h2><table class="widefat striped"><thead><tr><th>ID</th><th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Total', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
         if ( empty( $bookings ) ) {
             echo '<tr><td colspan="5">' . esc_html__( 'No bookings found.', 'simple-hotel-crm' ) . '</td></tr>';
