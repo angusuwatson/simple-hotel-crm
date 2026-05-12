@@ -3074,6 +3074,12 @@ function simple_hotel_crm_map_motopress_booking_preview_row( $row ) {
         $status = 'confirmed';
     }
 
+    // Map channel - MotoPress "website" = our "website", "booking_com" = our "booking_com"
+    $source_channel = 'booking_com';
+    if ( ! empty( $row['source'] ) && 'website' === strtolower( (string) $row['source'] ) ) {
+        $source_channel = 'website';
+    }
+
     return [
         'external_booking_id' => (string) ( $row['id'] ?? '' ),
         'guest_name'          => $guest_name,
@@ -3081,8 +3087,9 @@ function simple_hotel_crm_map_motopress_booking_preview_row( $row ) {
         'phone'               => (string) ( $row['phone'] ?? $row['customer']['phone'] ?? '' ),
         'check_in'            => (string) ( $row['check_in_date'] ?? $row['checkInDate'] ?? '' ),
         'check_out'           => (string) ( $row['check_out_date'] ?? $row['checkOutDate'] ?? '' ),
+        'contacted_date'      => (string) ( $row['date_created'] ?? '' ),
         'status_code'         => $status,
-        'source_channel'      => 'booking_com',
+        'source_channel'      => $source_channel,
         'booking_note'        => (string) ( $row['note'] ?? $row['booking_note'] ?? '' ),
         'internal_notes'      => (string) ( $row['internal_note'] ?? $row['internal_notes'] ?? '' ),
     ];
