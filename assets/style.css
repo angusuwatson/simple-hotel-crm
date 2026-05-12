@@ -36,15 +36,11 @@
     color: #fff;
 }
 
-.simple-hotel-crm-floating-sync-form {
+.simple-hotel-crm-floating-sync {
     position: fixed;
     right: 24px;
     bottom: 78px;
     z-index: 1000;
-    margin: 0;
-}
-
-.simple-hotel-crm-floating-sync {
     width: 44px;
     min-width: 44px;
     max-width: 44px;
@@ -59,6 +55,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    text-decoration: none;
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
     cursor: pointer;
 }

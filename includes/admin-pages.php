@@ -3,6 +3,7 @@ if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 add_action( 'admin_menu', 'simple_hotel_crm_register_admin_menu' );
 add_action( 'admin_notices', 'simple_hotel_crm_render_admin_sync_notice' );
+add_action( 'admin_post_simple_hotel_crm_calendar_sync', 'simple_hotel_crm_handle_calendar_sync_action' );
 function simple_hotel_crm_register_admin_menu() {
     if ( ! simple_hotel_crm_user_can_access() ) {
         return;
@@ -51,27 +52,56 @@ function simple_hotel_crm_render_admin_sync_notice() {
 }
 
 function simple_hotel_crm_sync_all_motopress_rooms() {
-    if ( ! function_exists( 'MPHB' ) || ! method_exists( MPHB(), 'postTypes' ) || ! method_exists( MPHB(), 'getQueuedSynchronizer' ) ) {
+    if ( ! function_exists( 'MPHB' ) || ! method_exists( MPHB(), 'getQueuedSynchronizer' ) || ! method_exists( MPHB(), 'getSyncUrlsRepository' ) ) {
         return new WP_Error( 'motopress_unavailable', __( 'MotoPress plugin not available.', 'simple-hotel-crm' ) );
     }
 
-    $room_post_type = MPHB()->postTypes()->room()->getPostType();
-    $room_ids = get_posts( [
-        'post_type' => $room_post_type,
-        'post_status' => 'publish',
-        'fields' => 'ids',
-        'posts_per_page' => -1,
-        'orderby' => 'ID',
-        'order' => 'ASC',
-    ] );
-
-    $room_ids = array_values( array_filter( array_map( 'absint', $room_ids ) ) );
+    $room_ids = array_values( array_filter( array_map( 'absint', (array) MPHB()->getSyncUrlsRepository()->getAllRoomIds() ) ) );
     if ( empty( $room_ids ) ) {
-        return 0;
+        return new WP_Error( 'motopress_no_rooms', __( 'No MotoPress rooms with sync URLs found.', 'simple-hotel-crm' ) );
     }
 
     MPHB()->getQueuedSynchronizer()->sync( $room_ids );
+    if ( method_exists( MPHB()->getQueuedSynchronizer(), 'doNext' ) ) {
+        MPHB()->getQueuedSynchronizer()->doNext();
+    }
+    if ( method_exists( MPHB()->getQueuedSynchronizer(), 'isInProgress' ) ) {
+        MPHB()->getQueuedSynchronizer()->isInProgress();
+    }
+
     return count( $room_ids );
+}
+
+function simple_hotel_crm_handle_calendar_sync_action() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
+    }
+
+    check_admin_referer( 'simple_hotel_crm_calendar_sync_action' );
+
+    $month = isset( $_GET['month'] ) ? intval( $_GET['month'] ) : intval( date( 'n' ) );
+    $year  = isset( $_GET['year'] ) ? intval( $_GET['year'] ) : intval( date( 'Y' ) );
+
+    $ics_import_results = simple_hotel_crm_import_booking_com_ics_feeds();
+    $motopress_sync_result = simple_hotel_crm_sync_all_motopress_rooms();
+    $motopress_synced_count = is_wp_error( $motopress_sync_result ) ? 0 : (int) $motopress_sync_result;
+    $sync_notice = [
+        'success' => sprintf(
+            __( 'Calendar sync complete. ICS feeds: %1$d, Events: %2$d, Staged nights: %3$d, Skipped: %4$d. MotoPress rooms started: %5$d.', 'simple-hotel-crm' ),
+            (int) ( $ics_import_results['feeds'] ?? 0 ),
+            (int) ( $ics_import_results['events'] ?? 0 ),
+            (int) ( $ics_import_results['staged'] ?? 0 ),
+            (int) ( $ics_import_results['skipped'] ?? 0 ),
+            $motopress_synced_count
+        ),
+        'errors' => array_values( array_filter( array_merge(
+            ! empty( $ics_import_results['errors'] ) ? (array) $ics_import_results['errors'] : [],
+            is_wp_error( $motopress_sync_result ) ? [ $motopress_sync_result->get_error_message() ] : []
+        ) ) ),
+    ];
+    set_transient( 'simple_hotel_crm_admin_sync_notice_' . get_current_user_id(), $sync_notice, 5 * MINUTE_IN_SECONDS );
+    wp_safe_redirect( admin_url( 'admin.php?page=simple-hotel-crm&month=' . $month . '&year=' . $year . '&sync_done=1' ) );
+    exit;
 }
 
 function simple_hotel_crm_render_admin_page() {
@@ -82,29 +112,6 @@ function simple_hotel_crm_render_admin_page() {
     $month = isset( $_GET['month'] ) ? intval( $_GET['month'] ) : intval( date( 'n' ) );
     $year  = isset( $_GET['year'] ) ? intval( $_GET['year'] ) : intval( date( 'Y' ) );
 
-    if ( isset( $_POST['simple_hotel_crm_calendar_sync_ics'] ) ) {
-        check_admin_referer( 'simple_hotel_crm_calendar_sync_ics', 'simple_hotel_crm_calendar_sync_ics_nonce' );
-        $ics_import_results = simple_hotel_crm_import_booking_com_ics_feeds();
-        $motopress_sync_result = simple_hotel_crm_sync_all_motopress_rooms();
-        $motopress_synced_count = is_wp_error( $motopress_sync_result ) ? 0 : (int) $motopress_sync_result;
-        $sync_notice = [
-            'success' => sprintf(
-                __( 'Calendar sync complete. ICS feeds: %1$d, Events: %2$d, Staged nights: %3$d, Skipped: %4$d. MotoPress rooms queued: %5$d.', 'simple-hotel-crm' ),
-                (int) ( $ics_import_results['feeds'] ?? 0 ),
-                (int) ( $ics_import_results['events'] ?? 0 ),
-                (int) ( $ics_import_results['staged'] ?? 0 ),
-                (int) ( $ics_import_results['skipped'] ?? 0 ),
-                $motopress_synced_count
-            ),
-            'errors' => array_values( array_filter( array_merge(
-                ! empty( $ics_import_results['errors'] ) ? (array) $ics_import_results['errors'] : [],
-                is_wp_error( $motopress_sync_result ) ? [ $motopress_sync_result->get_error_message() ] : []
-            ) ) ),
-        ];
-        set_transient( 'simple_hotel_crm_admin_sync_notice_' . get_current_user_id(), $sync_notice, 5 * MINUTE_IN_SECONDS );
-        wp_safe_redirect( admin_url( 'admin.php?page=simple-hotel-crm&month=' . $month . '&year=' . $year . '&sync_done=1' ) );
-        exit;
-    }
 
     $calendar_data = simple_hotel_crm_get_calendar_data( $month, $year );
 
@@ -114,10 +121,8 @@ function simple_hotel_crm_render_admin_page() {
     }
     echo simple_hotel_crm_render_calendar( $calendar_data, 'admin' );
     echo '<a class="simple-hotel-crm-floating-add-booking" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-add-booking' ) ) . '" aria-label="' . esc_attr__( 'Add Booking', 'simple-hotel-crm' ) . '">+</a>';
-    echo '<form method="post" class="simple-hotel-crm-floating-sync-form">';
-    wp_nonce_field( 'simple_hotel_crm_calendar_sync_ics', 'simple_hotel_crm_calendar_sync_ics_nonce' );
-    echo '<button type="submit" name="simple_hotel_crm_calendar_sync_ics" value="1" class="simple-hotel-crm-floating-sync" aria-label="' . esc_attr__( 'Sync calendars', 'simple-hotel-crm' ) . '" title="' . esc_attr__( 'Sync Booking.com ICS and all MotoPress rooms', 'simple-hotel-crm' ) . '"><span class="dashicons dashicons-update"></span></button>';
-    echo '</form>';
+    $sync_url = wp_nonce_url( admin_url( 'admin-post.php?action=simple_hotel_crm_calendar_sync&month=' . $month . '&year=' . $year ), 'simple_hotel_crm_calendar_sync_action' );
+    echo '<a href="' . esc_url( $sync_url ) . '" class="simple-hotel-crm-floating-sync" aria-label="' . esc_attr__( 'Sync calendars', 'simple-hotel-crm' ) . '" title="' . esc_attr__( 'Sync Booking.com ICS and all MotoPress rooms', 'simple-hotel-crm' ) . '"><span class="dashicons dashicons-update"></span></a>';
     echo '</div>';
 }
 
