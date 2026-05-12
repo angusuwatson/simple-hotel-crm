@@ -2320,27 +2320,34 @@ function simple_hotel_crm_find_guest_for_import_row( $row, $create_if_missing = 
     $email = sanitize_email( $row['email'] ?? ( $row['guest_email'] ?? '' ) );
     $phone = sanitize_text_field( $row['phone'] ?? '' );
 
+    // First try exact email match (most reliable)
     if ( $email ) {
         $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE email = %s LIMIT 1", $email ), ARRAY_A );
         if ( $guest ) {
             return $guest;
         }
     }
+    
+    // Then try phone + name match (very reliable)
     if ( $phone && ( $first_name || $last_name ) ) {
         $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE phone = %s AND first_name = %s AND last_name = %s LIMIT 1", $phone, $first_name, $last_name ), ARRAY_A );
         if ( $guest ) {
             return $guest;
         }
     }
+    
+    // Only try name match if we have no email or phone (less reliable, can cause false matches)
     if ( empty( $first_name ) && empty( $last_name ) && ! empty( $row['guest_name'] ) ) {
         list( $first_name, $last_name ) = simple_hotel_crm_split_guest_name( sanitize_text_field( $row['guest_name'] ) );
     }
-    if ( $first_name || $last_name ) {
-        $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE first_name = %s AND last_name = %s LIMIT 1", $first_name, $last_name ), ARRAY_A );
-        if ( $guest ) {
-            return $guest;
-        }
-    }
+    
+    // Name-only matching disabled to prevent false matches
+    // if ( $first_name || $last_name ) {
+    //     $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE first_name = %s AND last_name = %s LIMIT 1", $first_name, $last_name ), ARRAY_A );
+    //     if ( $guest ) {
+    //         return $guest;
+    //     }
+    // }
 
     $target_name = simple_hotel_crm_normalize_import_name( trim( $first_name . ' ' . $last_name ) ?: (string) ( $row['guest_name'] ?? '' ) );
     if ( '' !== $target_name ) {
