@@ -2490,6 +2490,17 @@ function simple_hotel_crm_import_bookings_csv( $rows, $dry_run = false ) {
             'state' => sanitize_text_field( $row['state'] ?? '' ),
         ];
         $guest = simple_hotel_crm_find_guest_for_import_row( $guest_data, true );
+        
+        // Debug: log guest matching result
+        error_log( 'Booking import - Guest matching result: ' . print_r( [
+            'row_index' => $index + 2,
+            'guest_data' => $guest_data,
+            'found_guest_id' => $guest['id'] ?? 'none',
+            'found_guest_name' => ($guest['first_name'] ?? '') . ' ' . ($guest['last_name'] ?? ''),
+            'found_guest_email' => $guest['email'] ?? '',
+            'found_guest_phone' => $guest['phone'] ?? '',
+        ], true ) );
+        
         if ( ! $guest ) {
             $summary['errors'][] = sprintf( __( 'Bookings row %d: guest not found and could not be created.', 'simple-hotel-crm' ), $index + 2 );
             continue;
@@ -2506,6 +2517,9 @@ function simple_hotel_crm_import_bookings_csv( $rows, $dry_run = false ) {
             continue;
         }
 
+        // Debug: log booking creation with guest ID
+        error_log( 'Booking import - Creating booking with guest_id: ' . (int) $guest['id'] . ' for booking: ' . ($row['external_booking_id'] ?? 'no-id') );
+        
         $wpdb->insert( $bookings_table, [
             'guest_id' => (int) $guest['id'],
             'source_channel' => sanitize_text_field( $row['source_channel'] ?? 'direct' ),
@@ -2518,6 +2532,11 @@ function simple_hotel_crm_import_bookings_csv( $rows, $dry_run = false ) {
             'booking_note' => sanitize_textarea_field( $row['booking_note'] ?? '' ),
             'internal_notes' => sanitize_textarea_field( $row['internal_notes'] ?? '' ),
         ], [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ] );
+        
+        // Debug: log the actual guest ID that was inserted
+        $new_booking_id = $wpdb->insert_id;
+        $actual_guest_id = $wpdb->get_var( $wpdb->prepare( "SELECT guest_id FROM {$bookings_table} WHERE id = %d", $new_booking_id ) );
+        error_log( 'Booking import - Booking ' . $new_booking_id . ' actually has guest_id: ' . $actual_guest_id );
         $summary['created']++;
     }
 
