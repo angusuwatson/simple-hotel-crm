@@ -2372,7 +2372,6 @@ function simple_hotel_crm_find_guest_for_import_row( $row, $create_if_missing = 
             'city' => sanitize_text_field( $row['city'] ?? '' ),
             'postcode' => sanitize_text_field( $row['postcode'] ?? '' ),
             'country' => sanitize_text_field( $row['country'] ?? '' ),
-            'state' => sanitize_text_field( $row['state'] ?? '' ),
         ], true ) );
 
         $guest_id = $wpdb->insert( $table, [
@@ -2392,7 +2391,12 @@ function simple_hotel_crm_find_guest_for_import_row( $row, $create_if_missing = 
         error_log( 'Guest creation result: ' . ( $guest_id ? 'success - ID: ' . $guest_id : 'failed' ) );
 
         if ( $guest_id ) {
-            return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $guest_id ), ARRAY_A );
+            $new_guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $guest_id ), ARRAY_A );
+            
+            // Debug: log the newly created guest details
+            error_log( 'Created new guest: ID ' . $guest_id . ' - ' . $new_guest['first_name'] . ' ' . $new_guest['last_name'] . ' - Email: ' . $new_guest['email'] . ' - Phone: ' . $new_guest['phone'] );
+            
+            return $new_guest;
         }
     }
 
@@ -2476,30 +2480,44 @@ function simple_hotel_crm_import_bookings_csv( $rows, $dry_run = false ) {
             continue;
         }
 
-        // Pass all available guest details for creation
+        // Try to find existing guest first
         $guest_data = [
             'email' => $guest_email,
             'guest_name' => $guest_name,
             'first_name' => sanitize_text_field( $row['first_name'] ?? '' ),
             'last_name' => sanitize_text_field( $row['last_name'] ?? '' ),
             'phone' => sanitize_text_field( $row['phone'] ?? '' ),
-            'address_line_1' => sanitize_text_field( $row['address_line_1'] ?? '' ),
-            'city' => sanitize_text_field( $row['city'] ?? '' ),
-            'postcode' => sanitize_text_field( $row['postcode'] ?? '' ),
-            'country' => sanitize_text_field( $row['country'] ?? '' ),
-            'state' => sanitize_text_field( $row['state'] ?? '' ),
         ];
-        $guest = simple_hotel_crm_find_guest_for_import_row( $guest_data, true );
         
-        // Debug: log guest matching result
-        error_log( 'Booking import - Guest matching result: ' . print_r( [
+        $guest = simple_hotel_crm_find_guest_for_import_row( $guest_data, false );
+        
+        // Debug: log guest finding result
+        error_log( 'Booking import - Guest finding result: ' . print_r( [
             'row_index' => $index + 2,
             'guest_data' => $guest_data,
             'found_guest_id' => $guest['id'] ?? 'none',
             'found_guest_name' => ($guest['first_name'] ?? '') . ' ' . ($guest['last_name'] ?? ''),
-            'found_guest_email' => $guest['email'] ?? '',
-            'found_guest_phone' => $guest['phone'] ?? '',
         ], true ) );
+        
+        // If no guest found, create one with full details
+        if ( ! $guest ) {
+            $full_guest_data = [
+                'email' => $guest_email,
+                'guest_name' => $guest_name,
+                'first_name' => sanitize_text_field( $row['first_name'] ?? '' ),
+                'last_name' => sanitize_text_field( $row['last_name'] ?? '' ),
+                'phone' => sanitize_text_field( $row['phone'] ?? '' ),
+                'address_line_1' => sanitize_text_field( $row['address_line_1'] ?? '' ),
+                'city' => sanitize_text_field( $row['city'] ?? '' ),
+                'postcode' => sanitize_text_field( $row['postcode'] ?? '' ),
+                'country' => sanitize_text_field( $row['country'] ?? '' ),
+            ];
+            
+            $guest = simple_hotel_crm_find_guest_for_import_row( $full_guest_data, true );
+            
+            // Debug: log guest creation result
+            error_log( 'Booking import - Created new guest: ID ' . ($guest['id'] ?? 'none') . ' - ' . ($guest['first_name'] ?? '') . ' ' . ($guest['last_name'] ?? ''));
+        }
         
         if ( ! $guest ) {
             $summary['errors'][] = sprintf( __( 'Bookings row %d: guest not found and could not be created.', 'simple-hotel-crm' ), $index + 2 );
