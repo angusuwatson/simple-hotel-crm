@@ -2,6 +2,7 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 add_action( 'admin_menu', 'simple_hotel_crm_register_admin_menu' );
+add_action( 'admin_notices', 'simple_hotel_crm_render_admin_sync_notice' );
 function simple_hotel_crm_register_admin_menu() {
     if ( ! simple_hotel_crm_user_can_access() ) {
         return;
@@ -22,6 +23,31 @@ function simple_hotel_crm_register_admin_menu() {
     add_submenu_page( 'simple-hotel-crm', __( 'Settings', 'simple-hotel-crm' ), __( 'Settings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-settings', 'simple_hotel_crm_render_settings_page' );
     
     add_submenu_page( null, __( 'Import', 'simple-hotel-crm' ), __( 'Import', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-import', 'simple_hotel_crm_render_import_page' );
+}
+
+function simple_hotel_crm_render_admin_sync_notice() {
+    if ( ! is_admin() || ! simple_hotel_crm_user_can_access() ) {
+        return;
+    }
+
+    $page = sanitize_key( $_GET['page'] ?? '' );
+    if ( 'simple-hotel-crm' !== $page || ! isset( $_GET['sync_done'] ) ) {
+        return;
+    }
+
+    $sync_notice = get_transient( 'simple_hotel_crm_admin_sync_notice_' . get_current_user_id() );
+    delete_transient( 'simple_hotel_crm_admin_sync_notice_' . get_current_user_id() );
+
+    if ( ! empty( $sync_notice['success'] ) ) {
+        echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( (string) $sync_notice['success'] ) . '</p></div>';
+    }
+    if ( ! empty( $sync_notice['errors'] ) && is_array( $sync_notice['errors'] ) ) {
+        echo '<div class="notice notice-warning is-dismissible"><ul>';
+        foreach ( $sync_notice['errors'] as $error ) {
+            echo '<li>' . esc_html( (string) $error ) . '</li>';
+        }
+        echo '</ul></div>';
+    }
 }
 
 function simple_hotel_crm_sync_all_motopress_rooms() {
@@ -82,23 +108,7 @@ function simple_hotel_crm_render_admin_page() {
 
     $calendar_data = simple_hotel_crm_get_calendar_data( $month, $year );
 
-    $sync_notice = null;
-    if ( isset( $_GET['sync_done'] ) ) {
-        $sync_notice = get_transient( 'simple_hotel_crm_admin_sync_notice_' . get_current_user_id() );
-        delete_transient( 'simple_hotel_crm_admin_sync_notice_' . get_current_user_id() );
-    }
-
     echo '<div class="wrap">';
-    if ( ! empty( $sync_notice['success'] ) ) {
-        echo '<div class="notice notice-success is-dismissible"><p>' . esc_html( (string) $sync_notice['success'] ) . '</p></div>';
-    }
-    if ( ! empty( $sync_notice['errors'] ) && is_array( $sync_notice['errors'] ) ) {
-        echo '<div class="notice notice-warning is-dismissible"><ul>';
-        foreach ( $sync_notice['errors'] as $error ) {
-            echo '<li>' . esc_html( (string) $error ) . '</li>';
-        }
-        echo '</ul></div>';
-    }
     if ( isset( $_GET['created_booking'] ) ) {
         echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Booking %d created.', 'simple-hotel-crm' ), absint( $_GET['created_booking'] ) ) ) . '</p></div>';
     }
