@@ -266,17 +266,17 @@ function simple_hotel_crm_render_bookings_page() {
     $rows = $wpdb->get_results(
         $wpdb->prepare(
             "SELECT b.id, b.guest_id, b.status_code, b.check_in_date, b.check_out_date, b.source_channel, b.total_amount, b.created_at,
-                    CONCAT(g.first_name, ' ', g.last_name) AS guest_name,
+                    COALESCE(CONCAT(g.first_name, ' ', g.last_name), '') AS guest_name,
                     COUNT(br.id) AS room_count,
                     GROUP_CONCAT(r.room_code ORDER BY r.sort_order ASC SEPARATOR ', ') AS room_codes,
                     {$commission_select} AS commission_amount,
                     COALESCE(SUM(br.total_amount), 0) AS room_total_amount,
                     CASE WHEN COALESCE(b.total_amount, 0) > 0 THEN b.total_amount ELSE COALESCE(SUM(br.total_amount), 0) END AS display_total_amount
              FROM {$bookings_table} b
-             JOIN {$guests_table} g ON g.id = b.guest_id
+             LEFT JOIN {$guests_table} g ON g.id = b.guest_id
              LEFT JOIN {$booking_rooms_table} br ON br.booking_id = b.id
              LEFT JOIN {$rooms_table} r ON r.id = br.room_id
-             GROUP BY b.id, b.guest_id, b.status_code, b.check_in_date, b.check_out_date, b.source_channel, b.total_amount, b.created_at, guest_name
+             GROUP BY b.id, b.guest_id, b.status_code, b.check_in_date, b.check_out_date, b.source_channel, b.total_amount, b.created_at, g.first_name, g.last_name
              ORDER BY {$order_sql} {$order}
              LIMIT %d OFFSET %d",
             array_merge( [ $is_deleted ], $search_params, [ $per_page, $offset ] )
@@ -285,7 +285,7 @@ function simple_hotel_crm_render_bookings_page() {
     );
     $total_bookings = (int) $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$bookings_table} b JOIN {$guests_table} g ON g.id = b.guest_id WHERE b.is_deleted = %d {$archive_sql} {$status_sql} {$search_sql}",
+            "SELECT COUNT(*) FROM {$bookings_table} b LEFT JOIN {$guests_table} g ON g.id = b.guest_id WHERE b.is_deleted = %d {$archive_sql} {$status_sql} {$search_sql}",
             array_merge( [ $is_deleted ], $search_params )
         )
     );
@@ -294,7 +294,7 @@ function simple_hotel_crm_render_bookings_page() {
             "SELECT COUNT(*) AS booking_count,
                     COALESCE(SUM(CASE WHEN COALESCE(b.total_amount, 0) > 0 THEN b.total_amount ELSE room_totals.room_total_amount END), 0) AS total_amount
              FROM {$bookings_table} b
-             JOIN {$guests_table} g ON g.id = b.guest_id
+             LEFT JOIN {$guests_table} g ON g.id = b.guest_id
              LEFT JOIN (
                 SELECT booking_id, COALESCE(SUM(total_amount), 0) AS room_total_amount
                 FROM {$booking_rooms_table}
@@ -307,10 +307,10 @@ function simple_hotel_crm_render_bookings_page() {
     );
     $totals_row['commission_amount'] = $has_commission_amount ? (float) $wpdb->get_var(
         $wpdb->prepare(
-            "SELECT COALESCE(SUM(br.commission_amount), 0)
+             "SELECT COALESCE(SUM(br.commission_amount), 0)
              FROM {$booking_rooms_table} br
              JOIN {$bookings_table} b ON b.id = br.booking_id
-             JOIN {$guests_table} g ON g.id = b.guest_id
+             LEFT JOIN {$guests_table} g ON g.id = b.guest_id
              WHERE b.is_deleted = %d {$archive_sql} {$status_sql} {$search_sql}",
             array_merge( [ $is_deleted ], $search_params )
         )
