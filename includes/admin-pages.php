@@ -268,7 +268,7 @@ function simple_hotel_crm_render_bookings_page() {
             "SELECT b.id, b.guest_id, b.status_code, b.check_in_date, b.check_out_date, b.source_channel, b.total_amount, b.created_at,
                     CONCAT(g.first_name, ' ', g.last_name) AS guest_name,
                     COUNT(br.id) AS room_count,
-                    GROUP_CONCAT(r.room_name ORDER BY r.sort_order ASC SEPARATOR ', ') AS room_names,
+                    GROUP_CONCAT(r.room_code ORDER BY r.sort_order ASC SEPARATOR ', ') AS room_codes,
                     {$commission_select} AS commission_amount,
                     COALESCE(SUM(br.total_amount), 0) AS room_total_amount,
                     CASE WHEN COALESCE(b.total_amount, 0) > 0 THEN b.total_amount ELSE COALESCE(SUM(br.total_amount), 0) END AS display_total_amount
@@ -276,7 +276,6 @@ function simple_hotel_crm_render_bookings_page() {
              JOIN {$guests_table} g ON g.id = b.guest_id
              LEFT JOIN {$booking_rooms_table} br ON br.booking_id = b.id
              LEFT JOIN {$rooms_table} r ON r.id = br.room_id
-             LEFT JOIN 
              GROUP BY b.id, b.guest_id, b.status_code, b.check_in_date, b.check_out_date, b.source_channel, b.total_amount, b.created_at, guest_name
              ORDER BY {$order_sql} {$order}
              LIMIT %d OFFSET %d",
@@ -355,7 +354,7 @@ function simple_hotel_crm_render_bookings_page() {
     echo '<th>' . $header_link( 'guest', __( 'Guest', 'simple-hotel-crm' ) ) . '</th>';
     echo '<th>' . $header_link( 'check_in', __( 'Check-in', 'simple-hotel-crm' ) ) . '</th>';
     echo '<th>' . $header_link( 'check_out', __( 'Check-out', 'simple-hotel-crm' ) ) . '</th>';
-    echo '<th>' . $header_link( 'rooms', __( 'Rooms (names)', 'simple-hotel-crm' ) ) . '</th>';
+    echo '<th>' . $header_link( 'rooms', __( 'Rooms (codes)', 'simple-hotel-crm' ) ) . '</th>';
     echo '<th>' . $header_link( 'status', __( 'Status', 'simple-hotel-crm' ) ) . '</th>';
     echo '<th>' . $header_link( 'channel', __( 'Channel', 'simple-hotel-crm' ) ) . '</th>';
     echo '<th>' . $header_link( 'commission', __( 'Commission', 'simple-hotel-crm' ) ) . '</th>';
@@ -376,7 +375,7 @@ function simple_hotel_crm_render_bookings_page() {
             echo '<td><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guest-detail&guest_id=' . absint( $row['guest_id'] ) ) ) . '">' . esc_html( trim( (string) $row['guest_name'] ) ) . '</a></td>';
             echo '<td>' . esc_html( (string) $row['check_in_date'] ) . '</td>';
             echo '<td>' . esc_html( (string) $row['check_out_date'] ) . '</td>';
-            echo '<td>' . esc_html( (string) $row['room_count'] ) . '<br /><span class="description">' . esc_html( (string) $row['room_names'] ) . '</span></td>';
+            echo '<td>' . esc_html( (string) $row['room_count'] ) . '<br /><span class="description">' . esc_html( (string) $row['room_codes'] ) . '</span></td>';
             echo '<td>' . esc_html( (string) $row['status_code'] ) . '</td>';
             echo '<td>' . esc_html( (string) $row['source_channel'] ) . '</td>';
             echo '<td>' . ( (float) $row['commission_amount'] > 0 ? esc_html( number_format( (float) $row['commission_amount'], 2, '.', '' ) ) : '' ) . '</td>';
