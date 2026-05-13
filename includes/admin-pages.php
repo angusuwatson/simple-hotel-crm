@@ -60,30 +60,41 @@ function simple_hotel_crm_sync_all_motopress_rooms() {
     $consumer_key = get_option( 'simple_hotel_crm_motopress_consumer_key', '' );
     $consumer_secret = get_option( 'simple_hotel_crm_motopress_consumer_secret', '' );
     if ( $consumer_key && $consumer_secret ) {
-        $response = wp_remote_get( 'https://lagrangefleurie.fr/wp-json/mphb/v1/bookings?per_page=100', [
-            'headers' => [
-                'Authorization' => 'Basic ' . base64_encode( $consumer_key . ':' . $consumer_secret ),
-            ],
-            'timeout' => 20,
-        ] );
-        if ( ! is_wp_error( $response ) ) {
+        $page = 1;
+        $max_pages = 5;
+        $all_import_rows = [];
+        do {
+            $response = wp_remote_get( 'https://lagrangefleurie.fr/wp-json/mphb/v1/bookings?per_page=100&page=' . $page, [
+                'headers' => [
+                    'Authorization' => 'Basic ' . base64_encode( $consumer_key . ':' . $consumer_secret ),
+                ],
+                'timeout' => 20,
+            ] );
+            if ( is_wp_error( $response ) ) {
+                break;
+            }
             $code = wp_remote_retrieve_response_code( $response );
             $data = json_decode( wp_remote_retrieve_body( $response ), true );
-            if ( 200 === $code && is_array( $data ) && ! empty( $data ) ) {
-                $preview_rows = $data;
-                $preview_mapped_rows = array_map( 'simple_hotel_crm_map_motopress_booking_preview_row', $preview_rows );
-                $import_rows = [];
-                foreach ( $preview_mapped_rows as $index => $mapped_row ) {
-                    $analysis_row = simple_hotel_crm_analyze_motopress_booking_preview_row( $mapped_row );
-                    if ( 'new' === ( $analysis_row['status'] ?? '' ) ) {
-                        $import_rows[] = $mapped_row;
-                    }
-                }
-                if ( ! empty( $import_rows ) ) {
-                    $import_result = simple_hotel_crm_import_bookings_csv( $import_rows, false );
-                    return count( $import_rows );
+            if ( 200 !== $code || ! is_array( $data ) ) {
+                break;
+            }
+            $preview_mapped_rows = array_map( 'simple_hotel_crm_map_motopress_booking_preview_row', $data );
+            foreach ( $preview_mapped_rows as $mapped_row ) {
+                $analysis_row = simple_hotel_crm_analyze_motopress_booking_preview_row( $mapped_row );
+                if ( 'new' === ( $analysis_row['status'] ?? '' ) ) {
+                    $all_import_rows[] = $mapped_row;
                 }
             }
+            $total_pages = min( (int) wp_remote_retrieve_header( $response, 'x-wp-totalpages' ), $max_pages );
+            $page++;
+        } while ( $page <= $total_pages );
+
+        if ( ! empty( $all_import_rows ) ) {
+            $import_result = simple_hotel_crm_import_bookings_csv( $all_import_rows, false );
+            if ( is_wp_error( $import_result ) ) {
+                return $import_result;
+            }
+            return count( $all_import_rows );
         }
     }
 
@@ -95,10 +106,9 @@ function simple_hotel_crm_sync_all_motopress_rooms() {
 
     MPHB()->getQueuedSynchronizer()->sync( $room_ids );
     if ( method_exists( MPHB()->getQueuedSynchronizer(), 'doNext' ) ) {
-        MPHB()->getQueuedSynchronizer()->doNext();
-    }
-    if ( method_exists( MPHB()->getQueuedSynchronizer(), 'isInProgress' ) ) {
-        MPHB()->getQueuedSynchronizer()->isInProgress();
+        while ( MPHB()->getQueuedSynchronizer()->doNext() ) {
+            // process each queued sync
+        }
     }
 
     return count( $room_ids );

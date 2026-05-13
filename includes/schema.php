@@ -754,6 +754,8 @@ function simple_hotel_crm_import_sync_data_to_crm() {
     $booking_groups = $wpdb->get_results( "SELECT external_booking_id, MIN(source_booking_id) AS source_booking_id, MIN(guest_name) AS guest_name, MIN(phone) AS phone, MIN(source_channel) AS source_channel, MIN(status_code) AS status_code, MIN(check_in) AS check_in_date, MIN(check_out) AS check_out_date, MIN(source_created_at) AS source_created_at, MIN(import_notes) AS import_notes, MIN(invoice_ninja_client_id) AS invoice_ninja_client_id, MIN(invoice_ninja_invoice_id) AS invoice_ninja_invoice_id FROM {$sync_bookings_table} GROUP BY external_booking_id ORDER BY external_booking_id ASC", ARRAY_A );
 
     foreach ( $booking_groups as $booking_group ) {
+        $wpdb->query( 'START TRANSACTION' );
+
         $room_groups = $wpdb->get_results(
             $wpdb->prepare(
                 "SELECT external_booking_room_id, room_sync_id, external_room_id, MIN(adults) AS adults, MIN(children) AS children, MIN(babies) AS babies, MIN(guest_count) AS guest_count, SUM(room_amount) AS room_rate_amount, SUM(COALESCE(extras_amount, 0)) AS extras_amount, SUM(COALESCE(tourist_tax_amount, 0)) AS tourist_tax_amount, SUM(total_amount) AS total_amount FROM {$sync_bookings_table} WHERE external_booking_id = %d GROUP BY external_booking_room_id, room_sync_id, external_room_id ORDER BY external_booking_room_id ASC",
@@ -762,6 +764,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
             ARRAY_A
         );
         if ( empty( $room_groups ) ) {
+            $wpdb->query( 'COMMIT' );
             continue;
         }
 
@@ -780,11 +783,13 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                 [ '%s', '%s', '%s', '%s' ]
             );
             if ( false === $guest_inserted ) {
+                $wpdb->query( 'ROLLBACK' );
                 continue;
             }
             $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE id = %d", (int) $wpdb->insert_id ), ARRAY_A );
         }
         if ( ! $guest ) {
+            $wpdb->query( 'ROLLBACK' );
             continue;
         }
 
@@ -802,6 +807,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
             if ( '' !== $real_source_booking_id && (string) $booking['source_booking_id'] !== $real_source_booking_id ) {
                 $wpdb->update( $crm_bookings_table, [ 'source_booking_id' => $real_source_booking_id ], [ 'id' => (int) $booking['id'] ], [ '%s' ], [ '%d' ] );
             }
+            $wpdb->query( 'COMMIT' );
             continue;
         }
 
@@ -840,11 +846,13 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                 [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%f', '%f', '%f', '%f', '%s', '%s', '%s', '%s', '%s' ]
             );
             if ( false === $booking_inserted ) {
+                $wpdb->query( 'ROLLBACK' );
                 continue;
             }
             $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$crm_bookings_table} WHERE id = %d", (int) $wpdb->insert_id ), ARRAY_A );
         }
         if ( ! $booking ) {
+            $wpdb->query( 'ROLLBACK' );
             continue;
         }
 
@@ -915,6 +923,8 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                 );
             }
         }
+
+        $wpdb->query( 'COMMIT' );
     }
 }
 

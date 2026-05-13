@@ -545,7 +545,15 @@ function simple_hotel_crm_clear_booking_com_ics_staged_rows() {
     global $wpdb;
 
     $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
-    return (int) $wpdb->query( $wpdb->prepare( "DELETE FROM {$sync_bookings_table} WHERE source_channel = %s AND source_booking_id <> %s", 'booking_com', '' ) );
+    $total_deleted = 0;
+    while ( true ) {
+        $count = (int) $wpdb->query( $wpdb->prepare( "DELETE FROM {$sync_bookings_table} WHERE source_channel = %s AND source_booking_id <> %s LIMIT 500", 'booking_com', '' ) );
+        if ( $count <= 0 ) {
+            break;
+        }
+        $total_deleted += $count;
+    }
+    return $total_deleted;
 }
 
 function simple_hotel_crm_rebuild_booking_com_ics_feeds() {
