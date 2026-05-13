@@ -274,8 +274,9 @@ function simple_hotel_crm_render_bookings_page() {
                     CASE WHEN COALESCE(b.total_amount, 0) > 0 THEN b.total_amount ELSE COALESCE(SUM(br.total_amount), 0) END AS display_total_amount
              FROM {$bookings_table} b
              LEFT JOIN {$guests_table} g ON g.id = b.guest_id
-             LEFT JOIN {$booking_rooms_table} br ON br.booking_id = b.id
+             LEFT JOIN {$booking_rooms_table} br ON br.booking_id = b.id AND br.room_id IS NOT NULL
              LEFT JOIN {$rooms_table} r ON r.id = br.room_id
+             WHERE b.is_deleted = %d {$archive_sql} {$status_sql} {$search_sql}
              GROUP BY b.id, b.guest_id, b.status_code, b.check_in_date, b.check_out_date, b.source_channel, b.total_amount, b.created_at, g.first_name, g.last_name
              ORDER BY {$order_sql} {$order}
              LIMIT %d OFFSET %d",
@@ -298,6 +299,7 @@ function simple_hotel_crm_render_bookings_page() {
              LEFT JOIN (
                 SELECT booking_id, COALESCE(SUM(total_amount), 0) AS room_total_amount
                 FROM {$booking_rooms_table}
+                WHERE room_id IS NOT NULL
                 GROUP BY booking_id
              ) room_totals ON room_totals.booking_id = b.id
              WHERE b.is_deleted = %d {$archive_sql} {$status_sql} {$search_sql}",
@@ -311,7 +313,7 @@ function simple_hotel_crm_render_bookings_page() {
              FROM {$booking_rooms_table} br
              JOIN {$bookings_table} b ON b.id = br.booking_id
              LEFT JOIN {$guests_table} g ON g.id = b.guest_id
-             WHERE b.is_deleted = %d {$archive_sql} {$status_sql} {$search_sql}",
+             WHERE b.is_deleted = %d {$archive_sql} {$status_sql} {$search_sql} AND br.room_id IS NOT NULL",
             array_merge( [ $is_deleted ], $search_params )
         )
     ) : 0.0;
