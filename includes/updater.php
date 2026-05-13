@@ -2,7 +2,9 @@
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
 define( 'SIMPLE_HOTEL_CRM_UPDATE_METADATA_URL', 'https://raw.githubusercontent.com/angusuwatson/simple-hotel-crm/master/update.json' );
+define( 'SIMPLE_HOTEL_CRM_UPDATE_METADATA_FALLBACK_URL', 'https://github.com/angusuwatson/simple-hotel-crm/raw/master/update.json' );
 define( 'SIMPLE_HOTEL_CRM_UPDATE_CACHE_KEY', 'simple_hotel_crm_update_metadata' );
+define( 'SIMPLE_HOTEL_CRM_UPDATE_ERROR_KEY', 'simple_hotel_crm_update_error' );
 define( 'SIMPLE_HOTEL_CRM_PLUGIN_DIRNAME', dirname( SIMPLE_HOTEL_CRM_PLUGIN_BASENAME ) );
 
 add_filter( 'pre_set_site_transient_update_plugins', 'simple_hotel_crm_check_for_updates' );
@@ -13,24 +15,44 @@ add_action( 'upgrader_process_complete', 'simple_hotel_crm_clear_update_cache', 
 add_filter( 'plugin_action_links_' . SIMPLE_HOTEL_CRM_PLUGIN_BASENAME, 'simple_hotel_crm_add_refresh_updates_link' );
 add_action( 'admin_notices', 'simple_hotel_crm_render_update_debug_notice' );
 
+function simple_hotel_crm_fetch_update_json( $url ) {
+    $response = wp_remote_get( $url, [ 'timeout' => 15, 'headers' => [ 'Cache-Control' => 'no-cache' ] ] );
+    if ( is_wp_error( $response ) ) {
+        return [ 'error' => $response->get_error_message() ];
+    }
+
+    $code = wp_remote_retrieve_response_code( $response );
+    if ( $code < 200 || $code >= 300 ) {
+        return [ 'error' => "HTTP {$code}" ];
+    }
+
+    $data = json_decode( wp_remote_retrieve_body( $response ), true );
+    if ( ! is_array( $data ) || empty( $data['version'] ) || empty( $data['download_url'] ) ) {
+        return [ 'error' => 'Invalid JSON or missing version/download_url' ];
+    }
+
+    return $data;
+}
+
 function simple_hotel_crm_get_update_metadata() {
     $cached = get_transient( SIMPLE_HOTEL_CRM_UPDATE_CACHE_KEY );
     if ( false !== $cached ) {
         return $cached;
     }
 
-    $response = wp_remote_get( SIMPLE_HOTEL_CRM_UPDATE_METADATA_URL, [ 'timeout' => 15, 'headers' => [ 'Cache-Control' => 'no-cache' ] ] );
-    if ( is_wp_error( $response ) ) {
+    $result = simple_hotel_crm_fetch_update_json( SIMPLE_HOTEL_CRM_UPDATE_METADATA_URL );
+    if ( isset( $result['error'] ) ) {
+        $result = simple_hotel_crm_fetch_update_json( SIMPLE_HOTEL_CRM_UPDATE_METADATA_FALLBACK_URL );
+    }
+
+    if ( isset( $result['error'] ) ) {
+        set_transient( SIMPLE_HOTEL_CRM_UPDATE_ERROR_KEY, $result['error'], 5 * MINUTE_IN_SECONDS );
         return false;
     }
 
-    $data = json_decode( wp_remote_retrieve_body( $response ), true );
-    if ( ! is_array( $data ) || empty( $data['version'] ) || empty( $data['download_url'] ) ) {
-        return false;
-    }
-
-    set_transient( SIMPLE_HOTEL_CRM_UPDATE_CACHE_KEY, $data, 5 * MINUTE_IN_SECONDS );
-    return $data;
+    delete_transient( SIMPLE_HOTEL_CRM_UPDATE_ERROR_KEY );
+    set_transient( SIMPLE_HOTEL_CRM_UPDATE_CACHE_KEY, $result, 5 * MINUTE_IN_SECONDS );
+    return $result;
 }
 
 function simple_hotel_crm_check_for_updates( $transient ) {
@@ -110,6 +132,7 @@ function simple_hotel_crm_maybe_refresh_update_cache() {
 
 function simple_hotel_crm_clear_update_cache() {
     delete_transient( SIMPLE_HOTEL_CRM_UPDATE_CACHE_KEY );
+    delete_transient( SIMPLE_HOTEL_CRM_UPDATE_ERROR_KEY );
 }
 
 function simple_hotel_crm_add_refresh_updates_link( $links ) {
@@ -129,7 +152,9 @@ function simple_hotel_crm_render_update_debug_notice() {
 
     $metadata = simple_hotel_crm_get_update_metadata();
     $remote_version = is_array( $metadata ) && ! empty( $metadata['version'] ) ? (string) $metadata['version'] : 'unavailable';
-    echo '<div class="notice notice-info"><p>' . esc_html( sprintf( 'LGF Bookings updater checked. Installed: %s. Remote: %s. Plugin key: %s', SIMPLE_HOTEL_CRM_VERSION, $remote_version, SIMPLE_HOTEL_CRM_PLUGIN_BASENAME ) ) . '</p></div>';
+    $error = get_transient( SIMPLE_HOTEL_CRM_UPDATE_ERROR_KEY );
+    $error_msg = $error ? ' Error: ' . $error : '';
+    echo '<div class="notice notice-info"><p>' . esc_html( sprintf( 'LGF Bookings updater checked. Installed: %s. Remote: %s. Plugin key: %s%s', SIMPLE_HOTEL_CRM_VERSION, $remote_version, SIMPLE_HOTEL_CRM_PLUGIN_BASENAME, $error_msg ) ) . '</p></div>';
 }
 
 function simple_hotel_crm_fix_update_source_dir( $source, $remote_source, $upgrader, $hook_extra ) {
