@@ -3734,6 +3734,7 @@ function simple_hotel_crm_render_settings_page() {
         $api_url = isset( $_POST['simple_hotel_crm_invoice_ninja_url'] ) ? esc_url_raw( trim( wp_unslash( $_POST['simple_hotel_crm_invoice_ninja_url'] ) ) ) : '';
         $api_token = isset( $_POST['simple_hotel_crm_invoice_ninja_token'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_invoice_ninja_token'] ) ) ) : '';
         $booking_com_commission_percent = isset( $_POST['simple_hotel_crm_booking_com_commission_percent'] ) ? max( 0, min( 100, (float) str_replace( ',', '.', wp_unslash( $_POST['simple_hotel_crm_booking_com_commission_percent'] ) ) ) ) : 15;
+        $dashboard_api_key = isset( $_POST['simple_hotel_crm_dashboard_api_key'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['simple_hotel_crm_dashboard_api_key'] ) ) ) : '';
         $submitted_ics_urls = isset( $_POST['simple_hotel_crm_booking_com_ics_urls'] ) && is_array( $_POST['simple_hotel_crm_booking_com_ics_urls'] ) ? wp_unslash( $_POST['simple_hotel_crm_booking_com_ics_urls'] ) : [];
         $booking_com_ics_urls = [];
         foreach ( $submitted_ics_urls as $room_id => $room_url ) {
@@ -3747,6 +3748,7 @@ function simple_hotel_crm_render_settings_page() {
         update_option( 'simple_hotel_crm_invoice_ninja_url', $api_url );
         update_option( 'simple_hotel_crm_invoice_ninja_token', $api_token );
         update_option( 'simple_hotel_crm_booking_com_commission_percent', $booking_com_commission_percent );
+        update_option( 'simple_hotel_crm_dashboard_api_key', $dashboard_api_key );
         update_option( 'simple_hotel_crm_booking_com_ics_room_urls', $booking_com_ics_urls );
         update_option( 'simple_hotel_crm_booking_source', 'wp_sync' );
 
@@ -3859,6 +3861,9 @@ function simple_hotel_crm_render_settings_page() {
         echo '<tr><th scope="row">' . esc_html__( 'DB version', 'simple-hotel-crm' ) . '</th><td><code>' . esc_html( SIMPLE_HOTEL_CRM_DB_VERSION ) . '</code></td></tr>';
         echo '<tr><th scope="row"><label for="simple_hotel_crm_booking_com_commission_percent">' . esc_html__( 'Booking.com commission %', 'simple-hotel-crm' ) . '</label></th>';
         echo '<td><input type="number" step="0.01" min="0" max="100" id="simple_hotel_crm_booking_com_commission_percent" name="simple_hotel_crm_booking_com_commission_percent" value="' . esc_attr( (string) $booking_com_commission_percent ) . '" class="small-text" /> <p class="description">' . esc_html__( 'Used for automatic commission calculation on Booking.com channel. Applied to discounted room charge only, not extras or tax.', 'simple-hotel-crm' ) . '</p></td></tr>';
+        $dashboard_api_key = get_option( 'simple_hotel_crm_dashboard_api_key', '' );
+        echo '<tr><th scope="row"><label for="simple_hotel_crm_dashboard_api_key">' . esc_html__( 'Dashboard API Key', 'simple-hotel-crm' ) . '</label></th>';
+        echo '<td><input type="text" id="simple_hotel_crm_dashboard_api_key" name="simple_hotel_crm_dashboard_api_key" value="' . esc_attr( $dashboard_api_key ) . '" class="regular-text" placeholder="Leave empty to disable" style="font-family:monospace" /> <button type="button" class="button" onclick="var k=\'\';for(var i=0;i<32;i++)k+=\'0123456789abcdef\'[Math.floor(Math.random()*16)];this.previousElementSibling.value=k">' . esc_html__( 'Generate', 'simple-hotel-crm' ) . '</button><p class="description">' . esc_html__( 'API key for the local dashboard (192.168.1.70). Share this key with your dashboard server.', 'simple-hotel-crm' ) . '</p></td></tr>';
         echo '<tr><th scope="row">' . esc_html__( 'Booking.com ICS room feeds', 'simple-hotel-crm' ) . '</th><td>';
         foreach ( $rooms_for_ics as $room_row ) {
             if ( empty( $room_row['active'] ) || 'Coquelicot' === (string) $room_row['room_name'] ) {
