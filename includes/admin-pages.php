@@ -1929,13 +1929,16 @@ function simple_hotel_crm_render_booking_detail_page() {
     $current_guest_id = absint( $booking['guest_id'] );
     $all_guests = $wpdb->get_results( $wpdb->prepare( "SELECT id, first_name, last_name FROM {$guests_table} WHERE id != %d AND is_deleted = 0 ORDER BY first_name, last_name", $current_guest_id ), ARRAY_A );
     if ( ! empty( $all_guests ) ) {
-        echo '<select name="target_guest_id" class="regular-text" required>';
+        echo '<div class="guest-search-container" style="position:relative;">';
+        echo '<input type="text" class="guest-search-input" placeholder="' . esc_attr__( 'Search guests...', 'simple-hotel-crm' ) . '" style="margin-bottom:4px;width:100%;" />';
+        echo '<select name="target_guest_id" class="regular-text guest-search-select" required>';
         echo '<option value="0">' . esc_html__( 'Transfer to...', 'simple-hotel-crm' ) . '</option>';
         foreach ( $all_guests as $other_guest ) {
             $guest_name = trim( (string) $other_guest['first_name'] . ' ' . (string) $other_guest['last_name'] );
             echo '<option value="' . esc_attr( (string) $other_guest['id'] ) . '">' . esc_html( $guest_name ) . '</option>';
         }
         echo '</select> ';
+        echo '</div>';
         submit_button( __( 'Transfer Booking', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_transfer_booking' );
     } else {
         echo esc_html__( 'No other guests available', 'simple-hotel-crm' );
@@ -2015,6 +2018,9 @@ window.simpleHotelCrmBookingComCommissionPercent = {$booking_com_commission_perc
   });
   upd(false);
 })();
+</script>
+<script>
+(function(){function g(){document.querySelectorAll(".guest-search-container").forEach(function(c){var i=c.querySelector(".guest-search-input"),s=c.querySelector(".guest-search-select");if(!i||!s)return;i.addEventListener("input",function(){var f=this.value.toLowerCase(),v=false;for(var o=0;o<s.options.length;o++){var p=s.options[o],m=p.text.toLowerCase().indexOf(f)!==-1;p.hidden=!m&&f!=="";if(m&&p.value!=="0")v=true}if(!v&&f!=="")s.value="0"})})}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",g):g()})();
 </script>
 HTML;
     echo '</div>';
