@@ -361,6 +361,17 @@ function simple_hotel_crm_booking_room_nights_table() {
     return $wpdb->prefix . 'simple_hotel_crm_booking_room_nights';
 }
 
+function simple_hotel_crm_get_room_colors() {
+    return [
+        'C1' => '#ffcccc', 'C2' => '#ccffcc', 'C3' => '#ccccff',
+        'C4' => '#ffffcc', 'C5' => '#ccffff', 'C6' => '#ffccff',
+        'C7' => '#f2f2f2', 'C8' => '#e6e6e6', 'C9' => '#d9d9d9',
+        'C10' => '#cccccc', 'C11' => '#b3b3b3', 'C12' => '#999999',
+        'C13' => '#7f7f7f', 'C14' => '#666666', 'C15' => '#4c4c4c',
+        'C16' => '#333333', 'C17' => '#191919', 'C18' => '#000000',
+    ];
+}
+
 function simple_hotel_crm_seed_rooms_table() {
     global $wpdb;
 
