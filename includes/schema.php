@@ -769,8 +769,20 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         }
 
         list( $first_name, $last_name ) = simple_hotel_crm_split_guest_name( $booking_group['guest_name'] );
-        $guest_note = 'Booking.com ICS import ' . (string) ( $booking_group['source_booking_id'] ?: $booking_group['external_booking_id'] );
-        $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE notes LIKE %s LIMIT 1", '%' . $wpdb->esc_like( $guest_note ) . '%' ), ARRAY_A );
+        $source_id = (string) ( $booking_group['source_booking_id'] ?: $booking_group['external_booking_id'] );
+
+        $guest_id = $wpdb->get_var( $wpdb->prepare(
+            "SELECT b.guest_id FROM {$crm_bookings_table} b WHERE b.source_booking_id = %s AND b.source_channel = %s LIMIT 1",
+            $source_id,
+            $booking_group['source_channel']
+        ) );
+        $guest = $guest_id ? $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE id = %d", $guest_id ), ARRAY_A ) : null;
+
+        if ( ! $guest ) {
+            $guest_note = 'Booking.com ICS import ' . $source_id;
+            $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE notes LIKE %s LIMIT 1", '%' . $wpdb->esc_like( $guest_note ) . '%' ), ARRAY_A );
+        }
+
         if ( ! $guest ) {
             $guest_inserted = $wpdb->insert(
                 simple_hotel_crm_guests_table(),
@@ -778,7 +790,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                     'first_name' => $first_name,
                     'last_name' => $last_name,
                     'phone' => (string) $booking_group['phone'],
-                    'notes' => $guest_note,
+                    'notes' => 'Booking.com ICS import ' . $source_id,
                 ],
                 [ '%s', '%s', '%s', '%s' ]
             );
