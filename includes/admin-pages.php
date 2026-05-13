@@ -2101,13 +2101,16 @@ function simple_hotel_crm_render_guest_detail_page() {
         $all_guests = $wpdb->get_results( $wpdb->prepare( "SELECT id, first_name, last_name FROM {$guests_table} WHERE id != %d AND is_deleted = 0 ORDER BY last_name, first_name", $guest_id ), ARRAY_A );
         
         if ( ! empty( $all_guests ) ) {
-            echo '<select name="target_guest_id" class="regular-text">';
+            echo '<div class="guest-search-container" style="display:inline-block;position:relative;">';
+            echo '<input type="text" class="guest-search-input" placeholder="' . esc_attr__( 'Search guests...', 'simple-hotel-crm' ) . '" style="margin-bottom:4px;width:100%;" />';
+            echo '<select name="target_guest_id" class="regular-text guest-search-select">';
             echo '<option value="0">' . esc_html__( 'Select guest to transfer to...', 'simple-hotel-crm' ) . '</option>';
             foreach ( $all_guests as $other_guest ) {
                 $guest_name = trim( (string) $other_guest['first_name'] . ' ' . (string) $other_guest['last_name'] );
                 echo '<option value="' . esc_attr( (string) $other_guest['id'] ) . '">' . esc_html( $guest_name ) . '</option>';
             }
             echo '</select> ';
+            echo '</div>';
             submit_button( __( 'Transfer Bookings', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_transfer_bookings' );
         } else {
             echo '<p>' . esc_html__( 'No other guests available to transfer to.', 'simple-hotel-crm' ) . '</p>';
@@ -2156,14 +2159,17 @@ function simple_hotel_crm_render_guest_detail_page() {
                 $all_guests = $wpdb->get_results( $wpdb->prepare( "SELECT id, first_name, last_name FROM {$guests_table} WHERE id NOT IN (" . implode( ',', array_fill( 0, count( $exclude_guest_ids ), '%d' ) ) . ") AND is_deleted = 0 ORDER BY last_name, first_name", array_merge( $exclude_guest_ids, [ $booking['id'] ] ) ), ARRAY_A );
                 
                 if ( ! empty( $all_guests ) ) {
-                    echo '<select name="target_guest_id" class="transfer-select" required>';
+                    echo '<div class="guest-search-container" style="display:inline-block;position:relative;vertical-align:middle;">';
+                    echo '<input type="text" class="guest-search-input" placeholder="' . esc_attr__( 'Search', 'simple-hotel-crm' ) . '" style="width:110px;margin-bottom:2px;font-size:11px;" />';
+                    echo '<select name="target_guest_id" class="guest-search-select" required style="display:block;">';
                     echo '<option value="0">' . esc_html__( 'Transfer to...', 'simple-hotel-crm' ) . '</option>';
                     foreach ( $all_guests as $other_guest ) {
                         $guest_name = trim( (string) $other_guest['first_name'] . ' ' . (string) $other_guest['last_name'] );
                         echo '<option value="' . esc_attr( (string) $other_guest['id'] ) . '">' . esc_html( $guest_name ) . '</option>';
                     }
                     echo '</select> ';
-                    submit_button( __( 'Transfer', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_transfer_booking', '', [ 'style' => 'margin-left: 5px;' ] );
+                    echo '</div>';
+                    submit_button( __( 'Transfer', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_transfer_booking', '', [ 'style' => 'margin-left: 2px;' ] );
                 } else {
                     echo esc_html__( 'No other guests available', 'simple-hotel-crm' );
                 }
@@ -2175,6 +2181,36 @@ function simple_hotel_crm_render_guest_detail_page() {
         }
         echo '</tbody></table>';
     }
+    echo '<script>
+    (function() {
+        function initGuestSearch() {
+            var containers = document.querySelectorAll(".guest-search-container");
+            containers.forEach(function(container) {
+                var input = container.querySelector(".guest-search-input");
+                var select = container.querySelector(".guest-search-select");
+                if (!input || !select) return;
+                input.addEventListener("input", function() {
+                    var filter = this.value.toLowerCase();
+                    var hasVisible = false;
+                    for (var i = 0; i < select.options.length; i++) {
+                        var opt = select.options[i];
+                        var match = opt.text.toLowerCase().indexOf(filter) !== -1;
+                        opt.hidden = !match && filter !== "";
+                        if (match && opt.value !== "0") hasVisible = true;
+                    }
+                    if (!hasVisible && filter !== "") {
+                        select.value = "0";
+                    }
+                });
+            });
+        }
+        if (document.readyState === "loading") {
+            document.addEventListener("DOMContentLoaded", initGuestSearch);
+        } else {
+            initGuestSearch();
+        }
+    })();
+    </script>';
     echo '</div>';
 }
 
