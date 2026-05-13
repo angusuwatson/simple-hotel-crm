@@ -167,6 +167,7 @@ function simple_hotel_crm_render_bookings_page() {
     $bookings_table = simple_hotel_crm_bookings_table();
     $guests_table = simple_hotel_crm_guests_table();
     $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $rooms_table = simple_hotel_crm_rooms_table();
     $view = ( isset( $_GET['view'] ) && in_array( $_GET['view'], [ 'trash', 'archive', 'cancelled' ], true ) ) ? sanitize_key( $_GET['view'] ) : 'active';
     $is_deleted = 'trash' === $view ? 1 : 0;
     $archive_sql = 'active' === $view ? " AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%') " : ( 'archive' === $view ? " AND b.internal_notes LIKE '%[MERGED_ARCHIVE]%' " : '' );
