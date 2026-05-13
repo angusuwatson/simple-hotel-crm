@@ -1927,7 +1927,7 @@ function simple_hotel_crm_render_booking_detail_page() {
     echo '<form method="post" style="margin:12px 0;padding:12px;background:#fff;border:1px solid #ccd0d4;">';
     wp_nonce_field( 'simple_hotel_crm_transfer_booking_' . $booking_id );
     $current_guest_id = absint( $booking['guest_id'] );
-    $all_guests = $wpdb->get_results( $wpdb->prepare( "SELECT id, first_name, last_name FROM {$guests_table} WHERE id != %d AND is_deleted = 0 ORDER BY last_name, first_name", $current_guest_id ), ARRAY_A );
+    $all_guests = $wpdb->get_results( $wpdb->prepare( "SELECT id, first_name, last_name FROM {$guests_table} WHERE id != %d AND is_deleted = 0 ORDER BY first_name, last_name", $current_guest_id ), ARRAY_A );
     if ( ! empty( $all_guests ) ) {
         echo '<select name="target_guest_id" class="regular-text" required>';
         echo '<option value="0">' . esc_html__( 'Transfer to...', 'simple-hotel-crm' ) . '</option>';
@@ -2098,7 +2098,7 @@ function simple_hotel_crm_render_guest_detail_page() {
         wp_nonce_field( 'simple_hotel_crm_transfer_bookings_' . $guest_id );
         
         // Get all guests except current one
-        $all_guests = $wpdb->get_results( $wpdb->prepare( "SELECT id, first_name, last_name FROM {$guests_table} WHERE id != %d AND is_deleted = 0 ORDER BY last_name, first_name", $guest_id ), ARRAY_A );
+        $all_guests = $wpdb->get_results( $wpdb->prepare( "SELECT id, first_name, last_name FROM {$guests_table} WHERE id != %d AND is_deleted = 0 ORDER BY first_name, last_name", $guest_id ), ARRAY_A );
         
         if ( ! empty( $all_guests ) ) {
             echo '<div class="guest-search-container" style="display:inline-block;position:relative;">';
@@ -2156,7 +2156,7 @@ function simple_hotel_crm_render_guest_detail_page() {
                 $current_guest_id = $guest_id;
                 $booking_guest_id = absint( $booking['guest_id'] );
                 $exclude_guest_ids = [ $current_guest_id, $booking_guest_id ];
-                $all_guests = $wpdb->get_results( $wpdb->prepare( "SELECT id, first_name, last_name FROM {$guests_table} WHERE id NOT IN (" . implode( ',', array_fill( 0, count( $exclude_guest_ids ), '%d' ) ) . ") AND is_deleted = 0 ORDER BY last_name, first_name", array_merge( $exclude_guest_ids, [ $booking['id'] ] ) ), ARRAY_A );
+                $all_guests = $wpdb->get_results( $wpdb->prepare( "SELECT id, first_name, last_name FROM {$guests_table} WHERE id NOT IN (" . implode( ',', array_fill( 0, count( $exclude_guest_ids ), '%d' ) ) . ") AND is_deleted = 0 ORDER BY first_name, last_name", array_merge( $exclude_guest_ids, [ $booking['id'] ] ) ), ARRAY_A );
                 
                 if ( ! empty( $all_guests ) ) {
                     echo '<div class="guest-search-container" style="display:inline-block;position:relative;vertical-align:middle;">';
