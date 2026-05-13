@@ -77,7 +77,180 @@ add_action( 'rest_api_init', function() {
         'callback' => 'simple_hotel_crm_rest_save_room_day_extras',
         'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
     ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/dashboard', [
+        'methods'  => 'GET',
+        'callback' => 'simple_hotel_crm_rest_dashboard',
+        'permission_callback' => function() { return true; },
+        'args'     => [
+            'api_key' => [
+                'required' => true,
+                'validate_callback' => function( $param ) {
+                    $stored = get_option( 'simple_hotel_crm_dashboard_api_key', '' );
+                    return ! empty( $stored ) && hash_equals( $stored, $param );
+                },
+            ],
+            'month' => [
+                'validate_callback' => function( $param ) { return is_numeric( $param ) && $param >= 1 && $param <= 12; },
+            ],
+            'year' => [
+                'validate_callback' => function( $param ) { return is_numeric( $param ) && $param >= 2000 && $param <= 2100; },
+            ],
+        ],
+    ] );
 } );
+
+function simple_hotel_crm_rest_dashboard( WP_REST_Request $request ) {
+    global $wpdb;
+
+    $today = current_time( 'Y-m-d' );
+    $month = intval( $request->get_param( 'month' ) ?: current_time( 'n' ) );
+    $year  = intval( $request->get_param( 'year' ) ?: current_time( 'Y' ) );
+
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $guests_table = simple_hotel_crm_guests_table();
+    $rooms_table = simple_hotel_crm_rooms_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+    $daily_notes_table = simple_hotel_crm_daily_notes_table();
+
+    // Rooms
+    $rooms = $wpdb->get_results( "SELECT id, room_code, room_name, sort_order, color FROM {$rooms_table} WHERE active = 1 ORDER BY sort_order ASC", ARRAY_A );
+
+    // Today's arrivals (check_in = today, confirmed/checked_in)
+    $arrivals = $wpdb->get_results( $wpdb->prepare( "
+        SELECT b.id, b.status_code, b.check_in_date, b.check_out_date, b.total_amount, b.source_channel,
+               b.adults, b.children, b.babies,
+               g.first_name, g.last_name, g.phone, g.email
+        FROM {$bookings_table} b
+        JOIN {$guests_table} g ON g.id = b.guest_id
+        WHERE b.is_deleted = 0
+          AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')
+          AND b.status_code IN ('confirmed', 'checked_in')
+          AND b.check_in_date = %s
+        ORDER BY g.last_name ASC", $today ), ARRAY_A );
+
+    // Today's departures (check_out = today)
+    $departures = $wpdb->get_results( $wpdb->prepare( "
+        SELECT b.id, b.status_code, b.check_in_date, b.check_out_date, b.total_amount, b.source_channel,
+               b.adults, b.children, b.babies,
+               g.first_name, g.last_name, g.phone, g.email
+        FROM {$bookings_table} b
+        JOIN {$guests_table} g ON g.id = b.guest_id
+        WHERE b.is_deleted = 0
+          AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')
+          AND b.status_code IN ('confirmed', 'checked_in', 'checked_out')
+          AND b.check_out_date = %s
+        ORDER BY g.last_name ASC", $today ), ARRAY_A );
+
+    // Next 7 days occupancy
+    $week_start = $today;
+    $week_end = date( 'Y-m-d', strtotime( $today . ' +7 days' ) );
+    $occupancy = $wpdb->get_results( $wpdb->prepare( "
+        SELECT
+            brn.stay_date,
+            br.room_id,
+            r.room_code, r.room_name, r.color,
+            brn.guest_count, brn.adults, brn.children, brn.babies,
+            brn.total_amount, brn.room_rate_amount, brn.extras_amount, brn.tourist_tax_amount,
+            b.id AS booking_id, b.status_code, b.check_in_date, b.check_out_date,
+            b.source_channel,
+            g.first_name, g.last_name
+        FROM {$booking_nights_table} brn
+        JOIN {$booking_rooms_table} br ON br.id = brn.booking_room_id
+        JOIN {$bookings_table} b ON b.id = br.booking_id
+        JOIN {$guests_table} g ON g.id = b.guest_id
+        JOIN {$rooms_table} r ON r.id = br.room_id
+        WHERE b.is_deleted = 0
+          AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')
+          AND b.status_code IN ('confirmed', 'checked_in')
+          AND brn.stay_date >= %s
+          AND brn.stay_date < %s
+        ORDER BY brn.stay_date ASC, r.sort_order ASC", $week_start, $week_end ), ARRAY_A );
+
+    // Taxe de séjour for given month
+    $month_start = sprintf( '%04d-%02d-01', $year, $month );
+    $month_end = date( 'Y-m-t', strtotime( $month_start ) );
+    $taxe_sejour = $wpdb->get_var( $wpdb->prepare( "
+        SELECT COALESCE(SUM(brn.tourist_tax_amount), 0)
+        FROM {$booking_nights_table} brn
+        JOIN {$booking_rooms_table} br ON br.id = brn.booking_room_id
+        JOIN {$bookings_table} b ON b.id = br.booking_id
+        WHERE b.is_deleted = 0
+          AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')
+          AND b.status_code IN ('confirmed', 'checked_in', 'checked_out')
+          AND brn.stay_date >= %s
+          AND brn.stay_date < %s", $month_start, $month_end ) );
+
+    // Current trimester income
+    $trimester_start = date( 'Y-m-d', strtotime( $today . ' -3 months' ) );
+    $trimester_income = $wpdb->get_var( $wpdb->prepare( "
+        SELECT COALESCE(SUM(b.total_amount), 0)
+        FROM {$bookings_table} b
+        WHERE b.is_deleted = 0
+          AND b.status_code IN ('confirmed', 'checked_in', 'checked_out')
+          AND b.check_in_date >= %s
+          AND b.check_in_date < %s", $trimester_start, $today ) );
+
+    // Previous year same trimester income
+    $last_year_trimester_start = date( 'Y-m-d', strtotime( $trimester_start . ' -1 year' ) );
+    $last_year_today = date( 'Y-m-d', strtotime( $today . ' -1 year' ) );
+    $last_year_trimester_income = $wpdb->get_var( $wpdb->prepare( "
+        SELECT COALESCE(SUM(b.total_amount), 0)
+        FROM {$bookings_table} b
+        WHERE b.is_deleted = 0
+          AND b.status_code IN ('confirmed', 'checked_in', 'checked_out')
+          AND b.check_in_date >= %s
+          AND b.check_in_date < %s", $last_year_trimester_start, $last_year_today ) );
+
+    // Daily notes for current month
+    $daily_notes = $wpdb->get_results( $wpdb->prepare( "
+        SELECT note_date, note_text
+        FROM {$daily_notes_table}
+        WHERE note_date >= %s AND note_date <= %s
+        ORDER BY note_date ASC", $month_start, $month_end ), ARRAY_A );
+
+    // Guest counts for next 7 days (for bread calc)
+    $guest_counts = $wpdb->get_results( $wpdb->prepare( "
+        SELECT brn.stay_date,
+               SUM(brn.adults) AS total_adults,
+               SUM(brn.children + brn.babies) AS total_children,
+               SUM(brn.guest_count) AS total_guests
+        FROM {$booking_nights_table} brn
+        JOIN {$booking_rooms_table} br ON br.id = brn.booking_room_id
+        JOIN {$bookings_table} b ON b.id = br.booking_id
+        WHERE b.is_deleted = 0
+          AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')
+          AND b.status_code IN ('confirmed', 'checked_in')
+          AND brn.stay_date >= %s
+          AND brn.stay_date < %s
+        GROUP BY brn.stay_date
+        ORDER BY brn.stay_date ASC", $today, $week_end ), ARRAY_A );
+
+    return rest_ensure_response( [
+        'now'            => current_time( 'c' ),
+        'today'          => $today,
+        'rooms'          => $rooms,
+        'arrivals'       => $arrivals,
+        'departures'     => $departures,
+        'occupancy'      => $occupancy,
+        'taxe_sejour'    => [
+            'month'  => $month,
+            'year'   => $year,
+            'amount' => round( (float) $taxe_sejour, 2 ),
+        ],
+        'trimester' => [
+            'current_start' => $trimester_start,
+            'current_end'   => $today,
+            'current'       => round( (float) $trimester_income, 2 ),
+            'last_year_start' => $last_year_trimester_start,
+            'last_year_end' => $last_year_today,
+            'last_year'     => round( (float) $last_year_trimester_income, 2 ),
+        ],
+        'daily_notes'    => $daily_notes,
+        'guest_counts'   => $guest_counts,
+    ] );
+}
 
 function simple_hotel_crm_rest_table( WP_REST_Request $request ) {
     $month = intval( $request->get_param( 'month' ) );
