@@ -1317,7 +1317,6 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     $crm_bookings_table = simple_hotel_crm_bookings_table();
     $crm_booking_rooms_table = simple_hotel_crm_booking_rooms_table();
     $crm_booking_nights_table = simple_hotel_crm_booking_room_nights_table();
-    $overlay_table = simple_hotel_crm_booking_overlay_table();
     $booking_notes_table = simple_hotel_crm_booking_notes_table();
 
     extract( $validated, EXTR_SKIP );
@@ -1330,13 +1329,6 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
 
     $existing_rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.legacy_reserved_room_id, br.room_id FROM {$crm_booking_rooms_table} br WHERE br.booking_id = %d ORDER BY br.id ASC", $booking_id ), ARRAY_A );
     $legacy_ids = wp_list_pluck( $existing_rooms, 'legacy_reserved_room_id' );
-    $overlay_map = [];
-    foreach ( $existing_rooms as $existing_room ) {
-        $room_id = (int) $existing_room['room_id'];
-        if ( $room_id > 0 && ! isset( $overlay_map[ $room_id ] ) ) {
-            $overlay_map[ $room_id ] = (int) $existing_room['legacy_reserved_room_id'];
-        }
-    }
     $calculated_room_lines = [];
     foreach ( $room_lines as $line ) {
         $crm_room_id = simple_hotel_crm_find_crm_room_id( $line['room_sync_id'] ?? 0 );
@@ -1373,9 +1365,6 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     $wpdb->query( $wpdb->prepare( "DELETE FROM {$booking_notes_table} WHERE booking_id = %d AND booking_room_id IS NOT NULL", $booking_id ) );
 
     $next_legacy_room_id = max( 1, (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_room_id), 0) + 1 FROM {$sync_bookings_table}" ) );
-    if ( ! empty( $overlay_map ) ) {
-        $next_legacy_room_id = max( $next_legacy_room_id, max( array_map( 'intval', $overlay_map ) ) + 1 );
-    }
     $external_booking_id = $existing_booking ? (int) $existing_booking['id'] : $booking_id;
     $booking_adults = array_sum( array_column( $calculated_room_lines, 'adults' ) );
     $booking_children = array_sum( array_column( $calculated_room_lines, 'children' ) );
@@ -1388,7 +1377,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     foreach ( $calculated_room_lines as $line ) {
         $crm_room_id = (int) $line['crm_room_id'];
         $room = $line['room'];
-        $legacy_reserved_room_id = isset( $overlay_map[ $crm_room_id ] ) ? (int) $overlay_map[ $crm_room_id ] : $next_legacy_room_id++;
+        $legacy_reserved_room_id = $next_legacy_room_id++;
         $inserted = $wpdb->insert(
             $crm_booking_rooms_table,
             [
@@ -1419,31 +1408,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
             return new WP_Error( 'booking_room_insert_failed', __( 'Could not save booking rooms.', 'simple-hotel-crm' ) );
         }
         $crm_booking_room_id = (int) $wpdb->insert_id;
-        if ( isset( $overlay_map[ $crm_room_id ] ) && (int) $overlay_map[ $crm_room_id ] !== $legacy_reserved_room_id ) {
-            simple_hotel_crm_copy_booking_overlay( (int) $overlay_map[ $crm_room_id ], $legacy_reserved_room_id, $booking_id, $crm_room_id );
-        }
         $room_note = sanitize_textarea_field( (string) ( $line['room_note'] ?? '' ) );
-        $extras_formula = sanitize_text_field( (string) ( $line['extras_formula'] ?? '' ) );
-        $existing_overlay = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$overlay_table} WHERE reserved_room_id = %d LIMIT 1", $legacy_reserved_room_id ), ARRAY_A );
-        $overlay_payload = [
-            'booking_id' => $booking_id,
-            'reserved_room_id' => $legacy_reserved_room_id,
-            'room_id' => $crm_room_id,
-            'booking_note' => $room_note,
-            'extras_formula' => $extras_formula,
-            'extras_total' => (float) $line['extras_amount'],
-            'manual_guest_name' => (string) ( $existing_overlay['manual_guest_name'] ?? '' ),
-            'manual_adults' => isset( $existing_overlay['manual_adults'] ) && '' !== (string) $existing_overlay['manual_adults'] ? (int) $existing_overlay['manual_adults'] : null,
-            'manual_children' => isset( $existing_overlay['manual_children'] ) && '' !== (string) $existing_overlay['manual_children'] ? (int) $existing_overlay['manual_children'] : null,
-            'manual_tarif' => isset( $existing_overlay['manual_tarif'] ) ? simple_hotel_crm_normalize_decimal( $existing_overlay['manual_tarif'] ) : null,
-            'manual_commission' => isset( $existing_overlay['manual_commission'] ) ? simple_hotel_crm_normalize_decimal( $existing_overlay['manual_commission'] ) : null,
-        ];
-        $overlay_formats = [ '%d', '%d', '%d', '%s', '%s', '%f', '%s', '%d', '%d', '%f', '%f' ];
-        if ( ! empty( $existing_overlay ) ) {
-            $wpdb->update( $overlay_table, $overlay_payload, [ 'reserved_room_id' => $legacy_reserved_room_id ], $overlay_formats, [ '%d' ] );
-        } else {
-            $wpdb->insert( $overlay_table, $overlay_payload, $overlay_formats );
-        }
         simple_hotel_crm_upsert_booking_note( $booking_id, $room_note, $crm_booking_room_id, null, 'room' );
         $base_price_nightly = simple_hotel_crm_distribute_amounts( $line['base_price_amount'], $nights );
         $discount_nightly = simple_hotel_crm_distribute_amounts( $line['discount_amount'], $nights );
@@ -1534,19 +1499,6 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     );
 
     $wpdb->query( 'COMMIT' );
-
-    if ( ! empty( $legacy_ids ) ) {
-        $new_legacy_ids = [];
-        foreach ( $room_lines as $line ) {
-            $crm_room_id = (int) $line['room_sync_id'];
-            if ( isset( $overlay_map[ $crm_room_id ] ) ) {
-                $new_legacy_ids[] = (int) $overlay_map[ $crm_room_id ];
-            }
-        }
-        foreach ( array_diff( array_map( 'intval', array_filter( $legacy_ids ) ), array_map( 'intval', array_filter( $new_legacy_ids ) ) ) as $stale_legacy_id ) {
-            simple_hotel_crm_delete_booking_overlay( $stale_legacy_id );
-        }
-    }
 
     simple_hotel_crm_clear_calendar_cache();
     return true;
@@ -1642,19 +1594,6 @@ function simple_hotel_crm_create_booking_from_rooms($booking_ids) {
                 $night['id'] = 0;
                 $night['booking_room_id'] = $new_room_id; // ID of the newly inserted room
                 $wpdb->insert(simple_hotel_crm_booking_room_nights_table(), $night);
-            }
-            
-            // Copy booking overlay
-            $overlay = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM " . simple_hotel_crm_booking_overlay_table() . " WHERE reserved_room_id = %d LIMIT 1",
-                $room['legacy_reserved_room_id']
-            ), ARRAY_A);
-            
-            if ($overlay) {
-                unset($overlay['id']);
-                $overlay['reserved_room_id'] = $room['legacy_reserved_room_id']; // Keep the same reserved_room_id
-                $overlay['booking_id'] = $new_booking_id;
-                $wpdb->insert(simple_hotel_crm_booking_overlay_table(), $overlay);
             }
             
             // Copy booking notes
@@ -1801,13 +1740,9 @@ function simple_hotel_crm_render_booking_detail_page() {
     }
 
     $room_pricing_table = simple_hotel_crm_room_pricing_table();
-    $overlay_table = simple_hotel_crm_booking_overlay_table();
-    $rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.*, r.room_name, r.room_code, r.sync_room_id, o.booking_note AS room_note_legacy, o.extras_formula FROM {$booking_rooms_table} br JOIN {$rooms_table} r ON r.id = br.room_id LEFT JOIN {$overlay_table} o ON o.reserved_room_id = br.legacy_reserved_room_id WHERE br.booking_id = %d ORDER BY r.sort_order ASC, r.room_name ASC", $booking_id ), ARRAY_A );
+    $rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.*, r.room_name, r.room_code, r.sync_room_id FROM {$booking_rooms_table} br JOIN {$rooms_table} r ON r.id = br.room_id WHERE br.booking_id = %d ORDER BY r.sort_order ASC, r.room_name ASC", $booking_id ), ARRAY_A );
     foreach ( $rooms as &$room ) {
         $room['room_note'] = simple_hotel_crm_get_booking_note_text( $booking_id, (int) $room['id'] );
-        if ( '' === (string) $room['room_note'] ) {
-            $room['room_note'] = (string) ( $room['room_note_legacy'] ?? '' );
-        }
     }
     unset( $room );
     foreach ( $rooms as &$room ) {
@@ -3674,7 +3609,6 @@ function simple_hotel_crm_get_export_datasets() {
                 'booking_rooms' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_rooms_table() . ' ORDER BY id ASC', ARRAY_A ),
                 'booking_room_nights' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_room_nights_table() . ' ORDER BY id ASC', ARRAY_A ),
                 'daily_notes' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_daily_notes_table() . ' ORDER BY note_date ASC', ARRAY_A ),
-                'overlays' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_overlay_table() . ' ORDER BY id ASC', ARRAY_A ),
                 'settings' => [
                     [ 'option_name' => 'invoice_ninja_url', 'option_value' => get_option( 'simple_hotel_crm_invoice_ninja_url', '' ) ],
                     [ 'option_name' => 'booking_source', 'option_value' => get_option( 'simple_hotel_crm_booking_source', 'wp_sync' ) ],
@@ -3687,7 +3621,6 @@ function simple_hotel_crm_get_export_datasets() {
         'booking_rooms' => [ 'label' => __( 'Booking rooms', 'simple-hotel-crm' ), 'data' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_rooms_table() . ' ORDER BY id ASC', ARRAY_A ) ],
         'booking_room_nights' => [ 'label' => __( 'Booking room nights', 'simple-hotel-crm' ), 'data' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_room_nights_table() . ' ORDER BY id ASC', ARRAY_A ) ],
         'daily_notes' => [ 'label' => __( 'Daily notes', 'simple-hotel-crm' ), 'data' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_daily_notes_table() . ' ORDER BY note_date ASC', ARRAY_A ) ],
-        'overlays' => [ 'label' => __( 'Overlays', 'simple-hotel-crm' ), 'data' => $wpdb->get_results( 'SELECT * FROM ' . simple_hotel_crm_booking_overlay_table() . ' ORDER BY id ASC', ARRAY_A ) ],
         'settings' => [ 'label' => __( 'Settings', 'simple-hotel-crm' ), 'data' => [
             [ 'option_name' => 'invoice_ninja_url', 'option_value' => get_option( 'simple_hotel_crm_invoice_ninja_url', '' ) ],
             [ 'option_name' => 'booking_source', 'option_value' => get_option( 'simple_hotel_crm_booking_source', 'wp_sync' ) ],
@@ -3952,7 +3885,7 @@ function simple_hotel_crm_render_settings_page() {
 
         echo '<hr />';
         echo '<h2>' . esc_html__( 'Reset CRM Data', 'simple-hotel-crm' ) . '</h2>';
-        echo '<p><strong>' . esc_html__( 'Warning:', 'simple-hotel-crm' ) . '</strong> ' . esc_html__( 'This permanently deletes bookings, booking rooms, nightly rows, overlays, staged sync rows, and guests. Rooms, pricing, and settings stay.', 'simple-hotel-crm' ) . '</p>';
+        echo '<p><strong>' . esc_html__( 'Warning:', 'simple-hotel-crm' ) . '</strong> ' . esc_html__( 'This permanently deletes bookings, booking rooms, nightly rows, notes, staged sync rows, and guests. Rooms, pricing, and settings stay.', 'simple-hotel-crm' ) . '</p>';
         echo '<form method="post" onsubmit="return confirm(' . wp_json_encode( __( 'Permanently delete CRM booking data and guests? This cannot be undone.', 'simple-hotel-crm' ) ) . ');">';
         wp_nonce_field( 'simple_hotel_crm_reset_crm_data', 'simple_hotel_crm_reset_crm_data_nonce' );
         submit_button( __( 'Reset CRM Data', 'simple-hotel-crm' ), 'delete', 'simple_hotel_crm_reset_crm_data' );

@@ -18,8 +18,6 @@ function simple_hotel_crm_rest_create_invoice( WP_REST_Request $request ) {
         return new WP_Error( 'invoice_ninja_not_configured', __( 'Invoice Ninja API not configured. Please set URL and token in settings.', 'simple-hotel-crm' ), [ 'status' => 500 ] );
     }
 
-    $overlay = simple_hotel_crm_get_booking_overlay( $reserved_room_id );
-
     global $wpdb;
     $crm_bookings_table = simple_hotel_crm_bookings_table();
     $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
@@ -43,8 +41,6 @@ function simple_hotel_crm_rest_create_invoice( WP_REST_Request $request ) {
     $tarif = null;
     if ( is_array( $booking_room ) ) {
         $tarif = (float) $booking_room['room_rate_amount'];
-    } elseif ( isset( $overlay['manual_tarif'] ) && '' !== $overlay['manual_tarif'] && null !== $overlay['manual_tarif'] ) {
-        $tarif = (float) $overlay['manual_tarif'];
     }
     if ( null !== $tarif && $tarif != 0.0 ) {
         $invoice_lines[] = [ 'product_key' => 'room-charge', 'quantity' => 1, 'rate' => round( $tarif, 2 ) ];
@@ -54,8 +50,6 @@ function simple_hotel_crm_rest_create_invoice( WP_REST_Request $request ) {
     $extras = null;
     if ( is_array( $booking_room ) ) {
         $extras = (float) $booking_room['extras_amount'];
-    } elseif ( isset( $overlay['extras_total'] ) && '' !== $overlay['extras_total'] && null !== $overlay['extras_total'] ) {
-        $extras = (float) $overlay['extras_total'];
     }
     if ( null !== $extras && $extras != 0.0 ) {
         $invoice_lines[] = [ 'product_key' => 'extras-charge', 'quantity' => 1, 'rate' => round( $extras, 2 ) ];
@@ -69,9 +63,7 @@ function simple_hotel_crm_rest_create_invoice( WP_REST_Request $request ) {
     }
 
     $commission = null;
-    if ( isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission'] && null !== $overlay['manual_commission'] ) {
-        $commission = (float) $overlay['manual_commission'];
-    } elseif ( is_array( $booking_room ) && isset( $booking_room['commission_amount'] ) ) {
+    if ( is_array( $booking_room ) && isset( $booking_room['commission_amount'] ) ) {
         $commission = (float) $booking_room['commission_amount'];
     } elseif ( null !== $tarif ) {
         $commission = simple_hotel_crm_calculate_channel_commission( (string) $wpdb->get_var( $wpdb->prepare( "SELECT source_channel FROM {$crm_bookings_table} WHERE id = %d LIMIT 1", $booking_id ) ), (float) $tarif );
@@ -82,7 +74,7 @@ function simple_hotel_crm_rest_create_invoice( WP_REST_Request $request ) {
     }
 
     if ( empty( $invoice_lines ) ) {
-        return new WP_Error( 'empty_invoice', __( 'No invoiceable lines were found in CRM pricing or saved overlay data.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
+        return new WP_Error( 'empty_invoice', __( 'No invoiceable lines were found.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
     }
 
     $payload = [

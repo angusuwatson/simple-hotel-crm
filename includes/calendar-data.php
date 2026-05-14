@@ -70,6 +70,7 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
                 br.legacy_reserved_room_id,
                 br.room_id,
                 br.total_amount AS room_stay_total_amount,
+                br.manual_tarif,
                 brn.stay_date,
                 brn.guest_count,
                 brn.adults,
@@ -112,18 +113,13 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
         }
 
         $reserved_room_id = ! empty( $row['legacy_reserved_room_id'] ) ? (int) $row['legacy_reserved_room_id'] : (int) $row['booking_room_id'];
-        $overlay = simple_hotel_crm_get_booking_overlay( $reserved_room_id );
-        $adults = isset( $overlay['manual_adults'] ) && '' !== $overlay['manual_adults'] ? (int) $overlay['manual_adults'] : (int) $row['adults'];
-        $children = isset( $overlay['manual_children'] ) && '' !== $overlay['manual_children'] ? (int) $overlay['manual_children'] : (int) $row['children'];
+        $adults = (int) $row['adults'];
+        $children = (int) $row['children'];
         $guest_name = trim( (string) $row['first_name'] . ' ' . (string) $row['last_name'] );
-        $manual_guest_name = trim( (string) ( $overlay['manual_guest_name'] ?? '' ) );
-        if ( '' !== $manual_guest_name && ! preg_match( '/^\d+(?:\.\d+)?$/', $manual_guest_name ) ) {
-            $guest_name = $manual_guest_name;
-        }
         $date_str = (string) $row['stay_date'];
         $extras_adjustment = simple_hotel_crm_get_booking_adjustment( (int) $row['booking_room_id'], $date_str, 'extras' );
-        $extras_formula = ! empty( $extras_adjustment['formula'] ) ? (string) $extras_adjustment['formula'] : ( isset( $overlay['extras_formula'] ) ? (string) $overlay['extras_formula'] : '' );
-        $extras_total = isset( $extras_adjustment['amount'] ) ? (float) $extras_adjustment['amount'] : ( isset( $overlay['extras_total'] ) && '' !== $overlay['extras_total'] ? (float) $overlay['extras_total'] : null );
+        $extras_formula = ! empty( $extras_adjustment['formula'] ) ? (string) $extras_adjustment['formula'] : '';
+        $extras_total = isset( $extras_adjustment['amount'] ) ? (float) $extras_adjustment['amount'] : null;
         if ( ! isset( $matrix[ $room_id ][ $date_str ] ) ) {
             $matrix[ $room_id ][ $date_str ] = [ 'booking' => null, 'is_checkin' => false, 'is_checkout' => false ];
         }
@@ -134,7 +130,7 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
             $room_booking_note = simple_hotel_crm_get_booking_note_text( (int) $row['booking_id'], (int) $row['booking_room_id'] );
         }
         if ( '' === $room_booking_note ) {
-            $room_booking_note = isset( $overlay['booking_note'] ) && '' !== trim( (string) $overlay['booking_note'] ) ? (string) $overlay['booking_note'] : simple_hotel_crm_get_booking_note_text( (int) $row['booking_id'] );
+            $room_booking_note = simple_hotel_crm_get_booking_note_text( (int) $row['booking_id'] );
         }
 
         $booking_payload = (object) [
@@ -157,12 +153,10 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
             'channel_label' => (string) $row['source_channel'],
             'created_date' => ! empty( $row['contacted_date'] ) ? (string) $row['contacted_date'] : '',
             'is_imported' => 'direct' !== (string) $row['source_channel'],
-            'tarif' => isset( $overlay['manual_tarif'] ) && '' !== $overlay['manual_tarif']
-                ? (float) $overlay['manual_tarif']
+            'tarif' => null !== $row['manual_tarif'] && '' !== $row['manual_tarif']
+                ? (float) $row['manual_tarif']
                 : (float) ( ( isset( $row['subtotal_amount'] ) && (float) $row['subtotal_amount'] > 0 ) ? $row['subtotal_amount'] : $row['room_rate_amount'] ),
-            'commission' => isset( $overlay['manual_commission'] ) && '' !== $overlay['manual_commission']
-                ? (float) $overlay['manual_commission']
-                : simple_hotel_crm_calculate_channel_commission( (string) $row['source_channel'], (float) ( ( isset( $row['subtotal_amount'] ) && (float) $row['subtotal_amount'] > 0 ) ? $row['subtotal_amount'] : $row['room_rate_amount'] ) ),
+            'commission' => simple_hotel_crm_calculate_channel_commission( (string) $row['source_channel'], (float) ( ( isset( $row['subtotal_amount'] ) && (float) $row['subtotal_amount'] > 0 ) ? $row['subtotal_amount'] : $row['room_rate_amount'] ) ),
             'extras_formula' => $extras_formula,
             'extras_total' => null !== $extras_total ? $extras_total : ( (float) $row['extras_amount'] > 0 ? (float) $row['extras_amount'] : null ),
             'has_day_extra' => ! empty( $extras_adjustment ),

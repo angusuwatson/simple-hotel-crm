@@ -15,7 +15,6 @@ function simple_hotel_crm_install_tables() {
 
     $charset_collate = $wpdb->get_charset_collate();
     $daily_notes_table = simple_hotel_crm_daily_notes_table();
-    $overlay_table     = simple_hotel_crm_booking_overlay_table();
     $booking_notes_table = simple_hotel_crm_booking_notes_table();
     $booking_adjustments_table = simple_hotel_crm_booking_adjustments_table();
     $sync_rooms_table  = simple_hotel_crm_sync_rooms_table();
@@ -33,27 +32,6 @@ function simple_hotel_crm_install_tables() {
         created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY  (note_date)
-    ) {$charset_collate};";
-
-    $sql_overlays = "CREATE TABLE {$overlay_table} (
-        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
-        booking_id bigint(20) unsigned NOT NULL DEFAULT 0,
-        reserved_room_id bigint(20) unsigned NOT NULL DEFAULT 0,
-        room_id bigint(20) unsigned NOT NULL DEFAULT 0,
-        booking_note longtext NULL,
-        extras_formula text NULL,
-        extras_total decimal(10,2) NULL,
-        manual_guest_name varchar(255) NULL,
-        manual_adults int(11) NULL,
-        manual_children int(11) NULL,
-        manual_tarif decimal(10,2) NULL,
-        manual_commission decimal(10,2) NULL,
-        created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        PRIMARY KEY  (id),
-        UNIQUE KEY reserved_room_id (reserved_room_id),
-        KEY booking_id (booking_id),
-        KEY room_id (room_id)
     ) {$charset_collate};";
 
     $sql_booking_notes = "CREATE TABLE {$booking_notes_table} (
@@ -249,6 +227,7 @@ function simple_hotel_crm_install_tables() {
         extras_amount decimal(10,2) NOT NULL DEFAULT 0.00,
         tourist_tax_amount decimal(10,2) NOT NULL DEFAULT 0.00,
         total_amount decimal(10,2) NOT NULL DEFAULT 0.00,
+        manual_tarif decimal(10,2) NULL,
         created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         UNIQUE KEY legacy_reserved_room_id (legacy_reserved_room_id),
@@ -280,7 +259,6 @@ function simple_hotel_crm_install_tables() {
     ) {$charset_collate};";
 
     dbDelta( $sql_daily_notes );
-    dbDelta( $sql_overlays );
     dbDelta( $sql_booking_notes );
     dbDelta( $sql_booking_adjustments );
     dbDelta( $sql_sync_rooms );
@@ -295,20 +273,51 @@ function simple_hotel_crm_install_tables() {
     simple_hotel_crm_seed_rooms_table();
     simple_hotel_crm_maybe_migrate_sync_data_to_crm();
     simple_hotel_crm_repair_booking_room_links();
-    simple_hotel_crm_migrate_overlay_notes_to_booking_notes();
     simple_hotel_crm_run_repair_routines();
 
+    simple_hotel_crm_migrate_overlay_to_booking_rooms();
+
     update_option( 'simple_hotel_crm_db_version', SIMPLE_HOTEL_CRM_DB_VERSION );
+}
+
+function simple_hotel_crm_migrate_overlay_to_booking_rooms() {
+    global $wpdb;
+
+    $overlay_table = $wpdb->prefix . 'simple_hotel_crm_booking_overlays';
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+
+    $overlay_exists = $wpdb->get_var( "SHOW TABLES LIKE '{$overlay_table}'" );
+    if ( ! $overlay_exists ) {
+        return;
+    }
+
+    if ( ! simple_hotel_crm_table_has_column( $booking_rooms_table, 'manual_tarif' ) ) {
+        $wpdb->query( "ALTER TABLE {$booking_rooms_table} ADD COLUMN manual_tarif decimal(10,2) NULL AFTER total_amount" );
+    }
+
+    $rows = $wpdb->get_results(
+        "SELECT br.id AS booking_room_id, o.manual_tarif
+         FROM {$booking_rooms_table} br
+         JOIN {$overlay_table} o ON o.reserved_room_id = br.legacy_reserved_room_id
+         WHERE o.manual_tarif IS NOT NULL AND o.manual_tarif > 0",
+        ARRAY_A
+    );
+    foreach ( $rows as $row ) {
+        $wpdb->update(
+            $booking_rooms_table,
+            [ 'manual_tarif' => (float) $row['manual_tarif'] ],
+            [ 'id' => (int) $row['booking_room_id'] ],
+            [ '%f' ],
+            [ '%d' ]
+        );
+    }
+
+    $wpdb->query( "DROP TABLE IF EXISTS {$overlay_table}" );
 }
 
 function simple_hotel_crm_daily_notes_table() {
     global $wpdb;
     return $wpdb->prefix . 'simple_hotel_crm_daily_notes';
-}
-
-function simple_hotel_crm_booking_overlay_table() {
-    global $wpdb;
-    return $wpdb->prefix . 'simple_hotel_crm_booking_overlays';
 }
 
 function simple_hotel_crm_booking_notes_table() {
@@ -544,24 +553,6 @@ function simple_hotel_crm_recalculate_booking_room_totals_from_nights( $booking_
         'extras_amount' => (float) ( $totals['extras_amount'] ?? 0 ),
         'total_amount' => (float) ( $totals['total_amount'] ?? 0 ),
     ], [ 'id' => $booking_room_id ], [ '%f', '%f' ], [ '%d' ] );
-}
-
-function simple_hotel_crm_migrate_overlay_notes_to_booking_notes() {
-    global $wpdb;
-
-    $crm_bookings_table = simple_hotel_crm_bookings_table();
-    $crm_booking_rooms_table = simple_hotel_crm_booking_rooms_table();
-    $overlay_table = simple_hotel_crm_booking_overlay_table();
-
-    $booking_rows = $wpdb->get_results( "SELECT id, booking_note FROM {$crm_bookings_table} WHERE booking_note IS NOT NULL AND booking_note <> ''", ARRAY_A );
-    foreach ( $booking_rows as $booking_row ) {
-        simple_hotel_crm_upsert_booking_note( (int) $booking_row['id'], (string) $booking_row['booking_note'], null, null, 'booking' );
-    }
-
-    $room_rows = $wpdb->get_results( "SELECT br.booking_id, br.id AS booking_room_id, o.booking_note FROM {$crm_booking_rooms_table} br JOIN {$overlay_table} o ON o.reserved_room_id = br.legacy_reserved_room_id WHERE o.booking_note IS NOT NULL AND o.booking_note <> ''", ARRAY_A );
-    foreach ( $room_rows as $room_row ) {
-        simple_hotel_crm_upsert_booking_note( (int) $room_row['booking_id'], (string) $room_row['booking_note'], (int) $room_row['booking_room_id'], null, 'room' );
-    }
 }
 
 function simple_hotel_crm_backfill_pricing_amounts() {

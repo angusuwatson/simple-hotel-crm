@@ -340,7 +340,6 @@ function simple_hotel_crm_rest_get_quick_booking( WP_REST_Request $request ) {
     $reserved_room_id = absint( $request->get_param( 'reserved_room_id' ) );
     $bookings_table = simple_hotel_crm_bookings_table();
     $guests_table = simple_hotel_crm_guests_table();
-    $overlay = $reserved_room_id > 0 ? simple_hotel_crm_get_booking_overlay( $reserved_room_id ) : [];
 
     $booking = $wpdb->get_row(
         $wpdb->prepare(
@@ -365,22 +364,17 @@ function simple_hotel_crm_rest_get_quick_booking( WP_REST_Request $request ) {
     $room_note = $booking_room_id > 0 ? simple_hotel_crm_get_booking_note_text( (int) $booking['id'], $booking_room_id ) : '';
     $booking_note_global = simple_hotel_crm_get_booking_note_text( (int) $booking['id'] );
 
-    $guest_name = trim( (string) $booking['first_name'] . ' ' . (string) $booking['last_name'] );
-    $manual_guest_name = trim( (string) ( $overlay['manual_guest_name'] ?? '' ) );
-    if ( '' !== $manual_guest_name && ! preg_match( '/^\d+(?:\.\d+)?$/', $manual_guest_name ) ) {
-        $guest_name = $manual_guest_name;
-    }
     return rest_ensure_response( [
         'id' => (int) $booking['id'],
-        'guest_name' => $guest_name,
+        'guest_name' => trim( (string) $booking['first_name'] . ' ' . (string) $booking['last_name'] ),
         'phone' => (string) $booking['phone'],
         'email' => (string) $booking['email'],
         'status_code' => (string) $booking['status_code'],
         'source_channel' => (string) $booking['source_channel'],
         'contacted_date' => (string) $booking['contacted_date'],
-        'booking_note' => '' !== $room_note ? $room_note : (string) ( $overlay['booking_note'] ?? $booking_note_global ),
+        'booking_note' => '' !== $room_note ? $room_note : $booking_note_global,
         'booking_note_global' => $booking_note_global,
-        'extras_formula' => (string) ( $overlay['extras_formula'] ?? '' ),
+        'extras_formula' => '',
         'internal_notes' => (string) $booking['internal_notes'],
         'status_options' => simple_hotel_crm_get_booking_status_options(),
         'channel_options' => simple_hotel_crm_get_booking_channel_options(),
@@ -402,7 +396,6 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
     $contacted_date = sanitize_text_field( (string) $request->get_param( 'contacted_date' ) );
     $has_booking_note = null !== $request->get_param( 'booking_note' );
     $booking_note = sanitize_textarea_field( (string) $request->get_param( 'booking_note' ) );
-    $extras_formula_raw = (string) $request->get_param( 'extras_formula' );
     $internal_notes = sanitize_textarea_field( (string) $request->get_param( 'internal_notes' ) );
 
     if ( '' === $guest_name ) {
@@ -418,7 +411,6 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
     $bookings_table = simple_hotel_crm_bookings_table();
     $guests_table = simple_hotel_crm_guests_table();
     $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
-    $overlay_table = simple_hotel_crm_booking_overlay_table();
 
     $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bookings_table} WHERE id = %d AND is_deleted = 0 LIMIT 1", $booking_id ), ARRAY_A );
     if ( ! $booking ) {
@@ -455,34 +447,9 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
     }
 
     if ( $reserved_room_id > 0 ) {
-        $existing_overlay = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$overlay_table} WHERE reserved_room_id = %d", $reserved_room_id ), ARRAY_A );
-        $extras = simple_hotel_crm_evaluate_extras_formula( $extras_formula_raw );
-        if ( ! $extras['valid'] ) {
-            return new WP_Error( 'invalid_extras_formula', __( 'Extras formula supports numbers with +, -, * and /.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
-        }
         $booking_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM " . simple_hotel_crm_booking_rooms_table() . " WHERE legacy_reserved_room_id = %d LIMIT 1", $reserved_room_id ) );
         if ( $has_booking_note && $booking_room_id > 0 ) {
             simple_hotel_crm_upsert_booking_note( $booking_id, $booking_note, $booking_room_id, null, 'room' );
-        }
-
-        $overlay_payload = [
-            'booking_id' => $booking_id,
-            'reserved_room_id' => $reserved_room_id,
-            'room_id' => isset( $existing_overlay['room_id'] ) ? (int) $existing_overlay['room_id'] : 0,
-            'booking_note' => $booking_note,
-            'extras_formula' => $extras['formula'],
-            'extras_total' => $extras['total'],
-            'manual_guest_name' => $guest_name,
-            'manual_adults' => isset( $existing_overlay['manual_adults'] ) && '' !== (string) $existing_overlay['manual_adults'] ? (int) $existing_overlay['manual_adults'] : null,
-            'manual_children' => isset( $existing_overlay['manual_children'] ) && '' !== (string) $existing_overlay['manual_children'] ? (int) $existing_overlay['manual_children'] : null,
-            'manual_tarif' => isset( $existing_overlay['manual_tarif'] ) ? simple_hotel_crm_normalize_decimal( $existing_overlay['manual_tarif'] ) : null,
-            'manual_commission' => isset( $existing_overlay['manual_commission'] ) ? simple_hotel_crm_normalize_decimal( $existing_overlay['manual_commission'] ) : null,
-        ];
-        $overlay_formats = [ '%d', '%d', '%d', '%s', '%s', '%f', '%s', '%d', '%d', '%f', '%f' ];
-        if ( ! empty( $existing_overlay ) ) {
-            $wpdb->update( $overlay_table, $overlay_payload, [ 'reserved_room_id' => $reserved_room_id ], $overlay_formats, [ '%d' ] );
-        } else {
-            $wpdb->insert( $overlay_table, $overlay_payload, $overlay_formats );
         }
     }
 
