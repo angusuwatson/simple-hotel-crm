@@ -356,6 +356,20 @@ function simple_hotel_crm_render_bookings_page() {
         echo ' <span class="description">' . esc_html__( 'Delete will permanently remove trashed bookings.', 'simple-hotel-crm' ) . '</span>';
     }
     echo '</p>';
+    if ( $page_count > 1 ) {
+        $base_args = [ 'page' => 'simple-hotel-crm-bookings', 'view' => $view, 's' => $search, 'orderby' => $orderby_key, 'order' => strtolower( $order ), 'per_page' => $per_page ];
+        echo '<div class="tablenav top"><div class="tablenav-pages"><span class="pagination-links">';
+        echo '<a class="first-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => 1 ] ), admin_url( 'admin.php' ) ) ) . '">&laquo;</a> ';
+        if ( $paged > 1 ) { echo '<a class="prev-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged - 1 ] ), admin_url( 'admin.php' ) ) ) . '">&lsaquo;</a> '; } else { echo '<span class="tablenav-pages-navspan button disabled">&lsaquo;</span> '; }
+        $start = max( 1, $paged - 2 );
+        $end = min( $page_count, $paged + 2 );
+        if ( $start > 1 ) { echo '<span class="page-numbers dots">&hellip;</span> '; }
+        for ( $i = $start; $i <= $end; $i++ ) { $url = add_query_arg( array_merge( $base_args, [ 'paged' => $i ] ), admin_url( 'admin.php' ) ); echo '<a class="page-numbers' . ( $i === $paged ? ' current' : '' ) . '" href="' . esc_url( $url ) . '">' . esc_html( (string) $i ) . '</a> '; }
+        if ( $end < $page_count ) { echo '<span class="page-numbers dots">&hellip;</span> '; }
+        if ( $paged < $page_count ) { echo '<a class="next-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged + 1 ] ), admin_url( 'admin.php' ) ) ) . '">&rsaquo;</a> '; } else { echo '<span class="tablenav-pages-navspan button disabled">&rsaquo;</span> '; }
+        echo '<a class="last-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $page_count ] ), admin_url( 'admin.php' ) ) ) . '">&raquo;</a>';
+        echo '</span></div></div>';
+    }
     $header_link = function( $key, $label ) use ( $orderby_key, $order, $view ) {
         $next_order = ( $orderby_key === $key && 'ASC' === $order ) ? 'desc' : 'asc';
         $url = admin_url( 'admin.php?page=simple-hotel-crm-bookings&view=' . $view . '&orderby=' . $key . '&order=' . $next_order );
@@ -408,7 +422,7 @@ function simple_hotel_crm_render_bookings_page() {
     echo '</tr></tfoot></table></form>';
     if ( $page_count > 1 ) {
         $base_args = [ 'page' => 'simple-hotel-crm-bookings', 'view' => $view, 's' => $search, 'orderby' => $orderby_key, 'order' => strtolower( $order ), 'per_page' => $per_page ];
-        echo '<div class="tablenav"><div class="tablenav-pages"><span class="pagination-links">';
+        echo '<div class="tablenav bottom"><div class="tablenav-pages"><span class="pagination-links">';
         echo '<a class="first-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => 1 ] ), admin_url( 'admin.php' ) ) ) . '">&laquo;</a> ';
         if ( $paged > 1 ) { echo '<a class="prev-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged - 1 ] ), admin_url( 'admin.php' ) ) ) . '">&lsaquo;</a> '; } else { echo '<span class="tablenav-pages-navspan button disabled">&lsaquo;</span> '; }
         $start = max( 1, $paged - 2 );
@@ -712,6 +726,20 @@ function simple_hotel_crm_render_guests_page() {
         echo ' <span class="description">' . esc_html__( 'Delete will permanently remove trashed guests.', 'simple-hotel-crm' ) . '</span>';
     }
     echo '</p>';
+    if ( $page_count > 1 ) {
+        $base_args = [ 'page' => 'simple-hotel-crm-guests', 'view' => $view, 's' => $search, 'orderby' => $orderby_key, 'order' => strtolower( $order ), 'per_page' => $per_page ];
+        echo '<div class="tablenav top"><div class="tablenav-pages"><span class="pagination-links">';
+        echo '<a class="first-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => 1 ] ), admin_url( 'admin.php' ) ) ) . '">&laquo;</a> ';
+        if ( $paged > 1 ) { echo '<a class="prev-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged - 1 ] ), admin_url( 'admin.php' ) ) ) . '">&lsaquo;</a> '; } else { echo '<span class="tablenav-pages-navspan button disabled">&lsaquo;</span> '; }
+        $start = max( 1, $paged - 2 );
+        $end = min( $page_count, $paged + 2 );
+        if ( $start > 1 ) { echo '<span class="page-numbers dots">&hellip;</span> '; }
+        for ( $i = $start; $i <= $end; $i++ ) { $url = add_query_arg( array_merge( $base_args, [ 'paged' => $i ] ), admin_url( 'admin.php' ) ); echo '<a class="page-numbers' . ( $i === $paged ? ' current' : '' ) . '" href="' . esc_url( $url ) . '">' . esc_html( (string) $i ) . '</a> '; }
+        if ( $end < $page_count ) { echo '<span class="page-numbers dots">&hellip;</span> '; }
+        if ( $paged < $page_count ) { echo '<a class="next-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged + 1 ] ), admin_url( 'admin.php' ) ) ) . '">&rsaquo;</a> '; } else { echo '<span class="tablenav-pages-navspan button disabled">&rsaquo;</span> '; }
+        echo '<a class="last-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $page_count ] ), admin_url( 'admin.php' ) ) ) . '">&raquo;</a>';
+        echo '</span></div></div>';
+    }
     echo '<table class="widefat striped"><thead><tr>';
     echo '<th><input type="checkbox" onclick="jQuery(\'.guest-bulk-cb\').prop(\'checked\', this.checked)" /></th>';
     echo '<th>' . $header_link( 'id', __( 'ID', 'simple-hotel-crm' ) ) . '</th>';
@@ -742,7 +770,7 @@ function simple_hotel_crm_render_guests_page() {
     echo '</tbody></table></form>';
     if ( $page_count > 1 ) {
         $base_args = [ 'page' => 'simple-hotel-crm-guests', 'view' => $view, 's' => $search, 'orderby' => $orderby_key, 'order' => strtolower( $order ), 'per_page' => $per_page ];
-        echo '<div class="tablenav"><div class="tablenav-pages"><span class="pagination-links">';
+        echo '<div class="tablenav bottom"><div class="tablenav-pages"><span class="pagination-links">';
         echo '<a class="first-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => 1 ] ), admin_url( 'admin.php' ) ) ) . '">&laquo;</a> ';
         if ( $paged > 1 ) { echo '<a class="prev-page button" href="' . esc_url( add_query_arg( array_merge( $base_args, [ 'paged' => $paged - 1 ] ), admin_url( 'admin.php' ) ) ) . '">&lsaquo;</a> '; } else { echo '<span class="tablenav-pages-navspan button disabled">&lsaquo;</span> '; }
         $start = max( 1, $paged - 2 );
