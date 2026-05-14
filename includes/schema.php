@@ -672,11 +672,115 @@ function simple_hotel_crm_recalculate_booking_header_totals() {
 }
 
 function simple_hotel_crm_run_repair_routines() {
+    $room_night_dates = simple_hotel_crm_repair_room_night_dates();
     return [
         'pricing_rows' => simple_hotel_crm_backfill_pricing_amounts(),
         'commission_rows' => simple_hotel_crm_backfill_commission_amounts(),
         'booking_headers' => simple_hotel_crm_recalculate_booking_header_totals(),
+        'room_night_dates_deleted' => $room_night_dates['deleted'],
+        'room_night_dates_created' => $room_night_dates['created'],
     ];
+}
+
+function simple_hotel_crm_repair_room_night_dates() {
+    global $wpdb;
+
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+
+    $bad_nights = $wpdb->get_results(
+        "SELECT brn.id, brn.booking_room_id, brn.stay_date,
+                br.booking_id, br.room_id,
+                br.adults AS room_adults, br.children AS room_children, br.babies AS room_babies,
+                br.guest_count AS room_guest_count,
+                b.check_in_date, b.check_out_date
+         FROM {$booking_nights_table} brn
+         JOIN {$booking_rooms_table} br ON br.id = brn.booking_room_id
+         JOIN {$bookings_table} b ON b.id = br.booking_id
+         WHERE b.is_deleted = 0
+           AND b.status_code IN ('confirmed', 'checked_in')
+           AND (brn.stay_date < b.check_in_date OR brn.stay_date >= b.check_out_date)"
+    );
+
+    if ( empty( $bad_nights ) ) {
+        return [ 'deleted' => 0, 'created' => 0 ];
+    }
+
+    $night_ids = array_map( 'intval', wp_list_pluck( $bad_nights, 'id' ) );
+    $wpdb->query( "DELETE FROM {$booking_nights_table} WHERE id IN (" . implode( ',', $night_ids ) . ")" );
+
+    $affected = [];
+    foreach ( $bad_nights as $night ) {
+        $affected[ (int) $night->booking_room_id ] = $night;
+    }
+
+    $created_count = 0;
+    foreach ( $affected as $booking_room_id => $sample ) {
+        $check_in = $sample->check_in_date;
+        $check_out = $sample->check_out_date;
+
+        $existing_count = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$booking_nights_table} WHERE booking_room_id = %d AND stay_date >= %s AND stay_date < %s",
+            $booking_room_id, $check_in, $check_out
+        ) );
+
+        $expected_nights = max( 1, (int) round( ( strtotime( $check_out ) - strtotime( $check_in ) ) / DAY_IN_SECONDS ) );
+        if ( $existing_count >= $expected_nights ) {
+            continue;
+        }
+
+        $adults = max( 1, (int) $sample->room_adults );
+        $children = (int) $sample->room_children;
+        $babies = (int) $sample->room_babies;
+        $guest_count = max( 1, (int) $sample->room_guest_count ?: ( $adults + $children + $babies ) );
+
+        $avg_rate = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COALESCE(AVG(room_rate_amount), 0) FROM {$booking_nights_table} WHERE booking_room_id = %d AND room_rate_amount > 0",
+            $booking_room_id
+        ) );
+        $avg_extras = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COALESCE(AVG(extras_amount), 0) FROM {$booking_nights_table} WHERE booking_room_id = %d AND extras_amount > 0",
+            $booking_room_id
+        ) );
+        $avg_tax = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COALESCE(AVG(tourist_tax_amount), 0) FROM {$booking_nights_table} WHERE booking_room_id = %d AND tourist_tax_amount > 0",
+            $booking_room_id
+        ) );
+
+        for ( $i = 0; $i < $expected_nights; $i++ ) {
+            $stay_date = gmdate( 'Y-m-d', strtotime( $check_in . ' +' . $i . ' day' ) );
+
+            $exists = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT id FROM {$booking_nights_table} WHERE booking_room_id = %d AND stay_date = %s LIMIT 1",
+                $booking_room_id, $stay_date
+            ) );
+            if ( $exists > 0 ) {
+                continue;
+            }
+
+            $night_total = round( (float) $avg_rate + (float) $avg_extras + (float) $avg_tax, 2 );
+            $wpdb->insert(
+                $booking_nights_table,
+                [
+                    'booking_room_id' => $booking_room_id,
+                    'stay_date' => $stay_date,
+                    'guest_count' => $guest_count,
+                    'adults' => $adults,
+                    'children' => $children,
+                    'babies' => $babies,
+                    'room_rate_amount' => $avg_rate,
+                    'extras_amount' => $avg_extras,
+                    'tourist_tax_amount' => $avg_tax,
+                    'total_amount' => $night_total,
+                ],
+                [ '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f' ]
+            );
+            $created_count++;
+        }
+    }
+
+    return [ 'deleted' => count( $night_ids ), 'created' => $created_count ];
 }
 
 function simple_hotel_crm_get_repair_scan_counts() {
@@ -690,7 +794,17 @@ function simple_hotel_crm_get_repair_scan_counts() {
         'pricing_rows' => 0,
         'commission_rows' => 0,
         'booking_headers' => 0,
+        'room_night_dates' => 0,
     ];
+
+    $counts['room_night_dates'] = (int) $wpdb->get_var(
+        "SELECT COUNT(*) FROM {$booking_nights_table} brn
+         JOIN {$booking_rooms_table} br ON br.id = brn.booking_room_id
+         JOIN {$bookings_table} b ON b.id = br.booking_id
+         WHERE b.is_deleted = 0
+           AND b.status_code IN ('confirmed', 'checked_in')
+           AND (brn.stay_date < b.check_in_date OR brn.stay_date >= b.check_out_date)"
+    );
 
     if ( simple_hotel_crm_table_has_column( $booking_rooms_table, 'subtotal_amount' ) ) {
         $counts['pricing_rows'] += (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$booking_rooms_table} WHERE subtotal_amount = 0 AND room_rate_amount > 0" );
@@ -814,7 +928,11 @@ function simple_hotel_crm_import_sync_data_to_crm() {
             ),
             ARRAY_A
         );
-        if ( 'booking_com' === (string) ( $booking_group['source_channel'] ?? '' ) && $booking ) {
+        if ( 'booking_com' !== (string) ( $booking_group['source_channel'] ?? '' ) ) {
+            $wpdb->query( 'COMMIT' );
+            continue;
+        }
+        if ( $booking ) {
             $real_source_booking_id = (string) ( $booking_group['source_booking_id'] ?: '' );
             if ( '' !== $real_source_booking_id && (string) $booking['source_booking_id'] !== $real_source_booking_id ) {
                 $wpdb->update( $crm_bookings_table, [ 'source_booking_id' => $real_source_booking_id ], [ 'id' => (int) $booking['id'] ], [ '%s' ], [ '%d' ] );

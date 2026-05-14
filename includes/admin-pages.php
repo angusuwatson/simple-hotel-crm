@@ -3785,7 +3785,7 @@ function simple_hotel_crm_render_settings_page() {
         simple_hotel_crm_install_tables();
         $repair_results = simple_hotel_crm_run_repair_routines();
         simple_hotel_crm_clear_calendar_cache();
-        echo '<div class="notice notice-success"><p>' . esc_html__( 'Schema upgrade and repair routines completed.', 'simple-hotel-crm' ) . '</p><ul><li>' . esc_html__( 'Pricing rows updated:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_results['pricing_rows'] ?? 0 ) ) . '</li><li>' . esc_html__( 'Commission rows updated:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_results['commission_rows'] ?? 0 ) ) . '</li><li>' . esc_html__( 'Booking headers recalculated:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_results['booking_headers'] ?? 0 ) ) . '</li></ul></div>';
+        echo '<div class="notice notice-success"><p>' . esc_html__( 'Schema upgrade and repair routines completed.', 'simple-hotel-crm' ) . '</p><ul><li>' . esc_html__( 'Pricing rows updated:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_results['pricing_rows'] ?? 0 ) ) . '</li><li>' . esc_html__( 'Commission rows updated:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_results['commission_rows'] ?? 0 ) ) . '</li><li>' . esc_html__( 'Booking headers recalculated:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_results['booking_headers'] ?? 0 ) ) . '</li><li>' . esc_html__( 'Room night date fixes (deleted/created):', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_results['room_night_dates_deleted'] ?? 0 ) ) . '/' . esc_html( (string) (int) ( $repair_results['room_night_dates_created'] ?? 0 ) ) . '</li></ul></div>';
     }
     if ( isset( $_POST['simple_hotel_crm_reset_crm_data'] ) ) {
         check_admin_referer( 'simple_hotel_crm_reset_crm_data', 'simple_hotel_crm_reset_crm_data_nonce' );
@@ -3890,6 +3890,7 @@ function simple_hotel_crm_render_settings_page() {
         echo '<li>' . esc_html__( 'Pricing rows needing normalization:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $repair_scan_counts['pricing_rows'] ) . '</li>';
         echo '<li>' . esc_html__( 'Commission rows needing backfill:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $repair_scan_counts['commission_rows'] ) . '</li>';
         echo '<li>' . esc_html__( 'Booking headers needing recalculation:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $repair_scan_counts['booking_headers'] ) . '</li>';
+        echo '<li>' . esc_html__( 'Room nights with dates outside booking range:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_scan_counts['room_night_dates'] ?? 0 ) ) . '</li>';
         echo '</ul>';
         echo '<p>' . esc_html__( 'Fetch Booking.com ICS room feeds, stage nights, then create only missing booking skeletons in CRM. Existing enriched bookings are skipped.', 'simple-hotel-crm' ) . '</p>';
         echo '<p><a class="button" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-transfers' ) ) . '">' . esc_html__( 'Open Booking Transfers', 'simple-hotel-crm' ) . '</a> <a class="button" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-merges' ) ) . '">' . esc_html__( 'Open Booking Merges', 'simple-hotel-crm' ) . '</a></p>';
