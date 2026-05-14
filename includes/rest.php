@@ -257,6 +257,7 @@ function simple_hotel_crm_rest_table( WP_REST_Request $request ) {
     $year  = intval( $request->get_param( 'year' ) );
     $context = 'admin' === $request->get_param( 'context' ) ? 'admin' : 'frontend';
 
+    nocache_headers();
     return rest_ensure_response( [ 'html' => simple_hotel_crm_render_calendar( simple_hotel_crm_get_calendar_data( $month, $year ), $context ) ] );
 }
 
