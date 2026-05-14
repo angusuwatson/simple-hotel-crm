@@ -3247,14 +3247,14 @@ function simple_hotel_crm_analyze_motopress_booking_preview_row( $mapped_row ) {
     $mapped_row = is_array( $mapped_row ) ? $mapped_row : [];
     $issues = [];
 
-    // Skip cancelled bookings - only import confirmed bookings
-    $status_code = strtolower( $mapped_row['status_code'] ?? 'confirmed' );
-    if ( 'cancelled' === $status_code || 'cancelled' === $status_code ) {
+    // Only import confirmed bookings; skip abandoned, cancelled, pending, etc.
+    $status_code = strtolower( $mapped_row['status_code'] ?? '' );
+    if ( 'confirmed' !== $status_code ) {
         return [
             'guest_match' => false,
             'booking_match' => false,
             'status' => 'skipped',
-            'issues' => ['cancelled_booking'],
+            'issues' => [ 'non_confirmed_booking' ],
         ];
     }
 
@@ -3318,10 +3318,7 @@ function simple_hotel_crm_map_motopress_booking_preview_row( $row ) {
         $guest_name = trim( $first_name . ' ' . $last_name );
     }
 
-    $status = sanitize_key( (string) ( $row['status'] ?? $row['status_code'] ?? 'confirmed' ) );
-    if ( ! isset( simple_hotel_crm_get_booking_status_options()[ $status ] ) ) {
-        $status = 'confirmed';
-    }
+    $status = sanitize_key( (string) ( $row['status'] ?? $row['status_code'] ?? '' ) );
 
     // MotoPress syncs always use "website" channel
     $source_channel = 'website';
