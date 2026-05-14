@@ -143,8 +143,8 @@ function simple_hotel_crm_rest_dashboard( WP_REST_Request $request ) {
           AND b.check_out_date = %s
         ORDER BY g.last_name ASC", $today ), ARRAY_A );
 
-    // Next 7 days occupancy
-    $week_start = $today;
+    // Next 8 days occupancy (include yesterday for bread order)
+    $week_start = date( 'Y-m-d', strtotime( $today . ' -1 day' ) );
     $week_end = date( 'Y-m-d', strtotime( $today . ' +7 days' ) );
     $occupancy = $wpdb->get_results( $wpdb->prepare( "
         SELECT
