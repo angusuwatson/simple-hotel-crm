@@ -1823,7 +1823,14 @@ function simple_hotel_crm_render_booking_detail_page() {
     echo '<h1>' . esc_html__( 'Booking Detail', 'simple-hotel-crm' ) . ' #' . esc_html( (string) $booking_id ) . '</h1>';
     echo '<p>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-bookings' ) ) . '">← ' . esc_html__( 'Back to Bookings', 'simple-hotel-crm' ) . '</a> | ';
-    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm' ) ) . '">← ' . esc_html__( 'Back to Calendar', 'simple-hotel-crm' ) . '</a>';
+    $calendar_url = admin_url( 'admin.php?page=simple-hotel-crm' );
+    if ( ! empty( $booking['check_in_date'] ) ) {
+        $check_in_ts = strtotime( $booking['check_in_date'] );
+        if ( $check_in_ts ) {
+            $calendar_url = add_query_arg( [ 'month' => (int) gmdate( 'n', $check_in_ts ), 'year' => (int) gmdate( 'Y', $check_in_ts ) ], $calendar_url );
+        }
+    }
+    echo '<a href="' . esc_url( $calendar_url ) . '">← ' . esc_html__( 'Back to Calendar', 'simple-hotel-crm' ) . '</a>';
     echo '</p>';
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_save_booking' );

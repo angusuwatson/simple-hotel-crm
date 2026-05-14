@@ -18,7 +18,7 @@ $scroll_to_today = ( (int) $month === $today_month && (int) $year === $today_yea
 <div class="simple-hotel-crm-container" data-scroll-to-today="<?php echo esc_attr( $scroll_to_today ? '1' : '0' ); ?>" data-today-date="<?php echo esc_attr( $today ); ?>">
     <div class="calendar-month-tabs" role="tablist" aria-label="Calendar months">
         <?php foreach ( $month_tabs as $tab ) : ?>
-            <a class="calendar-month-tab<?php echo $tab['current'] ? ' is-current' : ''; ?>" href="<?php echo esc_url( add_query_arg( [ 'month' => $tab['month'], 'year' => $tab['year'] ], $calendar_base_url ) ); ?>" data-month="<?php echo esc_attr( $tab['month'] ); ?>" data-year="<?php echo esc_attr( $tab['year'] ); ?>"><?php echo esc_html( $tab['label'] ); ?></a>
+            <a class="calendar-month-tab<?php echo $tab['current'] ? ' is-current' : ''; ?><?php echo ( (int) $tab['month'] === $today_month && (int) $tab['year'] === $today_year ) ? ' is-today' : ''; ?>" href="<?php echo esc_url( add_query_arg( [ 'month' => $tab['month'], 'year' => $tab['year'] ], $calendar_base_url ) ); ?>" data-month="<?php echo esc_attr( $tab['month'] ); ?>" data-year="<?php echo esc_attr( $tab['year'] ); ?>"><?php echo esc_html( $tab['label'] ); ?></a>
         <?php endforeach; ?>
     </div>
 

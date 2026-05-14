@@ -119,6 +119,8 @@
 
 .calendar-month-tab:hover { background: rgba(255,255,255,0.08); color: #fff; }
 .calendar-month-tab.is-current { background: rgba(255,255,255,0.06); border-bottom-color: #f0e0ad; color: #fff; }
+.calendar-month-tab.is-today { border-bottom-color: #6c6; }
+.calendar-month-tab.is-current.is-today { border-bottom-color: #f0e0ad; box-shadow: inset 0 -2px 0 #6c6; }
 
 .simple-hotel-crm { overflow-x: auto; overflow-y: visible; background: #f4f4f6; }
 
