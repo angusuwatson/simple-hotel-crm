@@ -365,9 +365,14 @@ function simple_hotel_crm_rest_get_quick_booking( WP_REST_Request $request ) {
     $room_note = $booking_room_id > 0 ? simple_hotel_crm_get_booking_note_text( (int) $booking['id'], $booking_room_id ) : '';
     $booking_note_global = simple_hotel_crm_get_booking_note_text( (int) $booking['id'] );
 
+    $guest_name = trim( (string) $booking['first_name'] . ' ' . (string) $booking['last_name'] );
+    $manual_guest_name = trim( (string) ( $overlay['manual_guest_name'] ?? '' ) );
+    if ( '' !== $manual_guest_name && ! preg_match( '/^\d+(?:\.\d+)?$/', $manual_guest_name ) ) {
+        $guest_name = $manual_guest_name;
+    }
     return rest_ensure_response( [
         'id' => (int) $booking['id'],
-        'guest_name' => trim( (string) $booking['first_name'] . ' ' . (string) $booking['last_name'] ),
+        'guest_name' => $guest_name,
         'phone' => (string) $booking['phone'],
         'email' => (string) $booking['email'],
         'status_code' => (string) $booking['status_code'],
