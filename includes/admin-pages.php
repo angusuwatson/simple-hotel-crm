@@ -22,6 +22,7 @@ function simple_hotel_crm_register_admin_menu() {
     add_submenu_page( null, __( 'Booking Merges', 'simple-hotel-crm' ), __( 'Booking Merges', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-booking-merges', 'simple_hotel_crm_render_booking_merges_page' );
     add_submenu_page( null, __( 'Guest Detail', 'simple-hotel-crm' ), __( 'Guest Detail', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-detail', 'simple_hotel_crm_render_guest_detail_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Settings', 'simple-hotel-crm' ), __( 'Settings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-settings', 'simple_hotel_crm_render_settings_page' );
+    add_submenu_page( 'simple-hotel-crm', __( 'Sync Log', 'simple-hotel-crm' ), __( 'Sync Log', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-sync-log', 'simple_hotel_crm_render_sync_log_page' );
     
     add_submenu_page( null, __( 'Import', 'simple-hotel-crm' ), __( 'Import', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-import', 'simple_hotel_crm_render_import_page' );
 }
@@ -84,9 +85,93 @@ function simple_hotel_crm_handle_calendar_sync_action() {
             $moto_errors
         ) ) ),
     ];
+    simple_hotel_crm_log_sync_result( $sync_notice );
     set_transient( 'simple_hotel_crm_admin_sync_notice_' . get_current_user_id(), $sync_notice, 5 * MINUTE_IN_SECONDS );
     wp_safe_redirect( admin_url( 'admin.php?page=simple-hotel-crm&month=' . $month . '&year=' . $year . '&sync_done=1' ) );
     exit;
+}
+
+function simple_hotel_crm_log_sync_result( $result ) {
+    $log = get_option( 'simple_hotel_crm_sync_log', [] );
+    if ( ! is_array( $log ) ) {
+        $log = [];
+    }
+    array_unshift( $log, [
+        'time'    => current_time( 'mysql' ),
+        'success' => $result['success'] ?? '',
+        'errors'  => $result['errors'] ?? [],
+    ] );
+    $log = array_slice( $log, 0, 20 );
+    update_option( 'simple_hotel_crm_sync_log', $log, false );
+}
+
+function simple_hotel_crm_render_sync_log() {
+    $log = get_option( 'simple_hotel_crm_sync_log', [] );
+    if ( ! is_array( $log ) || empty( $log ) ) {
+        echo '<p style="margin:12px 0;font-size:12px;color:#666;">' . esc_html__( 'No sync history yet.', 'simple-hotel-crm' ) . '</p>';
+        return;
+    }
+    $last = $log[0] ?? [];
+    $has_errors = ! empty( $last['errors'] );
+    echo '<p style="margin:12px 0;font-size:12px;">';
+    echo '<span style="color:' . ( $has_errors ? '#b42318' : '#027a48' ) . ';">●</span> ';
+    echo esc_html( sprintf( __( 'Last sync: %s', 'simple-hotel-crm' ), $last['time'] ?? '?' ) );
+    echo ' — <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-sync-log' ) ) . '">' . esc_html__( 'View full log', 'simple-hotel-crm' ) . '</a>';
+    echo '</p>';
+}
+
+function simple_hotel_crm_render_sync_log_page() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
+    }
+
+    if ( isset( $_POST['simple_hotel_crm_clear_sync_log'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_clear_sync_log' );
+        update_option( 'simple_hotel_crm_sync_log', [], false );
+        echo '<div class="notice notice-success"><p>' . esc_html__( 'Sync log cleared.', 'simple-hotel-crm' ) . '</p></div>';
+    }
+
+    $log = get_option( 'simple_hotel_crm_sync_log', [] );
+    echo '<div class="wrap"><h1>' . esc_html__( 'Sync Log', 'simple-hotel-crm' ) . '</h1>';
+
+    if ( ! is_array( $log ) || empty( $log ) ) {
+        echo '<p>' . esc_html__( 'No sync history yet. Sync runs automatically every 15 minutes.', 'simple-hotel-crm' ) . '</p>';
+    } else {
+        echo '<table class="widefat fixed" style="margin-top:12px;"><thead><tr>';
+        echo '<th>' . esc_html__( 'Time', 'simple-hotel-crm' ) . '</th>';
+        echo '<th>' . esc_html__( 'Result', 'simple-hotel-crm' ) . '</th>';
+        echo '<th>' . esc_html__( 'Errors', 'simple-hotel-crm' ) . '</th>';
+        echo '</tr></thead><tbody>';
+        foreach ( $log as $entry ) {
+            $time = $entry['time'] ?? '';
+            $success = $entry['success'] ?? '';
+            $errors = $entry['errors'] ?? [];
+            $has_errors = ! empty( $errors );
+            echo '<tr style="background:' . ( $has_errors ? '#fff5f5' : '#fff' ) . ';">';
+            echo '<td><strong>' . esc_html( $time ) . '</strong></td>';
+            echo '<td style="color:' . ( $has_errors ? '#b42318' : '#027a48' ) . ';">' . esc_html( $success ) . '</td>';
+            echo '<td>';
+            if ( $has_errors ) {
+                echo '<ul style="margin:0;color:#b42318;">';
+                foreach ( $errors as $e ) {
+                    echo '<li>' . esc_html( (string) $e ) . '</li>';
+                }
+                echo '</ul>';
+            } else {
+                echo '—';
+            }
+            echo '</td></tr>';
+        }
+        echo '</tbody></table>';
+
+        echo '<form method="post" style="margin-top:12px;">';
+        wp_nonce_field( 'simple_hotel_crm_clear_sync_log' );
+        submit_button( __( 'Clear log', 'simple-hotel-crm' ), 'delete', 'simple_hotel_crm_clear_sync_log', false );
+        echo '</form>';
+    }
+
+    echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm' ) ) . '">← ' . esc_html__( 'Back to Calendar', 'simple-hotel-crm' ) . '</a></p>';
+    echo '</div>';
 }
 
 function simple_hotel_crm_import_motopress_bookings() {
@@ -382,8 +467,13 @@ function simple_hotel_crm_motopress_cron_sync() {
         $output[] = sprintf( 'MotoPress: fetched=%d imported=%d skipped=%d',
             $moto_result['fetched'], $moto_result['imported'], $moto_result['skipped'] );
     }
-    if ( $output ) {
-        error_log( 'SHC cron sync: ' . implode( ' | ', $output ) );
+    $summary = implode( ' | ', $output );
+    if ( $summary ) {
+        error_log( 'SHC cron sync: ' . $summary );
+        simple_hotel_crm_log_sync_result( [
+            'success' => $summary,
+            'errors'  => is_wp_error( $moto_result ) ? [ $moto_result->get_error_message() ] : [],
+        ] );
     }
 }
 
@@ -409,6 +499,7 @@ function simple_hotel_crm_render_admin_page() {
     echo '<a class="simple-hotel-crm-floating-add-booking" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-add-booking' ) ) . '" aria-label="' . esc_attr__( 'Add Booking', 'simple-hotel-crm' ) . '">+</a>';
     $sync_url = wp_nonce_url( admin_url( 'admin-post.php?action=simple_hotel_crm_calendar_sync&month=' . $month . '&year=' . $year ), 'simple_hotel_crm_calendar_sync_action' );
     echo '<a href="' . esc_url( $sync_url ) . '" class="simple-hotel-crm-floating-sync" aria-label="' . esc_attr__( 'Sync calendars', 'simple-hotel-crm' ) . '" title="' . esc_attr__( 'Sync Booking.com ICS and all MotoPress rooms', 'simple-hotel-crm' ) . '"><span class="dashicons dashicons-update"></span></a>';
+    simple_hotel_crm_render_sync_log();
     echo '</div>';
 }
 
