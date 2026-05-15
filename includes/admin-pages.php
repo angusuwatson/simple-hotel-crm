@@ -272,13 +272,20 @@ function simple_hotel_crm_import_motopress_bookings() {
             $first_name = trim( (string) ( $raw_booking['first_name'] ?? '' ) );
             $last_name = trim( (string) ( $raw_booking['last_name'] ?? '' ) );
             $guest_name = trim( $first_name . ' ' . $last_name );
-        } elseif ( ! empty( $raw_booking['reserved_accommodations'][0]['guest_name'] ) ) {
-            $guest_name = trim( (string) $raw_booking['reserved_accommodations'][0]['guest_name'] );
+        } else {
+            // Try every accommodation for a guest_name
+            foreach ( (array) ( $raw_booking['reserved_accommodations'] ?? [] ) as $acc ) {
+                $n = trim( (string) ( $acc['guest_name'] ?? '' ) );
+                if ( '' !== $n ) {
+                    $guest_name = $n;
+                    break;
+                }
+            }
         }
 
         if ( '' === $guest_name ) {
-            $stats['errors'][] = sprintf( 'Booking %s: no guest name', $external_id );
-            continue;
+            $guest_name = sprintf( 'Guest (MP %s)', $external_id );
+            $first_name = $guest_name;
         }
 
         if ( '' === $first_name && '' === $last_name ) {
