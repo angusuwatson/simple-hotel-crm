@@ -185,302 +185,123 @@ function simple_hotel_crm_import_motopress_bookings() {
     }
 
     $bookings_table = simple_hotel_crm_bookings_table();
-    $guests_table = simple_hotel_crm_guests_table();
-    $rooms_table = simple_hotel_crm_rooms_table();
-    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
-    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
 
     $stats = [ 'fetched' => 0, 'imported' => 0, 'skipped' => 0, 'errors' => [] ];
+    $analysis_skipped = 0;
 
-    // Fetch all pages from MotoPress REST API
+    // ── Phase 1: Fetch all bookings from MotoPress REST API ──
     $page = 1;
     $max_pages = 5;
     $all_bookings = [];
-
     do {
         $response = wp_remote_get( 'https://lagrangefleurie.fr/wp-json/mphb/v1/bookings?per_page=100&page=' . $page, [
-            'headers' => [
-                'Authorization' => 'Basic ' . base64_encode( $consumer_key . ':' . $consumer_secret ),
-            ],
+            'headers' => [ 'Authorization' => 'Basic ' . base64_encode( $consumer_key . ':' . $consumer_secret ) ],
             'timeout' => 20,
         ] );
-
         if ( is_wp_error( $response ) ) {
             return new WP_Error( 'api_error', $response->get_error_message() );
         }
-
         $code = wp_remote_retrieve_response_code( $response );
         $data = json_decode( wp_remote_retrieve_body( $response ), true );
-
         if ( 200 !== $code || ! is_array( $data ) ) {
             break;
         }
-
         $all_bookings = array_merge( $all_bookings, $data );
         $total_pages = min( (int) wp_remote_retrieve_header( $response, 'x-wp-totalpages' ), $max_pages );
         $page++;
     } while ( $page <= $total_pages );
 
     $stats['fetched'] = count( $all_bookings );
-
     if ( empty( $all_bookings ) ) {
         return $stats;
     }
 
-    $valid_statuses = [ 'confirmed', 'pending', 'pending-user', 'pending-payment' ];
-
-    $wpdb->query( 'START TRANSACTION' );
-
-    $import_ok = true;
+    // ── Phase 2: Map & analyse each booking via the proven old pipeline ──
+    $new_booking_rows = [];
+    $imported_external_ids = [];
+    $raw_by_external_id = [];
 
     foreach ( $all_bookings as $raw_booking ) {
-        $status = sanitize_key( (string) ( $raw_booking['status'] ?? $raw_booking['status_code'] ?? '' ) );
-
-        if ( ! in_array( $status, $valid_statuses, true ) ) {
-            $stats['skipped']++;
-            continue;
-        }
-
         $external_id = (string) ( $raw_booking['id'] ?? '' );
         if ( '' === $external_id ) {
-            $stats['skipped']++;
+            $analysis_skipped++;
             continue;
         }
 
-        // Check if already imported into CRM
+        // Skip already imported
         $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$bookings_table} WHERE source_booking_id = %s LIMIT 1", $external_id ) );
         if ( $existing ) {
-            $stats['skipped']++;
+            $analysis_skipped++;
             continue;
         }
 
-        // Skip bookings with no real guest data (likely synced from Booking.com etc.)
-        $customer = $raw_booking['customer'] ?? [];
-        $has_guest_name = ! empty( $customer['first_name'] ) || ! empty( $customer['last_name'] )
-            || ! empty( $raw_booking['guest_name'] )
-            || ! empty( $raw_booking['first_name'] ) || ! empty( $raw_booking['last_name'] );
+        // Map & analyse
+        $mapped_row = simple_hotel_crm_map_motopress_booking_preview_row( $raw_booking );
+        $analysis = simple_hotel_crm_analyze_motopress_booking_preview_row( $mapped_row );
 
-        if ( ! $has_guest_name ) {
-            // Check per-room guest_name
-            foreach ( (array) ( $raw_booking['reserved_accommodations'] ?? [] ) as $acc ) {
-                if ( '' !== trim( (string) ( $acc['guest_name'] ?? '' ) ) ) {
-                    $has_guest_name = true;
-                    break;
-                }
-            }
-        }
-
-        if ( ! $has_guest_name ) {
-            $stats['skipped']++;
-            continue;
-        }
-
-        // Extract guest details — try multiple sources
-        $customer = $raw_booking['customer'] ?? [];
-        $guest_name = '';
-        $first_name = '';
-        $last_name = '';
-
-        if ( ! empty( $customer['first_name'] ) || ! empty( $customer['last_name'] ) ) {
-            $guest_name = trim( (string) $customer['first_name'] . ' ' . (string) $customer['last_name'] );
-            $first_name = trim( (string) $customer['first_name'] );
-            $last_name = trim( (string) $customer['last_name'] );
-        } elseif ( ! empty( $raw_booking['guest_name'] ) ) {
-            $guest_name = trim( (string) $raw_booking['guest_name'] );
-        } elseif ( ! empty( $raw_booking['first_name'] ) || ! empty( $raw_booking['last_name'] ) ) {
-            $first_name = trim( (string) ( $raw_booking['first_name'] ?? '' ) );
-            $last_name = trim( (string) ( $raw_booking['last_name'] ?? '' ) );
-            $guest_name = trim( $first_name . ' ' . $last_name );
+        if ( 'new' === $analysis['status'] ) {
+            $new_booking_rows[] = $mapped_row;
+            $imported_external_ids[] = $external_id;
+            $raw_by_external_id[ $external_id ] = $raw_booking;
         } else {
-            // Try every accommodation for a guest_name
-            foreach ( (array) ( $raw_booking['reserved_accommodations'] ?? [] ) as $acc ) {
-                $n = trim( (string) ( $acc['guest_name'] ?? '' ) );
-                if ( '' !== $n ) {
-                    $guest_name = $n;
-                    break;
-                }
-            }
+            $analysis_skipped++;
         }
-
-        if ( '' === $guest_name ) {
-            $stats['skipped']++;
-            continue;
-        }
-
-        if ( '' === $first_name && '' === $last_name ) {
-            $name_parts = explode( ' ', $guest_name, 2 );
-            $first_name = $name_parts[0] ?? '';
-            $last_name = $name_parts[1] ?? '';
-        }
-
-        $email = sanitize_email( (string) ( $customer['email'] ?? '' ) );
-        $phone = sanitize_text_field( (string) ( $customer['phone'] ?? '' ) );
-
-        // Find or create guest
-        $guest = null;
-        if ( $email ) {
-            $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$guests_table} WHERE email = %s LIMIT 1", $email ), ARRAY_A );
-        }
-        if ( ! $guest ) {
-            $inserted = $wpdb->insert( $guests_table, [
-                'first_name' => $first_name,
-                'last_name'  => $last_name,
-                'email'      => $email,
-                'phone'      => $phone,
-                'created_at' => current_time( 'mysql' ),
-                'updated_at' => current_time( 'mysql' ),
-            ], [ '%s', '%s', '%s', '%s', '%s', '%s' ] );
-            if ( $inserted ) {
-                $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$guests_table} WHERE id = %d LIMIT 1", $wpdb->insert_id ), ARRAY_A );
-            }
-        }
-
-        if ( ! $guest ) {
-            $stats['errors'][] = sprintf( 'Booking %s: could not find or create guest', $external_id );
-            continue;
-        }
-
-        // Extract dates
-        $check_in = sanitize_text_field( (string) ( $raw_booking['check_in_date'] ?? $raw_booking['checkInDate'] ?? '' ) );
-        $check_out = sanitize_text_field( (string) ( $raw_booking['check_out_date'] ?? $raw_booking['checkOutDate'] ?? '' ) );
-
-        if ( ! $check_in || ! $check_out ) {
-            $stats['errors'][] = sprintf( 'Booking %s: missing dates', $external_id );
-            continue;
-        }
-
-        // Create booking
-        $inserted = $wpdb->insert( $bookings_table, [
-            'guest_id'          => (int) $guest['id'],
-            'source_channel'    => 'website',
-            'source_booking_id' => $external_id,
-            'status_code'       => $status,
-            'contacted_date'    => sanitize_text_field( (string) ( $raw_booking['date_created'] ?? '' ) ) ?: null,
-            'check_in_date'     => $check_in,
-            'check_out_date'    => $check_out,
-            'currency'          => 'EUR',
-            'booking_note'      => sanitize_textarea_field( (string) ( $raw_booking['note'] ?? $raw_booking['booking_note'] ?? '' ) ),
-            'internal_notes'    => sanitize_textarea_field( (string) ( $raw_booking['internal_note'] ?? $raw_booking['internal_notes'] ?? '' ) ),
-        ], [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ] );
-
-        if ( ! $inserted ) {
-            $stats['errors'][] = sprintf( 'Booking %s: insert failed', $external_id );
-            $import_ok = false;
-            break;
-        }
-
-        $booking_id = (int) $wpdb->insert_id;
-
-        // Process rooms from reserved_accommodations
-        $accommodations = $raw_booking['reserved_accommodations'] ?? [];
-        if ( ! is_array( $accommodations ) || empty( $accommodations ) ) {
-            $stats['imported']++;
-            continue;
-        }
-
-        foreach ( $accommodations as $accommodation ) {
-            $room_id = (int) ( $accommodation['room_id'] ?? $accommodation['roomId'] ?? $accommodation['id'] ?? $accommodation['accommodation'] ?? 0 );
-            $adults = max( 0, (int) ( $accommodation['adults'] ?? 0 ) );
-            $children = max( 0, (int) ( $accommodation['children'] ?? 0 ) );
-            $babies = max( 0, (int) ( $accommodation['babies'] ?? 0 ) );
-            $guest_count = $adults + $children + $babies;
-
-            // Match room via sync_room_id (MotoPress room_id)
-            $crm_room_id = 0;
-            if ( $room_id > 0 ) {
-                $crm_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE sync_room_id = %d LIMIT 1", $room_id ) );
-            }
-            if ( ! $crm_room_id ) {
-                $room_code = strtoupper( trim( (string) ( $accommodation['room_code'] ?? $accommodation['roomCode'] ?? $accommodation['code'] ?? '' ) ) );
-                if ( $room_code ) {
-                    $crm_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE room_code = %s LIMIT 1", $room_code ) );
-                }
-            }
-            if ( ! $crm_room_id ) {
-                $stats['errors'][] = sprintf( 'Booking %s: room %d not matched', $external_id, $room_id );
-                continue;
-            }
-
-            // Check for duplicate room line
-            $existing_room = (int) $wpdb->get_var( $wpdb->prepare(
-                "SELECT id FROM {$booking_rooms_table} WHERE booking_id = %d AND room_id = %d LIMIT 1",
-                $booking_id, $crm_room_id
-            ) );
-            if ( $existing_room ) {
-                continue;
-            }
-
-            // Calculate pricing from per-day breakdown
-            $room_rate_amount = 0.0;
-            $tourist_tax_amount = 0.0;
-
-            if ( ! empty( $accommodation['accommodation_price_per_days'] ) && is_array( $accommodation['accommodation_price_per_days'] ) ) {
-                foreach ( $accommodation['accommodation_price_per_days'] as $day_row ) {
-                    $room_rate_amount += (float) simple_hotel_crm_normalize_decimal( $day_row['price'] ?? 0 );
-                }
-            }
-            if ( ! empty( $accommodation['taxes']['accommodation'] ) && is_array( $accommodation['taxes']['accommodation'] ) ) {
-                foreach ( $accommodation['taxes']['accommodation'] as $tax_row ) {
-                    $tourist_tax_amount += (float) simple_hotel_crm_normalize_decimal( $tax_row['value'] ?? 0 );
-                }
-            }
-
-            $total_amount = $room_rate_amount + $tourist_tax_amount;
-            $nights_count = max( 1, (int) round( ( strtotime( $check_out ) - strtotime( $check_in ) ) / DAY_IN_SECONDS ) );
-
-            // Insert booking_room
-            $inserted = $wpdb->insert( $booking_rooms_table, [
-                'booking_id'    => $booking_id,
-                'room_id'       => $crm_room_id,
-                'guest_count'   => $guest_count,
-                'adults'        => $adults,
-                'children'      => $children,
-                'babies'        => $babies,
-                'room_rate_amount'   => round( $room_rate_amount, 2 ),
-                'extras_amount'      => 0.00,
-                'tourist_tax_amount' => round( $tourist_tax_amount, 2 ),
-                'total_amount'       => round( $total_amount, 2 ),
-            ], [ '%d', '%d', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f' ] );
-
-            if ( ! $inserted ) {
-                $stats['errors'][] = sprintf( 'Booking %s: room line insert failed', $external_id );
-                $import_ok = false;
-                break 2;
-            }
-
-            $booking_room_id = (int) $wpdb->insert_id;
-
-            // Insert booking_room_nights
-            for ( $i = 0; $i < $nights_count; $i++ ) {
-                $stay_date = gmdate( 'Y-m-d', strtotime( $check_in . ' +' . $i . ' day' ) );
-                $night_room_rate = round( $room_rate_amount / $nights_count, 2 );
-                $night_tax = round( $tourist_tax_amount / $nights_count, 2 );
-                $night_total = round( $total_amount / $nights_count, 2 );
-
-                $wpdb->insert( $booking_nights_table, [
-                    'booking_room_id'    => $booking_room_id,
-                    'stay_date'          => $stay_date,
-                    'guest_count'        => $guest_count,
-                    'adults'             => $adults,
-                    'children'           => $children,
-                    'babies'             => $babies,
-                    'room_rate_amount'   => $night_room_rate,
-                    'extras_amount'      => 0.00,
-                    'tourist_tax_amount' => $night_tax,
-                    'total_amount'       => $night_total,
-                ], [ '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f' ] );
-            }
-        }
-
-        $stats['imported']++;
     }
 
-    if ( $import_ok ) {
-        $wpdb->query( 'COMMIT' );
-        simple_hotel_crm_clear_calendar_cache();
-    } else {
+    if ( empty( $new_booking_rows ) ) {
+        return $stats;
+    }
+
+    // ── Phase 3: Import booking headers (creates guests & bookings) ──
+    $wpdb->query( 'START TRANSACTION' );
+
+    $booking_result = simple_hotel_crm_import_bookings_csv( $new_booking_rows, false );
+
+    if ( ! empty( $booking_result['errors'] ) ) {
         $wpdb->query( 'ROLLBACK' );
+        $stats['errors'] = array_merge( $stats['errors'], $booking_result['errors'] );
+        return $stats;
     }
+
+    // ── Phase 4: Import rooms for each successfully created booking ──
+    $all_room_rows = [];
+
+    foreach ( $imported_external_ids as $external_id ) {
+        $raw_booking = $raw_by_external_id[ $external_id ];
+        $reserved = $raw_booking['reserved_accommodations'] ?? [];
+        if ( empty( $reserved ) ) {
+            continue;
+        }
+
+        // Find the mapped row to get guest_name etc.
+        $mapped_booking_row = [];
+        foreach ( $new_booking_rows as $nr ) {
+            if ( ( $nr['external_booking_id'] ?? '' ) === $external_id ) {
+                $mapped_booking_row = $nr;
+                break;
+            }
+        }
+
+        $mapped_rooms = simple_hotel_crm_map_motopress_room_candidates( $raw_booking );
+        $room_rows = simple_hotel_crm_build_motopress_room_import_rows( $mapped_booking_row, $mapped_rooms, $raw_booking );
+        $all_room_rows = array_merge( $all_room_rows, $room_rows );
+    }
+
+    if ( ! empty( $all_room_rows ) ) {
+        $room_result = simple_hotel_crm_import_booking_rooms_csv( $all_room_rows, false );
+
+        if ( ! empty( $room_result['errors'] ) ) {
+            $wpdb->query( 'ROLLBACK' );
+            $stats['errors'] = array_merge( $stats['errors'], $room_result['errors'] );
+            return $stats;
+        }
+    }
+
+    $wpdb->query( 'COMMIT' );
+    simple_hotel_crm_clear_calendar_cache();
+
+    $stats['imported'] = $booking_result['created'];
+    $stats['skipped'] = $analysis_skipped + ( $booking_result['skipped'] ?? 0 );
 
     return $stats;
 }
