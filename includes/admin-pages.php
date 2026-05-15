@@ -51,69 +51,6 @@ function simple_hotel_crm_render_admin_sync_notice() {
     }
 }
 
-function simple_hotel_crm_sync_all_motopress_rooms() {
-    if ( ! function_exists( 'MPHB' ) || ! method_exists( MPHB(), 'getQueuedSynchronizer' ) || ! method_exists( MPHB(), 'getSyncUrlsRepository' ) ) {
-        return new WP_Error( 'motopress_unavailable', __( 'MotoPress plugin not available.', 'simple-hotel-crm' ) );
-    }
-
-    // Try REST API approach first (like preview/import)
-    $consumer_key = get_option( 'simple_hotel_crm_motopress_consumer_key', '' );
-    $consumer_secret = get_option( 'simple_hotel_crm_motopress_consumer_secret', '' );
-    if ( $consumer_key && $consumer_secret ) {
-        $page = 1;
-        $max_pages = 5;
-        $all_import_rows = [];
-        do {
-            $response = wp_remote_get( 'https://lagrangefleurie.fr/wp-json/mphb/v1/bookings?per_page=100&page=' . $page, [
-                'headers' => [
-                    'Authorization' => 'Basic ' . base64_encode( $consumer_key . ':' . $consumer_secret ),
-                ],
-                'timeout' => 20,
-            ] );
-            if ( is_wp_error( $response ) ) {
-                break;
-            }
-            $code = wp_remote_retrieve_response_code( $response );
-            $data = json_decode( wp_remote_retrieve_body( $response ), true );
-            if ( 200 !== $code || ! is_array( $data ) ) {
-                break;
-            }
-            $preview_mapped_rows = array_map( 'simple_hotel_crm_map_motopress_booking_preview_row', $data );
-            foreach ( $preview_mapped_rows as $mapped_row ) {
-                $analysis_row = simple_hotel_crm_analyze_motopress_booking_preview_row( $mapped_row );
-                if ( 'new' === ( $analysis_row['status'] ?? '' ) ) {
-                    $all_import_rows[] = $mapped_row;
-                }
-            }
-            $total_pages = min( (int) wp_remote_retrieve_header( $response, 'x-wp-totalpages' ), $max_pages );
-            $page++;
-        } while ( $page <= $total_pages );
-
-        if ( ! empty( $all_import_rows ) ) {
-            $import_result = simple_hotel_crm_import_bookings_csv( $all_import_rows, false );
-            if ( is_wp_error( $import_result ) ) {
-                return $import_result;
-            }
-            return count( $all_import_rows );
-        }
-    }
-
-    // Fallback to background synchronizer
-    $room_ids = array_values( array_filter( array_map( 'absint', (array) MPHB()->getSyncUrlsRepository()->getAllRoomIds() ) ) );
-    if ( empty( $room_ids ) ) {
-        return new WP_Error( 'motopress_no_rooms', __( 'No MotoPress rooms with sync URLs found.', 'simple-hotel-crm' ) );
-    }
-
-    MPHB()->getQueuedSynchronizer()->sync( $room_ids );
-    if ( method_exists( MPHB()->getQueuedSynchronizer(), 'doNext' ) ) {
-        while ( MPHB()->getQueuedSynchronizer()->doNext() ) {
-            // process each queued sync
-        }
-    }
-
-    return count( $room_ids );
-}
-
 function simple_hotel_crm_handle_calendar_sync_action() {
     if ( ! simple_hotel_crm_user_can_access() ) {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
@@ -125,25 +62,333 @@ function simple_hotel_crm_handle_calendar_sync_action() {
     $year  = isset( $_GET['year'] ) ? intval( $_GET['year'] ) : intval( date( 'Y' ) );
 
     $ics_import_results = simple_hotel_crm_import_booking_com_ics_feeds();
-    $motopress_sync_result = simple_hotel_crm_sync_all_motopress_rooms();
-    $motopress_synced_count = is_wp_error( $motopress_sync_result ) ? 0 : (int) $motopress_sync_result;
+    $moto_result = simple_hotel_crm_sync_all_motopress_rooms();
+    $moto_errors = [];
+    $moto_stats = [ 'fetched' => 0, 'imported' => 0, 'skipped' => 0 ];
+    if ( is_wp_error( $moto_result ) ) {
+        $moto_errors[] = $moto_result->get_error_message();
+    } elseif ( is_array( $moto_result ) ) {
+        $moto_stats = $moto_result;
+        $moto_errors = $moto_stats['errors'];
+    }
     $sync_notice = [
         'success' => sprintf(
-            __( 'Calendar sync complete. ICS feeds: %1$d, Events: %2$d, Staged nights: %3$d, Skipped: %4$d. MotoPress rooms started: %5$d.', 'simple-hotel-crm' ),
+            __( 'Calendar sync complete. ICS feeds: %1$d. MotoPress: fetched %2$d, imported %3$d, skipped %4$d.', 'simple-hotel-crm' ),
             (int) ( $ics_import_results['feeds'] ?? 0 ),
-            (int) ( $ics_import_results['events'] ?? 0 ),
-            (int) ( $ics_import_results['staged'] ?? 0 ),
-            (int) ( $ics_import_results['skipped'] ?? 0 ),
-            $motopress_synced_count
+            $moto_stats['fetched'],
+            $moto_stats['imported'],
+            $moto_stats['skipped']
         ),
         'errors' => array_values( array_filter( array_merge(
             ! empty( $ics_import_results['errors'] ) ? (array) $ics_import_results['errors'] : [],
-            is_wp_error( $motopress_sync_result ) ? [ $motopress_sync_result->get_error_message() ] : []
+            $moto_errors
         ) ) ),
     ];
     set_transient( 'simple_hotel_crm_admin_sync_notice_' . get_current_user_id(), $sync_notice, 5 * MINUTE_IN_SECONDS );
     wp_safe_redirect( admin_url( 'admin.php?page=simple-hotel-crm&month=' . $month . '&year=' . $year . '&sync_done=1' ) );
     exit;
+}
+
+function simple_hotel_crm_import_motopress_bookings() {
+    global $wpdb;
+
+    $consumer_key = get_option( 'simple_hotel_crm_motopress_consumer_key', '' );
+    $consumer_secret = get_option( 'simple_hotel_crm_motopress_consumer_secret', '' );
+
+    if ( ! $consumer_key || ! $consumer_secret ) {
+        return new WP_Error( 'no_credentials', __( 'MotoPress API credentials not configured.', 'simple-hotel-crm' ) );
+    }
+
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $guests_table = simple_hotel_crm_guests_table();
+    $rooms_table = simple_hotel_crm_rooms_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+
+    $stats = [ 'fetched' => 0, 'imported' => 0, 'skipped' => 0, 'errors' => [] ];
+
+    // Fetch all pages from MotoPress REST API
+    $page = 1;
+    $max_pages = 5;
+    $all_bookings = [];
+
+    do {
+        $response = wp_remote_get( 'https://lagrangefleurie.fr/wp-json/mphb/v1/bookings?per_page=100&page=' . $page, [
+            'headers' => [
+                'Authorization' => 'Basic ' . base64_encode( $consumer_key . ':' . $consumer_secret ),
+            ],
+            'timeout' => 20,
+        ] );
+
+        if ( is_wp_error( $response ) ) {
+            return new WP_Error( 'api_error', $response->get_error_message() );
+        }
+
+        $code = wp_remote_retrieve_response_code( $response );
+        $data = json_decode( wp_remote_retrieve_body( $response ), true );
+
+        if ( 200 !== $code || ! is_array( $data ) ) {
+            break;
+        }
+
+        $all_bookings = array_merge( $all_bookings, $data );
+        $total_pages = min( (int) wp_remote_retrieve_header( $response, 'x-wp-totalpages' ), $max_pages );
+        $page++;
+    } while ( $page <= $total_pages );
+
+    $stats['fetched'] = count( $all_bookings );
+
+    if ( empty( $all_bookings ) ) {
+        return $stats;
+    }
+
+    $valid_statuses = [ 'confirmed', 'pending', 'pending-user', 'pending-payment' ];
+
+    $wpdb->query( 'START TRANSACTION' );
+
+    $import_ok = true;
+
+    foreach ( $all_bookings as $raw_booking ) {
+        $status = sanitize_key( (string) ( $raw_booking['status'] ?? $raw_booking['status_code'] ?? '' ) );
+
+        if ( ! in_array( $status, $valid_statuses, true ) ) {
+            $stats['skipped']++;
+            continue;
+        }
+
+        $external_id = (string) ( $raw_booking['id'] ?? '' );
+        if ( '' === $external_id ) {
+            $stats['skipped']++;
+            continue;
+        }
+
+        // Check if already imported
+        $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$bookings_table} WHERE source_booking_id = %s LIMIT 1", $external_id ) );
+        if ( $existing ) {
+            $stats['skipped']++;
+            continue;
+        }
+
+        // Extract guest details
+        $customer = $raw_booking['customer'] ?? [];
+        $guest_name = '';
+        $first_name = '';
+        $last_name = '';
+
+        if ( ! empty( $customer['full_name'] ) ) {
+            $guest_name = trim( (string) $customer['full_name'] );
+        } elseif ( ! empty( $customer['first_name'] ) || ! empty( $customer['last_name'] ) ) {
+            $guest_name = trim( (string) $customer['first_name'] . ' ' . (string) $customer['last_name'] );
+            $first_name = trim( (string) $customer['first_name'] );
+            $last_name = trim( (string) $customer['last_name'] );
+        }
+
+        if ( '' === $guest_name ) {
+            $stats['errors'][] = sprintf( 'Booking %s: no guest name', $external_id );
+            continue;
+        }
+
+        if ( '' === $first_name && '' === $last_name ) {
+            $name_parts = explode( ' ', $guest_name, 2 );
+            $first_name = $name_parts[0] ?? '';
+            $last_name = $name_parts[1] ?? '';
+        }
+
+        $email = sanitize_email( (string) ( $customer['email'] ?? '' ) );
+        $phone = sanitize_text_field( (string) ( $customer['phone'] ?? '' ) );
+
+        // Find or create guest
+        $guest = null;
+        if ( $email ) {
+            $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$guests_table} WHERE email = %s LIMIT 1", $email ), ARRAY_A );
+        }
+        if ( ! $guest ) {
+            $inserted = $wpdb->insert( $guests_table, [
+                'first_name' => $first_name,
+                'last_name'  => $last_name,
+                'email'      => $email,
+                'phone'      => $phone,
+                'created_at' => current_time( 'mysql' ),
+                'updated_at' => current_time( 'mysql' ),
+            ], [ '%s', '%s', '%s', '%s', '%s', '%s' ] );
+            if ( $inserted ) {
+                $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$guests_table} WHERE id = %d LIMIT 1", $wpdb->insert_id ), ARRAY_A );
+            }
+        }
+
+        if ( ! $guest ) {
+            $stats['errors'][] = sprintf( 'Booking %s: could not find or create guest', $external_id );
+            continue;
+        }
+
+        // Extract dates
+        $check_in = sanitize_text_field( (string) ( $raw_booking['check_in_date'] ?? $raw_booking['checkInDate'] ?? '' ) );
+        $check_out = sanitize_text_field( (string) ( $raw_booking['check_out_date'] ?? $raw_booking['checkOutDate'] ?? '' ) );
+
+        if ( ! $check_in || ! $check_out ) {
+            $stats['errors'][] = sprintf( 'Booking %s: missing dates', $external_id );
+            continue;
+        }
+
+        // Create booking
+        $inserted = $wpdb->insert( $bookings_table, [
+            'guest_id'          => (int) $guest['id'],
+            'source_channel'    => 'website',
+            'source_booking_id' => $external_id,
+            'status_code'       => $status,
+            'contacted_date'    => sanitize_text_field( (string) ( $raw_booking['date_created'] ?? '' ) ) ?: null,
+            'check_in_date'     => $check_in,
+            'check_out_date'    => $check_out,
+            'currency'          => 'EUR',
+            'booking_note'      => sanitize_textarea_field( (string) ( $raw_booking['note'] ?? $raw_booking['booking_note'] ?? '' ) ),
+            'internal_notes'    => sanitize_textarea_field( (string) ( $raw_booking['internal_note'] ?? $raw_booking['internal_notes'] ?? '' ) ),
+        ], [ '%d', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ] );
+
+        if ( ! $inserted ) {
+            $stats['errors'][] = sprintf( 'Booking %s: insert failed', $external_id );
+            $import_ok = false;
+            break;
+        }
+
+        $booking_id = (int) $wpdb->insert_id;
+
+        // Process rooms from reserved_accommodations
+        $accommodations = $raw_booking['reserved_accommodations'] ?? [];
+        if ( ! is_array( $accommodations ) || empty( $accommodations ) ) {
+            $stats['imported']++;
+            continue;
+        }
+
+        foreach ( $accommodations as $accommodation ) {
+            $room_id = (int) ( $accommodation['room_id'] ?? $accommodation['roomId'] ?? $accommodation['id'] ?? $accommodation['accommodation'] ?? 0 );
+            $adults = max( 0, (int) ( $accommodation['adults'] ?? 0 ) );
+            $children = max( 0, (int) ( $accommodation['children'] ?? 0 ) );
+            $babies = max( 0, (int) ( $accommodation['babies'] ?? 0 ) );
+            $guest_count = $adults + $children + $babies;
+
+            // Match room via sync_room_id (MotoPress room_id)
+            $crm_room_id = 0;
+            if ( $room_id > 0 ) {
+                $crm_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE sync_room_id = %d LIMIT 1", $room_id ) );
+            }
+            if ( ! $crm_room_id ) {
+                $room_code = strtoupper( trim( (string) ( $accommodation['room_code'] ?? $accommodation['roomCode'] ?? $accommodation['code'] ?? '' ) ) );
+                if ( $room_code ) {
+                    $crm_room_id = (int) $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE room_code = %s LIMIT 1", $room_code ) );
+                }
+            }
+            if ( ! $crm_room_id ) {
+                $stats['errors'][] = sprintf( 'Booking %s: room %d not matched', $external_id, $room_id );
+                continue;
+            }
+
+            // Check for duplicate room line
+            $existing_room = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT id FROM {$booking_rooms_table} WHERE booking_id = %d AND room_id = %d LIMIT 1",
+                $booking_id, $crm_room_id
+            ) );
+            if ( $existing_room ) {
+                continue;
+            }
+
+            // Calculate pricing from per-day breakdown
+            $room_rate_amount = 0.0;
+            $tourist_tax_amount = 0.0;
+
+            if ( ! empty( $accommodation['accommodation_price_per_days'] ) && is_array( $accommodation['accommodation_price_per_days'] ) ) {
+                foreach ( $accommodation['accommodation_price_per_days'] as $day_row ) {
+                    $room_rate_amount += (float) simple_hotel_crm_normalize_decimal( $day_row['price'] ?? 0 );
+                }
+            }
+            if ( ! empty( $accommodation['taxes']['accommodation'] ) && is_array( $accommodation['taxes']['accommodation'] ) ) {
+                foreach ( $accommodation['taxes']['accommodation'] as $tax_row ) {
+                    $tourist_tax_amount += (float) simple_hotel_crm_normalize_decimal( $tax_row['value'] ?? 0 );
+                }
+            }
+
+            $total_amount = $room_rate_amount + $tourist_tax_amount;
+            $nights_count = max( 1, (int) round( ( strtotime( $check_out ) - strtotime( $check_in ) ) / DAY_IN_SECONDS ) );
+
+            // Insert booking_room
+            $inserted = $wpdb->insert( $booking_rooms_table, [
+                'booking_id'    => $booking_id,
+                'room_id'       => $crm_room_id,
+                'guest_count'   => $guest_count,
+                'adults'        => $adults,
+                'children'      => $children,
+                'babies'        => $babies,
+                'room_rate_amount'   => round( $room_rate_amount, 2 ),
+                'extras_amount'      => 0.00,
+                'tourist_tax_amount' => round( $tourist_tax_amount, 2 ),
+                'total_amount'       => round( $total_amount, 2 ),
+            ], [ '%d', '%d', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f' ] );
+
+            if ( ! $inserted ) {
+                $stats['errors'][] = sprintf( 'Booking %s: room line insert failed', $external_id );
+                $import_ok = false;
+                break 2;
+            }
+
+            $booking_room_id = (int) $wpdb->insert_id;
+
+            // Insert booking_room_nights
+            for ( $i = 0; $i < $nights_count; $i++ ) {
+                $stay_date = gmdate( 'Y-m-d', strtotime( $check_in . ' +' . $i . ' day' ) );
+                $night_room_rate = round( $room_rate_amount / $nights_count, 2 );
+                $night_tax = round( $tourist_tax_amount / $nights_count, 2 );
+                $night_total = round( $total_amount / $nights_count, 2 );
+
+                $wpdb->insert( $booking_nights_table, [
+                    'booking_room_id'    => $booking_room_id,
+                    'stay_date'          => $stay_date,
+                    'guest_count'        => $guest_count,
+                    'adults'             => $adults,
+                    'children'           => $children,
+                    'babies'             => $babies,
+                    'room_rate_amount'   => $night_room_rate,
+                    'extras_amount'      => 0.00,
+                    'tourist_tax_amount' => $night_tax,
+                    'total_amount'       => $night_total,
+                ], [ '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f' ] );
+            }
+        }
+
+        $stats['imported']++;
+    }
+
+    if ( $import_ok ) {
+        $wpdb->query( 'COMMIT' );
+        simple_hotel_crm_clear_calendar_cache();
+    } else {
+        $wpdb->query( 'ROLLBACK' );
+    }
+
+    return $stats;
+}
+
+function simple_hotel_crm_motopress_cron_sync() {
+    $ics_result = simple_hotel_crm_import_booking_com_ics_feeds();
+    $moto_result = simple_hotel_crm_import_motopress_bookings();
+
+    $output = [];
+    if ( is_array( $ics_result ) ) {
+        $output[] = sprintf( 'ICS: feeds=%d events=%d staged=%d skipped=%d',
+            $ics_result['feeds'] ?? 0, $ics_result['events'] ?? 0,
+            $ics_result['staged'] ?? 0, $ics_result['skipped'] ?? 0 );
+    }
+    if ( is_wp_error( $moto_result ) ) {
+        $output[] = 'MotoPress error: ' . $moto_result->get_error_message();
+    } elseif ( is_array( $moto_result ) ) {
+        $output[] = sprintf( 'MotoPress: fetched=%d imported=%d skipped=%d',
+            $moto_result['fetched'], $moto_result['imported'], $moto_result['skipped'] );
+    }
+    if ( $output ) {
+        error_log( 'SHC cron sync: ' . implode( ' | ', $output ) );
+    }
+}
+
+function simple_hotel_crm_sync_all_motopress_rooms() {
+    return simple_hotel_crm_import_motopress_bookings();
 }
 
 function simple_hotel_crm_render_admin_page() {
@@ -153,7 +398,6 @@ function simple_hotel_crm_render_admin_page() {
 
     $month = isset( $_GET['month'] ) ? intval( $_GET['month'] ) : intval( date( 'n' ) );
     $year  = isset( $_GET['year'] ) ? intval( $_GET['year'] ) : intval( date( 'Y' ) );
-
 
     $calendar_data = simple_hotel_crm_get_calendar_data( $month, $year );
 
