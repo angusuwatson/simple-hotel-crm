@@ -254,7 +254,7 @@ function simple_hotel_crm_import_motopress_bookings() {
             continue;
         }
 
-        // Extract guest details
+        // Extract guest details — try multiple sources
         $customer = $raw_booking['customer'] ?? [];
         $guest_name = '';
         $first_name = '';
@@ -266,6 +266,14 @@ function simple_hotel_crm_import_motopress_bookings() {
             $guest_name = trim( (string) $customer['first_name'] . ' ' . (string) $customer['last_name'] );
             $first_name = trim( (string) $customer['first_name'] );
             $last_name = trim( (string) $customer['last_name'] );
+        } elseif ( ! empty( $raw_booking['guest_name'] ) ) {
+            $guest_name = trim( (string) $raw_booking['guest_name'] );
+        } elseif ( ! empty( $raw_booking['first_name'] ) || ! empty( $raw_booking['last_name'] ) ) {
+            $first_name = trim( (string) ( $raw_booking['first_name'] ?? '' ) );
+            $last_name = trim( (string) ( $raw_booking['last_name'] ?? '' ) );
+            $guest_name = trim( $first_name . ' ' . $last_name );
+        } elseif ( ! empty( $raw_booking['reserved_accommodations'][0]['guest_name'] ) ) {
+            $guest_name = trim( (string) $raw_booking['reserved_accommodations'][0]['guest_name'] );
         }
 
         if ( '' === $guest_name ) {
