@@ -247,9 +247,30 @@ function simple_hotel_crm_import_motopress_bookings() {
             continue;
         }
 
-        // Check if already imported
+        // Check if already imported into CRM
         $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$bookings_table} WHERE source_booking_id = %s LIMIT 1", $external_id ) );
         if ( $existing ) {
+            $stats['skipped']++;
+            continue;
+        }
+
+        // Skip bookings with no real guest data (likely synced from Booking.com etc.)
+        $customer = $raw_booking['customer'] ?? [];
+        $has_guest_name = ! empty( $customer['first_name'] ) || ! empty( $customer['last_name'] )
+            || ! empty( $raw_booking['guest_name'] )
+            || ! empty( $raw_booking['first_name'] ) || ! empty( $raw_booking['last_name'] );
+
+        if ( ! $has_guest_name ) {
+            // Check per-room guest_name
+            foreach ( (array) ( $raw_booking['reserved_accommodations'] ?? [] ) as $acc ) {
+                if ( '' !== trim( (string) ( $acc['guest_name'] ?? '' ) ) ) {
+                    $has_guest_name = true;
+                    break;
+                }
+            }
+        }
+
+        if ( ! $has_guest_name ) {
             $stats['skipped']++;
             continue;
         }
@@ -260,9 +281,7 @@ function simple_hotel_crm_import_motopress_bookings() {
         $first_name = '';
         $last_name = '';
 
-        if ( ! empty( $customer['full_name'] ) ) {
-            $guest_name = trim( (string) $customer['full_name'] );
-        } elseif ( ! empty( $customer['first_name'] ) || ! empty( $customer['last_name'] ) ) {
+        if ( ! empty( $customer['first_name'] ) || ! empty( $customer['last_name'] ) ) {
             $guest_name = trim( (string) $customer['first_name'] . ' ' . (string) $customer['last_name'] );
             $first_name = trim( (string) $customer['first_name'] );
             $last_name = trim( (string) $customer['last_name'] );
@@ -284,8 +303,8 @@ function simple_hotel_crm_import_motopress_bookings() {
         }
 
         if ( '' === $guest_name ) {
-            $guest_name = sprintf( 'Guest (MP %s)', $external_id );
-            $first_name = $guest_name;
+            $stats['skipped']++;
+            continue;
         }
 
         if ( '' === $first_name && '' === $last_name ) {
