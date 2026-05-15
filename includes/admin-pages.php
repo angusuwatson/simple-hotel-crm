@@ -1799,7 +1799,7 @@ function simple_hotel_crm_render_booking_detail_page() {
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_save_booking' );
     echo '<table class="form-table">';
-    echo '<tr><th>' . esc_html__( 'Guest', 'simple-hotel-crm' ) . '</th><td><div class="simple-hotel-crm-admin-inline-fields" style="display:flex;gap:12px;flex-wrap:nowrap;align-items:flex-end;"><label style="flex:3 1 auto;min-width:220px;">' . esc_html__( 'Name', 'simple-hotel-crm' ) . '<br><input type="text" name="guest_name" class="regular-text" value="' . esc_attr( trim( (string) $booking['first_name'] . ' ' . (string) $booking['last_name'] ) ) . '" /> <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guest-detail&guest_id=' . absint( $booking['guest_id'] ) ) ) . '" class="button button-small">' . esc_html__( 'View', 'simple-hotel-crm' ) . '</a></label><label style="flex:2 1 auto;min-width:180px;">' . esc_html__( 'Email', 'simple-hotel-crm' ) . '<br><input type="email" name="email" class="regular-text" value="' . esc_attr( (string) $booking['email'] ) . '" /></label><label style="flex:1 1 120px;min-width:120px;">' . esc_html__( 'Phone', 'simple-hotel-crm' ) . '<br><input type="text" name="phone" class="regular-text" value="' . esc_attr( (string) $booking['phone'] ) . '" /></label></div></td></tr>';
+    echo '<tr><th>' . esc_html__( 'Guest', 'simple-hotel-crm' ) . '</th><td><div class="simple-hotel-crm-admin-inline-fields" style="display:flex;gap:8px;flex-wrap:nowrap;align-items:flex-end;"><label style="flex:2 1 140px;min-width:140px;">' . esc_html__( 'Name', 'simple-hotel-crm' ) . '<br><input type="text" name="guest_name" class="regular-text" value="' . esc_attr( trim( (string) $booking['first_name'] . ' ' . (string) $booking['last_name'] ) ) . '" /> <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guest-detail&guest_id=' . absint( $booking['guest_id'] ) ) ) . '" class="button button-small">' . esc_html__( 'View', 'simple-hotel-crm' ) . '</a></label><label style="flex:1 1 120px;min-width:120px;">' . esc_html__( 'Email', 'simple-hotel-crm' ) . '<br><input type="email" name="email" class="regular-text" value="' . esc_attr( (string) $booking['email'] ) . '" /></label><label style="flex:0 1 100px;min-width:100px;">' . esc_html__( 'Phone', 'simple-hotel-crm' ) . '<br><input type="text" name="phone" class="regular-text" value="' . esc_attr( (string) $booking['phone'] ) . '" /></label></div></td></tr>';
     echo '<tr><th>' . esc_html__( 'Status / Channel', 'simple-hotel-crm' ) . '</th><td><div class="simple-hotel-crm-admin-inline-fields" style="display:flex;gap:12px;flex-wrap:nowrap;align-items:flex-end;"><label style="flex:1 1 50%;min-width:180px;">' . esc_html__( 'Status', 'simple-hotel-crm' ) . '<br><select name="status_code">';
     foreach ( simple_hotel_crm_get_booking_status_options() as $code => $label ) {
         echo '<option value="' . esc_attr( $code ) . '"' . selected( (string) $booking['status_code'], $code, false ) . '>' . esc_html( $label ) . '</option>';
@@ -1900,9 +1900,9 @@ function simple_hotel_crm_render_booking_detail_page() {
     $current_guest_id = absint( $booking['guest_id'] );
     $all_guests = $wpdb->get_results( $wpdb->prepare( "SELECT id, first_name, last_name FROM {$guests_table} WHERE id != %d AND is_deleted = 0 ORDER BY first_name, last_name", $current_guest_id ), ARRAY_A );
     if ( ! empty( $all_guests ) ) {
-        echo '<div class="guest-search-container" style="position:relative;">';
-        echo '<input type="text" class="guest-search-input" placeholder="' . esc_attr__( 'Search guests...', 'simple-hotel-crm' ) . '" style="margin-bottom:4px;width:100%;" />';
-        echo '<select name="target_guest_id" class="regular-text guest-search-select" required>';
+        echo '<div class="guest-search-container" style="display:inline-block;position:relative;min-width:220px;">';
+        echo '<input type="text" class="guest-search-input" placeholder="' . esc_attr__( 'Search guests...', 'simple-hotel-crm' ) . '" style="margin-bottom:4px;width:100%;box-sizing:border-box;" />';
+        echo '<select name="target_guest_id" class="guest-search-select" required style="width:100%;">';
         echo '<option value="0">' . esc_html__( 'Transfer to...', 'simple-hotel-crm' ) . '</option>';
         foreach ( $all_guests as $other_guest ) {
             $guest_name = trim( (string) $other_guest['first_name'] . ' ' . (string) $other_guest['last_name'] );
@@ -2078,9 +2078,9 @@ function simple_hotel_crm_render_guest_detail_page() {
         $all_guests = $wpdb->get_results( $wpdb->prepare( "SELECT id, first_name, last_name FROM {$guests_table} WHERE id != %d AND is_deleted = 0 ORDER BY first_name, last_name", $guest_id ), ARRAY_A );
         
         if ( ! empty( $all_guests ) ) {
-            echo '<div class="guest-search-container" style="display:inline-block;position:relative;">';
-            echo '<input type="text" class="guest-search-input" placeholder="' . esc_attr__( 'Search guests...', 'simple-hotel-crm' ) . '" style="margin-bottom:4px;width:100%;" />';
-            echo '<select name="target_guest_id" class="regular-text guest-search-select">';
+            echo '<div class="guest-search-container" style="display:inline-block;position:relative;min-width:220px;">';
+            echo '<input type="text" class="guest-search-input" placeholder="' . esc_attr__( 'Search guests...', 'simple-hotel-crm' ) . '" style="margin-bottom:4px;width:100%;box-sizing:border-box;" />';
+            echo '<select name="target_guest_id" class="guest-search-select" style="width:100%;">';
             echo '<option value="0">' . esc_html__( 'Select guest to transfer to...', 'simple-hotel-crm' ) . '</option>';
             foreach ( $all_guests as $other_guest ) {
                 $guest_name = trim( (string) $other_guest['first_name'] . ' ' . (string) $other_guest['last_name'] );
@@ -2136,9 +2136,9 @@ function simple_hotel_crm_render_guest_detail_page() {
                 $all_guests = $wpdb->get_results( $wpdb->prepare( "SELECT id, first_name, last_name FROM {$guests_table} WHERE id NOT IN (" . implode( ',', array_fill( 0, count( $exclude_guest_ids ), '%d' ) ) . ") AND is_deleted = 0 ORDER BY first_name, last_name", array_merge( $exclude_guest_ids, [ $booking['id'] ] ) ), ARRAY_A );
                 
                 if ( ! empty( $all_guests ) ) {
-                    echo '<div class="guest-search-container" style="display:inline-block;position:relative;vertical-align:middle;">';
-                    echo '<input type="text" class="guest-search-input" placeholder="' . esc_attr__( 'Search', 'simple-hotel-crm' ) . '" style="width:110px;margin-bottom:2px;font-size:11px;" />';
-                    echo '<select name="target_guest_id" class="guest-search-select" required style="display:block;">';
+                    echo '<div class="guest-search-container" style="display:inline-block;position:relative;vertical-align:middle;min-width:130px;">';
+                    echo '<input type="text" class="guest-search-input" placeholder="' . esc_attr__( 'Search', 'simple-hotel-crm' ) . '" style="margin-bottom:2px;font-size:11px;width:100%;box-sizing:border-box;" />';
+                    echo '<select name="target_guest_id" class="guest-search-select" required style="display:block;width:100%;">';
                     echo '<option value="0">' . esc_html__( 'Transfer to...', 'simple-hotel-crm' ) . '</option>';
                     foreach ( $all_guests as $other_guest ) {
                         $guest_name = trim( (string) $other_guest['first_name'] . ' ' . (string) $other_guest['last_name'] );
