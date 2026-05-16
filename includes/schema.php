@@ -889,6 +889,32 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         }
 
         if ( ! $guest ) {
+            $check_in_date = (string) $booking_group['check_in_date'];
+            $check_out_date = (string) $booking_group['check_out_date'];
+            foreach ( $room_groups as $room_group ) {
+                $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $room_group['room_sync_id'] );
+                if ( $crm_room_id <= 0 ) {
+                    $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $room_group['external_room_id'] );
+                }
+                if ( $crm_room_id <= 0 ) {
+                    continue;
+                }
+                $existing_guest_id = (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT b.guest_id FROM {$crm_bookings_table} b INNER JOIN {$crm_booking_rooms_table} br ON br.booking_id = b.id WHERE b.source_channel = 'booking_com' AND b.is_deleted = 0 AND br.room_id = %d AND b.check_in_date < %s AND b.check_out_date > %s AND b.status_code != 'cancelled' ORDER BY b.id DESC LIMIT 1",
+                    $crm_room_id,
+                    $check_out_date,
+                    $check_in_date
+                ) );
+                if ( $existing_guest_id > 0 ) {
+                    $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE id = %d", $existing_guest_id ), ARRAY_A );
+                    if ( $guest ) {
+                        break;
+                    }
+                }
+            }
+        }
+
+        if ( ! $guest ) {
             $guest_inserted = $wpdb->insert(
                 simple_hotel_crm_guests_table(),
                 [
@@ -951,6 +977,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                 ), ARRAY_A );
                 if ( $fallback ) {
                     $booking = $fallback;
+                    $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE id = %d", (int) $booking['guest_id'] ), ARRAY_A );
                     $real_source_booking_id = (string) ( $booking_group['source_booking_id'] ?: '' );
                     if ( '' !== $real_source_booking_id ) {
                         $wpdb->update( $crm_bookings_table, [ 'source_booking_id' => $real_source_booking_id ], [ 'id' => (int) $booking['id'] ], [ '%s' ], [ '%d' ] );
