@@ -3853,7 +3853,6 @@ function simple_hotel_crm_render_settings_page() {
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=invoice-ninja' ) ) . '" class="nav-tab ' . ( 'invoice-ninja' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Invoice Ninja', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=import' ) ) . '" class="nav-tab ' . ( 'import' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Import', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=export' ) ) . '" class="nav-tab ' . ( 'export' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Export', 'simple-hotel-crm' ) . '</a>';
-    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=booking-com' ) ) . '" class="nav-tab ' . ( 'booking-com' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Booking.com', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=sync-log' ) ) . '" class="nav-tab ' . ( 'sync-log' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Sync Log', 'simple-hotel-crm' ) . '</a>';
     echo '</nav>';
 
@@ -3933,13 +3932,11 @@ function simple_hotel_crm_render_settings_page() {
         echo '<li>' . esc_html__( 'Booking headers needing recalculation:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $repair_scan_counts['booking_headers'] ) . '</li>';
         echo '<li>' . esc_html__( 'Room nights with dates outside booking range:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_scan_counts['room_night_dates'] ?? 0 ) ) . '</li>';
         echo '</ul>';
-        echo '<p><a class="button" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-transfers' ) ) . '">' . esc_html__( 'Open Booking Transfers', 'simple-hotel-crm' ) . '</a> <a class="button" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-merges' ) ) . '">' . esc_html__( 'Open Booking Merges', 'simple-hotel-crm' ) . '</a></p>';
-
-
-        echo '<form method="post">';
+        echo '<form method="post" style="margin-top:12px;">';
         wp_nonce_field( 'simple_hotel_crm_run_repairs', 'simple_hotel_crm_run_repairs_nonce' );
         submit_button( __( 'Run Schema Upgrade + Repairs', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_run_repairs' );
         echo '</form>';
+        echo '<p><a class="button" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-transfers' ) ) . '">' . esc_html__( 'Open Booking Transfers', 'simple-hotel-crm' ) . '</a> <a class="button" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-merges' ) ) . '">' . esc_html__( 'Open Booking Merges', 'simple-hotel-crm' ) . '</a></p>';
 
         echo '<hr />';
         echo '<h2>' . esc_html__( 'Reset CRM Data', 'simple-hotel-crm' ) . '</h2>';
