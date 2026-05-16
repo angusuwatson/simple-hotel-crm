@@ -291,9 +291,7 @@ function simple_hotel_crm_import_motopress_bookings() {
         $room_result = simple_hotel_crm_import_booking_rooms_csv( $all_room_rows, false );
 
         if ( ! empty( $room_result['errors'] ) ) {
-            $wpdb->query( 'ROLLBACK' );
             $stats['errors'] = array_merge( $stats['errors'], $room_result['errors'] );
-            return $stats;
         }
     }
 
