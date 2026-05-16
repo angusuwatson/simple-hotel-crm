@@ -3555,6 +3555,13 @@ function simple_hotel_crm_render_motopress_sync_page() {
     $preview_message = '';
     $import_result = null;
     $room_import_result = null;
+    $sync_now_result = null;
+
+    if ( isset( $_POST['simple_hotel_crm_motopress_sync_now'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_motopress_sync_now' );
+        $sync_now_result = simple_hotel_crm_import_motopress_bookings();
+        simple_hotel_crm_clear_calendar_cache();
+    }
 
     if ( isset( $_POST['simple_hotel_crm_motopress_test'] ) ) {
         check_admin_referer( 'simple_hotel_crm_motopress_test' );
@@ -3706,6 +3713,25 @@ function simple_hotel_crm_render_motopress_sync_page() {
 
     if ( ! empty( $test_result ) ) {
         echo '<div class="notice notice-' . esc_attr( $test_result ) . '"><p>' . esc_html( $test_message ) . '</p></div>';
+    }
+
+    echo '<h2>' . esc_html__( 'Sync Now', 'simple-hotel-crm' ) . '</h2>';
+    echo '<p>' . esc_html__( 'Fetch all MotoPress bookings and import any new ones (guests + bookings + room lines) in a single pass.', 'simple-hotel-crm' ) . '</p>';
+    echo '<form method="post">';
+    wp_nonce_field( 'simple_hotel_crm_motopress_sync_now' );
+    submit_button( __( 'Sync MotoPress Bookings', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_motopress_sync_now', false );
+    echo '</form>';
+    if ( is_array( $sync_now_result ) ) {
+        echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'MotoPress sync complete — Fetched: %1$d, Imported: %2$d, Skipped: %3$d', 'simple-hotel-crm' ), (int) $sync_now_result['fetched'], (int) $sync_now_result['imported'], (int) $sync_now_result['skipped'] ) ) . '</p></div>';
+        if ( ! empty( $sync_now_result['errors'] ) ) {
+            echo '<div class="notice notice-warning"><ul>';
+            foreach ( $sync_now_result['errors'] as $error ) {
+                echo '<li>' . esc_html( $error ) . '</li>';
+            }
+            echo '</ul></div>';
+        }
+    } elseif ( is_wp_error( $sync_now_result ) ) {
+        echo '<div class="notice notice-error"><p>' . esc_html( $sync_now_result->get_error_message() ) . '</p></div>';
     }
 
     echo '<h2>' . esc_html__( 'Preview Remote Bookings', 'simple-hotel-crm' ) . '</h2>';
