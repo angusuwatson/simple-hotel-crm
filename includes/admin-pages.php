@@ -2912,12 +2912,29 @@ function simple_hotel_crm_import_booking_rooms_csv( $rows, $dry_run = false ) {
         $check_out = sanitize_text_field( $row['check_out'] ?? '' );
         $room_code = strtoupper( sanitize_text_field( $row['room_code'] ?? '' ) );
         $room_id_input = absint( $row['room_id'] ?? 0 );
-        $guest = simple_hotel_crm_find_guest_for_import_row( [ 'email' => $guest_email, 'guest_name' => $row['guest_name'] ?? '' ] );
+        $external_booking_id = sanitize_text_field( $row['external_booking_id'] ?? '' );
+
+        // Find booking first by external_booking_id (MotoPress path),
+        // then get guest directly from the booking's guest_id
+        $booking = null;
+        $guest = null;
+        if ( $external_booking_id ) {
+            $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bookings_table} WHERE source_booking_id = %s LIMIT 1", $external_booking_id ), ARRAY_A );
+        }
+        if ( $booking ) {
+            $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$guests_table} WHERE id = %d LIMIT 1", (int) $booking['guest_id'] ), ARRAY_A );
+        }
+        // Fallback: find guest by email/name, then booking by guest + dates
+        if ( ! $guest ) {
+            $guest = simple_hotel_crm_find_guest_for_import_row( [ 'email' => $guest_email, 'guest_name' => $row['guest_name'] ?? '' ] );
+        }
         if ( ! $guest ) {
             $summary['errors'][] = sprintf( __( 'Room row %d: guest not found.', 'simple-hotel-crm' ), $index + 2 );
             continue;
         }
-        $booking = simple_hotel_crm_find_booking_for_import_row( $row, (int) $guest['id'] );
+        if ( ! $booking ) {
+            $booking = simple_hotel_crm_find_booking_for_import_row( $row, (int) $guest['id'] );
+        }
         $room = null;
         if ( $room_id_input > 0 ) {
             $room = $wpdb->get_row( $wpdb->prepare( "SELECT id FROM {$rooms_table} WHERE id = %d LIMIT 1", $room_id_input ), ARRAY_A );
