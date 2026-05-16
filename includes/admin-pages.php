@@ -148,7 +148,7 @@ function simple_hotel_crm_render_sync_log_page( $embed = false ) {
             $errors = $entry['errors'] ?? [];
             $has_errors = ! empty( $errors );
             echo '<tr style="background:' . ( $has_errors ? '#fff5f5' : '#fff' ) . ';">';
-            echo '<td><strong>' . esc_html( $time ) . '</strong></td>';
+            echo '<td><strong>' . esc_html( $time ) . '</strong> ' . esc_html( wp_timezone_string() ) . '</td>';
             echo '<td style="color:' . ( $has_errors ? '#b42318' : '#027a48' ) . ';">' . esc_html( $success ) . '</td>';
             echo '<td>';
             if ( $has_errors ) {
@@ -3560,39 +3560,40 @@ function simple_hotel_crm_render_motopress_sync_page() {
         simple_hotel_crm_clear_calendar_cache();
     }
 
-    if ( isset( $_POST['simple_hotel_crm_motopress_test'] ) ) {
-        check_admin_referer( 'simple_hotel_crm_motopress_test' );
+    if ( isset( $_POST['simple_hotel_crm_motopress_save'] ) || isset( $_POST['simple_hotel_crm_motopress_test'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_motopress_save' );
         $consumer_key = sanitize_text_field( wp_unslash( $_POST['consumer_key'] ) );
         $consumer_secret = sanitize_text_field( wp_unslash( $_POST['consumer_secret'] ) );
+        update_option( 'simple_hotel_crm_motopress_consumer_key', $consumer_key );
+        update_option( 'simple_hotel_crm_motopress_consumer_secret', $consumer_secret );
 
-        $response = wp_remote_get( 'https://lagrangefleurie.fr/wp-json/mphb/v1/bookings', [
-            'headers' => [
-                'Authorization' => 'Basic ' . base64_encode( $consumer_key . ':' . $consumer_secret ),
-            ],
-            'timeout' => 15,
-        ] );
+        if ( isset( $_POST['simple_hotel_crm_motopress_save'] ) ) {
+            echo '<div class="notice notice-success"><p>' . esc_html__( 'MotoPress API credentials saved.', 'simple-hotel-crm' ) . '</p></div>';
+        }
 
-        if ( is_wp_error( $response ) ) {
-            $test_result = 'error';
-            $test_message = $response->get_error_message();
-        } else {
-            $body = wp_remote_retrieve_body( $response );
-            $code = wp_remote_retrieve_response_code( $response );
-            if ( $code === 200 && ! empty( $body ) ) {
-                $test_result = 'success';
-                $test_message = __( 'Connection successful! MotoPress API is accessible.', 'simple-hotel-crm' );
-            } else {
+        if ( isset( $_POST['simple_hotel_crm_motopress_test'] ) ) {
+            $response = wp_remote_get( 'https://lagrangefleurie.fr/wp-json/mphb/v1/bookings', [
+                'headers' => [
+                    'Authorization' => 'Basic ' . base64_encode( $consumer_key . ':' . $consumer_secret ),
+                ],
+                'timeout' => 15,
+            ] );
+
+            if ( is_wp_error( $response ) ) {
                 $test_result = 'error';
-                $test_message = __( 'Failed to connect. Please check your API credentials and ensure the MotoPress REST API is enabled.', 'simple-hotel-crm' );
+                $test_message = $response->get_error_message();
+            } else {
+                $body = wp_remote_retrieve_body( $response );
+                $code = wp_remote_retrieve_response_code( $response );
+                if ( $code === 200 && ! empty( $body ) ) {
+                    $test_result = 'success';
+                    $test_message = __( 'Connection successful! MotoPress API is accessible.', 'simple-hotel-crm' );
+                } else {
+                    $test_result = 'error';
+                    $test_message = __( 'Failed to connect. Please check your API credentials and ensure the MotoPress REST API is enabled.', 'simple-hotel-crm' );
+                }
             }
         }
-    }
-
-    if ( isset( $_POST['simple_hotel_crm_motopress_save'] ) ) {
-        check_admin_referer( 'simple_hotel_crm_motopress_save' );
-        update_option( 'simple_hotel_crm_motopress_consumer_key', sanitize_text_field( wp_unslash( $_POST['consumer_key'] ) ) );
-        update_option( 'simple_hotel_crm_motopress_consumer_secret', sanitize_text_field( wp_unslash( $_POST['consumer_secret'] ) ) );
-        echo '<div class="notice notice-success"><p>' . esc_html__( 'MotoPress API credentials saved.', 'simple-hotel-crm' ) . '</p></div>';
     }
 
     echo '<div class="wrap">';
@@ -3611,22 +3612,7 @@ function simple_hotel_crm_render_motopress_sync_page() {
         </tr>
     </table>';
     submit_button( __( 'Save API Credentials', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_motopress_save', false );
-    echo '</form>';
-
-    echo '<h2>' . esc_html__( 'Test Connection', 'simple-hotel-crm' ) . '</h2>';
-    echo '<form method="post">';
-    wp_nonce_field( 'simple_hotel_crm_motopress_test' );
-    echo '<table class="form-table">
-        <tr>
-            <th><label for="consumer_key_test">' . esc_html__( 'Consumer Key', 'simple-hotel-crm' ) . '</label></th>
-            <td><input type="text" name="consumer_key" id="consumer_key_test" class="regular-text" value="' . esc_attr( $consumer_key ) . '" /></td>
-        </tr>
-        <tr>
-            <th><label for="consumer_secret_test">' . esc_html__( 'Consumer Secret', 'simple-hotel-crm' ) . '</label></th>
-            <td><input type="text" name="consumer_secret" id="consumer_secret_test" class="regular-text" value="' . esc_attr( $consumer_secret ) . '" /></td>
-        </tr>
-    </table>';
-    submit_button( __( 'Test MotoPress Connection', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_motopress_test', false );
+    submit_button( __( 'Test Connection', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_motopress_test', false );
     echo '</form>';
 
     if ( ! empty( $test_result ) ) {
@@ -3865,6 +3851,7 @@ function simple_hotel_crm_render_settings_page() {
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=motopress' ) ) . '" class="nav-tab ' . ( 'motopress' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'MotoPress Sync', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=invoice-ninja' ) ) . '" class="nav-tab ' . ( 'invoice-ninja' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Invoice Ninja', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=import' ) ) . '" class="nav-tab ' . ( 'import' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Import', 'simple-hotel-crm' ) . '</a>';
+    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=export' ) ) . '" class="nav-tab ' . ( 'export' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Export', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=booking-com' ) ) . '" class="nav-tab ' . ( 'booking-com' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Booking.com', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=sync-log' ) ) . '" class="nav-tab ' . ( 'sync-log' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Sync Log', 'simple-hotel-crm' ) . '</a>';
     echo '</nav>';
