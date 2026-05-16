@@ -669,13 +669,19 @@ function simple_hotel_crm_render_rooms_page() {
             'color' => simple_hotel_crm_normalize_color_value( wp_unslash( $_POST['color'] ?? ( $_POST['color_hex'] ?? ( $_POST['color_rgb'] ?? '' ) ) ) ) ?: '#cccccc',
             'active' => empty( $_POST['active'] ) ? 0 : 1,
         ];
+        $data_format = [ '%s', '%s', '%d', '%s', '%d' ];
+        $sync_room_id = absint( $_POST['sync_room_id'] ?? 0 );
+        if ( $sync_room_id > 0 ) {
+            $data['sync_room_id'] = $sync_room_id;
+            $data_format[] = '%d';
+        }
         if ( '' === $data['room_code'] || '' === $data['room_name'] ) {
             echo '<div class="notice notice-error"><p>' . esc_html__( 'Room code and room name are required.', 'simple-hotel-crm' ) . '</p></div>';
         } else {
             if ( $editing ) {
-                $wpdb->update( $rooms_table, $data, [ 'id' => $room_id ], [ '%s', '%s', '%d', '%s', '%d' ], [ '%d' ] );
+                $wpdb->update( $rooms_table, $data, [ 'id' => $room_id ], $data_format, [ '%d' ] );
             } else {
-                $wpdb->insert( $rooms_table, $data, [ '%s', '%s', '%d', '%s', '%d' ] );
+                $wpdb->insert( $rooms_table, $data, $data_format );
                 $room_id = (int) $wpdb->insert_id;
                 $editing = $room_id > 0;
             }
@@ -710,7 +716,7 @@ function simple_hotel_crm_render_rooms_page() {
 
     $room = $editing ? $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$rooms_table} WHERE id = %d", $room_id ), ARRAY_A ) : null;
     $room = array_merge(
-        [ 'room_code' => '', 'room_name' => '', 'sort_order' => 0, 'color' => '#cccccc', 'active' => 1 ],
+        [ 'room_code' => '', 'room_name' => '', 'sort_order' => 0, 'color' => '#cccccc', 'active' => 1, 'sync_room_id' => null ],
         is_array( $room ) ? $room : []
     );
     $room_color_rgb = simple_hotel_crm_hex_to_rgb_string( (string) $room['color'] );
@@ -737,6 +743,7 @@ function simple_hotel_crm_render_rooms_page() {
     echo '<tr><th><label for="sort_order">' . esc_html__( 'Sort order', 'simple-hotel-crm' ) . '</label></th><td><input id="sort_order" name="sort_order" type="number" value="' . esc_attr( (string) $room['sort_order'] ) . '" /></td></tr>';
     echo '<tr><th><label for="color">' . esc_html__( 'Color', 'simple-hotel-crm' ) . '</label></th><td><input id="color" name="color" type="color" value="' . esc_attr( (string) $room['color'] ) . '" /> <input id="color_hex" name="color_hex" type="text" class="regular-text" value="' . esc_attr( (string) $room['color'] ) . '" placeholder="#cccccc" style="max-width:110px;" /> <input id="color_rgb" name="color_rgb" type="text" class="regular-text" value="' . esc_attr( $room_color_rgb ) . '" placeholder="rgb(204, 204, 204)" style="max-width:170px;" /> <code>' . esc_html( (string) $room['color'] ) . '</code></td></tr>';
     echo '<tr><th>' . esc_html__( 'Active', 'simple-hotel-crm' ) . '</th><td><label><input type="checkbox" name="active" value="1" ' . checked( (int) $room['active'], 1, false ) . ' /> ' . esc_html__( 'Show this room in the calendar', 'simple-hotel-crm' ) . '</label></td></tr>';
+    echo '<tr><th><label for="sync_room_id">' . esc_html__( 'MotoPress Room ID', 'simple-hotel-crm' ) . '</label></th><td><input id="sync_room_id" name="sync_room_id" type="number" class="small-text" value="' . esc_attr( (string) ( $room['sync_room_id'] ?? '' ) ) . '" placeholder="—" /> <p class="description">' . esc_html__( 'Set this to the MotoPress accommodation ID so the importer can match rooms automatically.', 'simple-hotel-crm' ) . '</p></td></tr>';
     echo '</table>';
     echo '<h3>' . esc_html__( 'Occupancy pricing', 'simple-hotel-crm' ) . '</h3>';
     echo '<table class="widefat striped" style="max-width:420px;"><thead><tr><th>' . esc_html__( 'Adults', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Price', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Active', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
@@ -755,9 +762,9 @@ function simple_hotel_crm_render_rooms_page() {
     }
     echo '</form></div>';
 
-    echo '<div><h2>' . esc_html__( 'Current Rooms', 'simple-hotel-crm' ) . '</h2><table class="widefat striped"><thead><tr><th>' . esc_html__( 'Code', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Name', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Order', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Color', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( '1A', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( '2A', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( '3A', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( '4A', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Actions', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
+    echo '<div><h2>' . esc_html__( 'Current Rooms', 'simple-hotel-crm' ) . '</h2><table class="widefat striped"><thead><tr><th>' . esc_html__( 'Code', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Name', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Order', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Color', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'MP ID', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( '1A', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( '2A', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( '3A', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( '4A', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Actions', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
     if ( empty( $rooms ) ) {
-        echo '<tr><td colspan="10">' . esc_html__( 'No rooms yet.', 'simple-hotel-crm' ) . '</td></tr>';
+        echo '<tr><td colspan="11">' . esc_html__( 'No rooms yet.', 'simple-hotel-crm' ) . '</td></tr>';
     } else {
         foreach ( $rooms as $row ) {
             $edit_url = admin_url( 'admin.php?page=simple-hotel-crm-rooms&room_id=' . absint( $row['id'] ) );
@@ -774,6 +781,7 @@ function simple_hotel_crm_render_rooms_page() {
             echo '<td>' . esc_html( (string) $row['room_name'] ) . '</td>';
             echo '<td>' . esc_html( (string) $row['sort_order'] ) . '</td>';
             echo '<td><span style="display:inline-block;width:18px;height:18px;border:1px solid #ccc;background:' . esc_attr( (string) $row['color'] ) . ';vertical-align:middle;margin-right:6px;"></span>' . esc_html( (string) $row['color'] ) . '</td>';
+            echo '<td>' . esc_html( $row['sync_room_id'] ?? '' ) . '</td>';
             foreach ( range( 1, 4 ) as $occupancy_adults ) {
                 echo '<td>' . esc_html( $pricing_map[ $occupancy_adults ] ?? '' ) . '</td>';
             }
