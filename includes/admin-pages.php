@@ -646,6 +646,22 @@ function simple_hotel_crm_render_rooms_page() {
         simple_hotel_crm_clear_calendar_cache();
     }
 
+    if ( isset( $_GET['delete_room'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_delete_room_' . absint( $_GET['delete_room'] ) );
+        $room_id = absint( $_GET['delete_room'] );
+        $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+        $has_bookings = (int) $wpdb->get_var( $wpdb->prepare( "SELECT COUNT(*) FROM {$booking_rooms_table} WHERE room_id = %d", $room_id ) );
+        if ( $has_bookings > 0 ) {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'Cannot delete this room — it has existing bookings. Deactivate it instead.', 'simple-hotel-crm' ) . '</p></div>';
+        } else {
+            $room_pricing_table = simple_hotel_crm_room_pricing_table();
+            $wpdb->delete( $room_pricing_table, [ 'room_id' => $room_id ], [ '%d' ] );
+            $wpdb->delete( $rooms_table, [ 'id' => $room_id ], [ '%d' ] );
+            echo '<div class="notice notice-success"><p>' . esc_html__( 'Room deleted.', 'simple-hotel-crm' ) . '</p></div>';
+            simple_hotel_crm_clear_calendar_cache();
+        }
+    }
+
     if ( isset( $_POST['simple_hotel_crm_save_room'] ) ) {
         check_admin_referer( 'simple_hotel_crm_save_room', 'simple_hotel_crm_save_room_nonce' );
         $data = [
@@ -743,7 +759,7 @@ function simple_hotel_crm_render_rooms_page() {
 
     echo '<div><h2>' . esc_html__( 'Current Rooms', 'simple-hotel-crm' ) . '</h2><table class="widefat striped"><thead><tr><th>' . esc_html__( 'Code', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Name', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Order', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Color', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( '1A', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( '2A', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( '3A', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( '4A', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Actions', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
     if ( empty( $rooms ) ) {
-        echo '<tr><td colspan="6">' . esc_html__( 'No rooms yet.', 'simple-hotel-crm' ) . '</td></tr>';
+        echo '<tr><td colspan="10">' . esc_html__( 'No rooms yet.', 'simple-hotel-crm' ) . '</td></tr>';
     } else {
         foreach ( $rooms as $row ) {
             $edit_url = admin_url( 'admin.php?page=simple-hotel-crm-rooms&room_id=' . absint( $row['id'] ) );
@@ -764,7 +780,8 @@ function simple_hotel_crm_render_rooms_page() {
                 echo '<td>' . esc_html( $pricing_map[ $occupancy_adults ] ?? '' ) . '</td>';
             }
             echo '<td>' . esc_html( ! empty( $row['active'] ) ? __( 'Active', 'simple-hotel-crm' ) : __( 'Inactive', 'simple-hotel-crm' ) ) . '</td>';
-            echo '<td><a class="button button-small" href="' . esc_url( $edit_url ) . '">' . esc_html__( 'Edit', 'simple-hotel-crm' ) . '</a> <a class="button button-small" href="' . esc_url( $toggle_url ) . '">' . esc_html( ! empty( $row['active'] ) ? __( 'Deactivate', 'simple-hotel-crm' ) : __( 'Activate', 'simple-hotel-crm' ) ) . '</a></td>';
+            $delete_url = wp_nonce_url( admin_url( 'admin.php?page=simple-hotel-crm-rooms&delete_room=' . absint( $row['id'] ) ), 'simple_hotel_crm_delete_room_' . absint( $row['id'] ) );
+            echo '<td><a class="button button-small" href="' . esc_url( $edit_url ) . '">' . esc_html__( 'Edit', 'simple-hotel-crm' ) . '</a> <a class="button button-small" href="' . esc_url( $toggle_url ) . '">' . esc_html( ! empty( $row['active'] ) ? __( 'Deactivate', 'simple-hotel-crm' ) : __( 'Activate', 'simple-hotel-crm' ) ) . '</a> <a class="button button-small" href="' . esc_url( $delete_url ) . '" onclick="return confirm(\'' . esc_js( __( 'Delete this room? This cannot be undone.', 'simple-hotel-crm' ) ) . '\');">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</a></td>';
             echo '</tr>';
         }
     }
