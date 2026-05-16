@@ -933,6 +933,34 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         }
 
         if ( ! $booking ) {
+            $check_in_date = (string) $booking_group['check_in_date'];
+            $check_out_date = (string) $booking_group['check_out_date'];
+            foreach ( $room_groups as $room_group ) {
+                $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $room_group['room_sync_id'] );
+                if ( $crm_room_id <= 0 ) {
+                    $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $room_group['external_room_id'] );
+                }
+                if ( $crm_room_id <= 0 ) {
+                    continue;
+                }
+                $fallback = $wpdb->get_row( $wpdb->prepare(
+                    "SELECT b.* FROM {$crm_bookings_table} b INNER JOIN {$crm_booking_rooms_table} br ON br.booking_id = b.id WHERE b.source_channel = 'booking_com' AND b.is_deleted = 0 AND br.room_id = %d AND b.check_in_date < %s AND b.check_out_date > %s AND b.status_code != 'cancelled' ORDER BY b.id DESC LIMIT 1",
+                    $crm_room_id,
+                    $check_out_date,
+                    $check_in_date
+                ), ARRAY_A );
+                if ( $fallback ) {
+                    $booking = $fallback;
+                    $real_source_booking_id = (string) ( $booking_group['source_booking_id'] ?: '' );
+                    if ( '' !== $real_source_booking_id ) {
+                        $wpdb->update( $crm_bookings_table, [ 'source_booking_id' => $real_source_booking_id ], [ 'id' => (int) $booking['id'] ], [ '%s' ], [ '%d' ] );
+                    }
+                    break;
+                }
+            }
+        }
+
+        if ( ! $booking ) {
             $booking_adults = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'adults' ) ) );
             $booking_children = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'children' ) ) );
             $booking_babies = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'babies' ) ) );
