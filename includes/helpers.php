@@ -433,44 +433,6 @@ function simple_hotel_crm_extract_booking_com_ics_group_key( $event, $room_id = 
     return md5( wp_json_encode( $event ) );
 }
 
-function simple_hotel_crm_get_booking_com_ics_debug_preview() {
-    global $wpdb;
-
-    $rooms_table = simple_hotel_crm_rooms_table();
-    $room_urls = simple_hotel_crm_get_booking_com_ics_room_urls();
-    $preview = [];
-
-    foreach ( $room_urls as $room_id => $url ) {
-        $room_id = absint( $room_id );
-        $url = esc_url_raw( trim( (string) $url ) );
-        if ( $room_id <= 0 || '' === $url ) {
-            continue;
-        }
-        $room = $wpdb->get_row( $wpdb->prepare( "SELECT id, room_name FROM {$rooms_table} WHERE id = %d LIMIT 1", $room_id ), ARRAY_A );
-        if ( ! $room ) {
-            continue;
-        }
-        $response = wp_remote_get( $url, [ 'timeout' => 20 ] );
-        if ( is_wp_error( $response ) || 200 !== wp_remote_retrieve_response_code( $response ) ) {
-            continue;
-        }
-        $events = simple_hotel_crm_parse_ics_content( wp_remote_retrieve_body( $response ) );
-        foreach ( array_slice( $events, 0, 8 ) as $event ) {
-            $uid = trim( (string) ( $event['UID'] ?? '' ) );
-            $preview[] = [
-                'room_name' => (string) $room['room_name'],
-                'uid' => $uid,
-                'group_key' => simple_hotel_crm_extract_booking_com_ics_group_key( $event, $room_id ),
-                'check_in' => simple_hotel_crm_parse_ics_date_value( $event['DTSTART'] ?? '' ),
-                'check_out' => simple_hotel_crm_parse_ics_date_value( $event['DTEND'] ?? '' ),
-                'summary' => trim( (string) ( $event['SUMMARY'] ?? '' ) ),
-            ];
-        }
-    }
-
-    return $preview;
-}
-
 function simple_hotel_crm_clear_booking_com_ics_staged_rows() {
     global $wpdb;
 
@@ -484,13 +446,6 @@ function simple_hotel_crm_clear_booking_com_ics_staged_rows() {
         $total_deleted += $count;
     }
     return $total_deleted;
-}
-
-function simple_hotel_crm_rebuild_booking_com_ics_feeds() {
-    $deleted_rows = simple_hotel_crm_clear_booking_com_ics_staged_rows();
-    $result = simple_hotel_crm_import_booking_com_ics_feeds();
-    $result['deleted_rows'] = $deleted_rows;
-    return $result;
 }
 
 function simple_hotel_crm_mark_missing_booking_com_bookings_cancelled( array $seen_uids ) {
