@@ -2736,7 +2736,7 @@ function simple_hotel_crm_find_guest_for_import_row( $row, $create_if_missing = 
 
     if ( $create_if_missing && ( $first_name || $last_name || $email || $phone ) ) {
 
-        $guest_id = $wpdb->insert( $table, [
+        $wpdb->insert( $table, [
             'first_name' => $first_name,
             'last_name' => $last_name,
             'email' => $email,
@@ -2749,8 +2749,8 @@ function simple_hotel_crm_find_guest_for_import_row( $row, $create_if_missing = 
             'updated_at' => current_time( 'mysql' ),
         ], [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ] );
 
-        if ( $guest_id ) {
-            return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $guest_id ), ARRAY_A );
+        if ( $wpdb->insert_id ) {
+            return $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE id = %d LIMIT 1", $wpdb->insert_id ), ARRAY_A );
         }
     }
 

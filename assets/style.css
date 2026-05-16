@@ -149,6 +149,7 @@
     white-space: nowrap;
     box-sizing: border-box;
     color: #161616;
+    font-size: 10px;
 }
 
 .simple-hotel-crm .calendar-grid th { background: #f4f4f6; text-align: center; font-weight: 400; color: #161616; border-top: 1px solid #d7dae1; border-bottom: 1px solid #d7dae1; }
@@ -227,6 +228,7 @@
     background: #2f2f31;
     color: #fff;
     font-weight: 700;
+    font-size: 10px;
 }
 
 .simple-hotel-crm .calendar-grid .room-name-row .room-label-cell { z-index: 9; }
@@ -252,6 +254,7 @@
 .simple-hotel-crm .calendar-grid .commission-row .room-label-cell.detail {
     background: #ffffff !important;
     color: #161616;
+    font-size: 10px;
 }
 
 .simple-hotel-crm .calendar-grid .room-label-text { display: block; font-weight: 700; }
