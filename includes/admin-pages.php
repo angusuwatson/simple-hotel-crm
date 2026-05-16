@@ -21,7 +21,6 @@ function simple_hotel_crm_register_admin_menu() {
     add_submenu_page( null, __( 'Booking Merges', 'simple-hotel-crm' ), __( 'Booking Merges', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-booking-merges', 'simple_hotel_crm_render_booking_merges_page' );
     add_submenu_page( null, __( 'Guest Detail', 'simple-hotel-crm' ), __( 'Guest Detail', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-detail', 'simple_hotel_crm_render_guest_detail_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Settings', 'simple-hotel-crm' ), __( 'Settings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-settings', 'simple_hotel_crm_render_settings_page' );
-    add_submenu_page( 'simple-hotel-crm', __( 'Sync Log', 'simple-hotel-crm' ), __( 'Sync Log', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-sync-log', 'simple_hotel_crm_render_sync_log_page' );
 }
 
 function simple_hotel_crm_render_admin_sync_notice() {
@@ -117,9 +116,11 @@ function simple_hotel_crm_render_sync_log() {
     echo '</p>';
 }
 
-function simple_hotel_crm_render_sync_log_page() {
-    if ( ! simple_hotel_crm_user_can_access() ) {
-        wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
+function simple_hotel_crm_render_sync_log_page( $embed = false ) {
+    if ( ! $embed ) {
+        if ( ! simple_hotel_crm_user_can_access() ) {
+            wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
+        }
     }
 
     if ( isset( $_POST['simple_hotel_crm_clear_sync_log'] ) ) {
@@ -129,7 +130,9 @@ function simple_hotel_crm_render_sync_log_page() {
     }
 
     $log = get_option( 'simple_hotel_crm_sync_log', [] );
-    echo '<div class="wrap"><h1>' . esc_html__( 'Sync Log', 'simple-hotel-crm' ) . '</h1>';
+    if ( ! $embed ) {
+        echo '<div class="wrap"><h1>' . esc_html__( 'Sync Log', 'simple-hotel-crm' ) . '</h1>';
+    }
 
     if ( ! is_array( $log ) || empty( $log ) ) {
         echo '<p>' . esc_html__( 'No sync history yet. Sync runs automatically every 15 minutes.', 'simple-hotel-crm' ) . '</p>';
@@ -167,8 +170,10 @@ function simple_hotel_crm_render_sync_log_page() {
         echo '</form>';
     }
 
-    echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm' ) ) . '">← ' . esc_html__( 'Back to Calendar', 'simple-hotel-crm' ) . '</a></p>';
-    echo '</div>';
+    if ( ! $embed ) {
+        echo '<p><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm' ) ) . '">← ' . esc_html__( 'Back to Calendar', 'simple-hotel-crm' ) . '</a></p>';
+        echo '</div>';
+    }
 }
 
 function simple_hotel_crm_import_motopress_bookings() {
@@ -3759,7 +3764,7 @@ function simple_hotel_crm_render_settings_page() {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
 
-    $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'general', 'invoice-ninja', 'import', 'export', 'motopress' ], true ) ? sanitize_key( $_GET['tab'] ) : 'general';
+    $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'general', 'invoice-ninja', 'import', 'export', 'motopress', 'booking-com', 'sync-log' ], true ) ? sanitize_key( $_GET['tab'] ) : 'general';
 
     if ( isset( $_POST['simple_hotel_crm_submit'] ) ) {
         check_admin_referer( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
@@ -3813,6 +3818,10 @@ function simple_hotel_crm_render_settings_page() {
     }
     if ( isset( $_POST['simple_hotel_crm_reset_crm_data'] ) ) {
         check_admin_referer( 'simple_hotel_crm_reset_crm_data', 'simple_hotel_crm_reset_crm_data_nonce' );
+        $reset_confirm = sanitize_text_field( wp_unslash( $_POST['simple_hotel_crm_reset_confirm'] ?? '' ) );
+        if ( 'RESET' !== strtoupper( $reset_confirm ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'Reset cancelled: type RESET to confirm.', 'simple-hotel-crm' ) . '</p></div>';
+        } else {
         $reset_results = simple_hotel_crm_reset_crm_data();
         $failed_tables = [];
         foreach ( $reset_results as $table => $status ) {
@@ -3823,11 +3832,12 @@ function simple_hotel_crm_render_settings_page() {
         if ( empty( $failed_tables ) ) {
             echo '<div class="notice notice-success"><p>' . esc_html__( 'CRM booking data reset complete. Rooms, pricing, and settings kept.', 'simple-hotel-crm' ) . '</p></div>';
         } else {
-            echo '<div class="notice notice-error"><p>' . esc_html__( 'CRM reset finished with errors.', 'simple-hotel-crm' ) . '</p><ul>';
+                echo '<div class="notice notice-error"><p>' . esc_html__( 'CRM reset finished with errors.', 'simple-hotel-crm' ) . '</p><ul>';
             foreach ( $failed_tables as $failed_table ) {
                 echo '<li>' . esc_html( (string) $failed_table ) . '</li>';
             }
             echo '</ul></div>';
+        }
         }
     }
 
@@ -3855,7 +3865,8 @@ function simple_hotel_crm_render_settings_page() {
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=motopress' ) ) . '" class="nav-tab ' . ( 'motopress' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'MotoPress Sync', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=invoice-ninja' ) ) . '" class="nav-tab ' . ( 'invoice-ninja' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Invoice Ninja', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=import' ) ) . '" class="nav-tab ' . ( 'import' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Import', 'simple-hotel-crm' ) . '</a>';
-    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=export' ) ) . '" class="nav-tab ' . ( 'export' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Export', 'simple-hotel-crm' ) . '</a>';
+    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=booking-com' ) ) . '" class="nav-tab ' . ( 'booking-com' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Booking.com', 'simple-hotel-crm' ) . '</a>';
+    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=sync-log' ) ) . '" class="nav-tab ' . ( 'sync-log' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Sync Log', 'simple-hotel-crm' ) . '</a>';
     echo '</nav>';
 
     if ( 'import' === $tab ) {
@@ -3864,6 +3875,34 @@ function simple_hotel_crm_render_settings_page() {
         simple_hotel_crm_render_export_panel();
     } elseif ( 'motopress' === $tab ) {
         simple_hotel_crm_render_motopress_sync_page();
+    } elseif ( 'sync-log' === $tab ) {
+        simple_hotel_crm_render_sync_log_page( true );
+    } elseif ( 'booking-com' === $tab ) {
+        echo '<form method="post">';
+        wp_nonce_field( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
+        echo '<h2>' . esc_html__( 'Booking.com', 'simple-hotel-crm' ) . '</h2>';
+        echo '<table class="form-table">';
+        echo '<tr><th scope="row"><label for="simple_hotel_crm_booking_com_commission_percent">' . esc_html__( 'Booking.com commission %', 'simple-hotel-crm' ) . '</label></th>';
+        echo '<td><input type="number" step="0.01" min="0" max="100" id="simple_hotel_crm_booking_com_commission_percent" name="simple_hotel_crm_booking_com_commission_percent" value="' . esc_attr( (string) $booking_com_commission_percent ) . '" class="small-text" /> <p class="description">' . esc_html__( 'Used for automatic commission calculation on Booking.com channel. Applied to discounted room charge only, not extras or tax.', 'simple-hotel-crm' ) . '</p></td></tr>';
+        echo '<tr><th scope="row">' . esc_html__( 'Booking.com ICS room feeds', 'simple-hotel-crm' ) . '</th><td>';
+        foreach ( $rooms_for_ics as $room_row ) {
+            if ( empty( $room_row['active'] ) || 'Coquelicot' === (string) $room_row['room_name'] ) {
+                continue;
+            }
+            echo '<p><label><strong>' . esc_html( (string) $room_row['room_name'] ) . '</strong> <code>' . esc_html( (string) $room_row['room_code'] ) . '</code><br /><input type="url" class="regular-text" name="simple_hotel_crm_booking_com_ics_urls[' . esc_attr( (string) $room_row['id'] ) . ']" value="' . esc_attr( (string) ( $booking_com_ics_urls[ $room_row['id'] ] ?? '' ) ) . '" placeholder="https://...ics" style="min-width:420px;" /></label></p>';
+        }
+        echo '<p class="description">' . esc_html__( 'One Booking.com ICS export URL per room. Used to stage bookings into sync_bookings and auto-import them into CRM.', 'simple-hotel-crm' ) . '</p></td></tr>';
+        echo '</table>';
+        submit_button( __( 'Save Booking.com Settings', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_submit' );
+        echo '</form>';
+
+        echo '<form method="post" style="margin-top:12px;">';
+        wp_nonce_field( 'simple_hotel_crm_run_booking_com_ics_import', 'simple_hotel_crm_run_booking_com_ics_import_nonce' );
+        echo '<hr />';
+        echo '<h2>' . esc_html__( 'ICS Sync', 'simple-hotel-crm' ) . '</h2>';
+        echo '<p>' . esc_html__( 'Fetch Booking.com ICS room feeds, stage nights, then create only missing booking skeletons in CRM. Existing enriched bookings are skipped.', 'simple-hotel-crm' ) . '</p>';
+        submit_button( __( 'Sync Booking.com ICS Skeletons', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_run_booking_com_ics_import', false );
+        echo '</form>';
     } elseif ( 'invoice-ninja' === $tab ) {
         echo '<form method="post">';
         wp_nonce_field( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
@@ -3883,19 +3922,9 @@ function simple_hotel_crm_render_settings_page() {
         echo '<table class="form-table">';
         echo '<tr><th scope="row">' . esc_html__( 'Plugin version', 'simple-hotel-crm' ) . '</th><td><code>' . esc_html( SIMPLE_HOTEL_CRM_VERSION ) . '</code></td></tr>';
         echo '<tr><th scope="row">' . esc_html__( 'DB version', 'simple-hotel-crm' ) . '</th><td><code>' . esc_html( SIMPLE_HOTEL_CRM_DB_VERSION ) . '</code></td></tr>';
-        echo '<tr><th scope="row"><label for="simple_hotel_crm_booking_com_commission_percent">' . esc_html__( 'Booking.com commission %', 'simple-hotel-crm' ) . '</label></th>';
-        echo '<td><input type="number" step="0.01" min="0" max="100" id="simple_hotel_crm_booking_com_commission_percent" name="simple_hotel_crm_booking_com_commission_percent" value="' . esc_attr( (string) $booking_com_commission_percent ) . '" class="small-text" /> <p class="description">' . esc_html__( 'Used for automatic commission calculation on Booking.com channel. Applied to discounted room charge only, not extras or tax.', 'simple-hotel-crm' ) . '</p></td></tr>';
         $dashboard_api_key = get_option( 'simple_hotel_crm_dashboard_api_key', '' );
         echo '<tr><th scope="row"><label for="simple_hotel_crm_dashboard_api_key">' . esc_html__( 'Dashboard API Key', 'simple-hotel-crm' ) . '</label></th>';
         echo '<td><input type="text" id="simple_hotel_crm_dashboard_api_key" name="simple_hotel_crm_dashboard_api_key" value="' . esc_attr( $dashboard_api_key ) . '" class="regular-text" placeholder="Leave empty to disable" style="font-family:monospace" /> <button type="button" class="button" onclick="var k=\'\';for(var i=0;i<32;i++)k+=\'0123456789abcdef\'[Math.floor(Math.random()*16)];this.previousElementSibling.value=k">' . esc_html__( 'Generate', 'simple-hotel-crm' ) . '</button><p class="description">' . esc_html__( 'API key for the local dashboard (192.168.1.70). Share this key with your dashboard server.', 'simple-hotel-crm' ) . '</p></td></tr>';
-        echo '<tr><th scope="row">' . esc_html__( 'Booking.com ICS room feeds', 'simple-hotel-crm' ) . '</th><td>';
-        foreach ( $rooms_for_ics as $room_row ) {
-            if ( empty( $room_row['active'] ) || 'Coquelicot' === (string) $room_row['room_name'] ) {
-                continue;
-            }
-            echo '<p><label><strong>' . esc_html( (string) $room_row['room_name'] ) . '</strong> <code>' . esc_html( (string) $room_row['room_code'] ) . '</code><br /><input type="url" class="regular-text" name="simple_hotel_crm_booking_com_ics_urls[' . esc_attr( (string) $room_row['id'] ) . ']" value="' . esc_attr( (string) ( $booking_com_ics_urls[ $room_row['id'] ] ?? '' ) ) . '" placeholder="https://...ics" style="min-width:420px;" /></label></p>';
-        }
-        echo '<p class="description">' . esc_html__( 'One Booking.com ICS export URL per room. Used to stage bookings into sync_bookings and auto-import them into CRM.', 'simple-hotel-crm' ) . '</p></td></tr>';
         echo '</table>';
         submit_button( __( 'Save General Settings', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_submit' );
         echo '</form>';
@@ -3916,11 +3945,7 @@ function simple_hotel_crm_render_settings_page() {
         echo '<li>' . esc_html__( 'Booking headers needing recalculation:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) $repair_scan_counts['booking_headers'] ) . '</li>';
         echo '<li>' . esc_html__( 'Room nights with dates outside booking range:', 'simple-hotel-crm' ) . ' ' . esc_html( (string) (int) ( $repair_scan_counts['room_night_dates'] ?? 0 ) ) . '</li>';
         echo '</ul>';
-        echo '<p>' . esc_html__( 'Fetch Booking.com ICS room feeds, stage nights, then create only missing booking skeletons in CRM. Existing enriched bookings are skipped.', 'simple-hotel-crm' ) . '</p>';
         echo '<p><a class="button" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-transfers' ) ) . '">' . esc_html__( 'Open Booking Transfers', 'simple-hotel-crm' ) . '</a> <a class="button" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-merges' ) ) . '">' . esc_html__( 'Open Booking Merges', 'simple-hotel-crm' ) . '</a></p>';
-        echo '<form method="post">';
-        wp_nonce_field( 'simple_hotel_crm_run_booking_com_ics_import', 'simple_hotel_crm_run_booking_com_ics_import_nonce' );
-        submit_button( __( 'Sync Booking.com ICS Skeletons', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_run_booking_com_ics_import', false );
 
 
         echo '<form method="post">';
@@ -3933,6 +3958,7 @@ function simple_hotel_crm_render_settings_page() {
         echo '<p><strong>' . esc_html__( 'Warning:', 'simple-hotel-crm' ) . '</strong> ' . esc_html__( 'This permanently deletes bookings, booking rooms, nightly rows, notes, staged sync rows, and guests. Rooms, pricing, and settings stay.', 'simple-hotel-crm' ) . '</p>';
         echo '<form method="post" onsubmit="return confirm(' . wp_json_encode( __( 'Permanently delete CRM booking data and guests? This cannot be undone.', 'simple-hotel-crm' ) ) . ');">';
         wp_nonce_field( 'simple_hotel_crm_reset_crm_data', 'simple_hotel_crm_reset_crm_data_nonce' );
+        echo '<p><label>' . esc_html__( 'Type', 'simple-hotel-crm' ) . ' <strong>RESET</strong> ' . esc_html__( 'to confirm:', 'simple-hotel-crm' ) . ' <input type="text" name="simple_hotel_crm_reset_confirm" value="" placeholder="RESET" style="width:100px;font-family:monospace;text-transform:uppercase;" /></label></p>';
         submit_button( __( 'Reset CRM Data', 'simple-hotel-crm' ), 'delete', 'simple_hotel_crm_reset_crm_data' );
         echo '</form>';
     }
