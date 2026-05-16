@@ -988,6 +988,22 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         }
 
         if ( ! $booking ) {
+            $fallback = $wpdb->get_row( $wpdb->prepare(
+                "SELECT * FROM {$crm_bookings_table} WHERE source_channel = 'booking_com' AND is_deleted = 0 AND check_in_date < %s AND check_out_date > %s AND status_code != 'cancelled' ORDER BY id DESC LIMIT 1",
+                (string) $booking_group['check_out_date'],
+                (string) $booking_group['check_in_date']
+            ), ARRAY_A );
+            if ( $fallback ) {
+                $real_source_booking_id = (string) ( $booking_group['source_booking_id'] ?: '' );
+                if ( '' !== $real_source_booking_id ) {
+                    $wpdb->update( $crm_bookings_table, [ 'source_booking_id' => $real_source_booking_id ], [ 'id' => (int) $fallback['id'] ], [ '%s' ], [ '%d' ] );
+                }
+                $wpdb->query( 'COMMIT' );
+                continue;
+            }
+        }
+
+        if ( ! $booking ) {
             $booking_adults = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'adults' ) ) );
             $booking_children = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'children' ) ) );
             $booking_babies = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'babies' ) ) );
