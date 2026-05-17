@@ -128,6 +128,7 @@ function simple_hotel_crm_install_tables() {
         sort_order int(11) NOT NULL DEFAULT 0,
         color varchar(20) NULL,
         active tinyint(1) NOT NULL DEFAULT 1,
+        invoice_ninja_product_id varchar(191) NULL,
         created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
@@ -163,6 +164,7 @@ function simple_hotel_crm_install_tables() {
         postcode varchar(40) NULL,
         country varchar(100) NULL,
         notes longtext NULL,
+        invoice_ninja_client_id varchar(191) NULL,
         is_deleted tinyint(1) NOT NULL DEFAULT 0,
         deleted_at datetime NULL,
         created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -934,6 +936,11 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         if ( ! $guest ) {
             $wpdb->query( 'ROLLBACK' );
             continue;
+        }
+
+        if ( ! empty( $booking_group['invoice_ninja_client_id'] ) && empty( $guest['invoice_ninja_client_id'] ) ) {
+            $wpdb->update( simple_hotel_crm_guests_table(), [ 'invoice_ninja_client_id' => (string) $booking_group['invoice_ninja_client_id'] ], [ 'id' => (int) $guest['id'] ], [ '%s' ], [ '%d' ] );
+            $guest['invoice_ninja_client_id'] = (string) $booking_group['invoice_ninja_client_id'];
         }
 
         $booking = $wpdb->get_row(

@@ -683,6 +683,11 @@ function simple_hotel_crm_render_rooms_page() {
             $data['sync_room_id'] = $sync_room_id;
             $data_format[] = '%d';
         }
+        $invoice_ninja_product_id = isset( $_POST['invoice_ninja_product_id'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['invoice_ninja_product_id'] ) ) ) : '';
+        if ( '' !== $invoice_ninja_product_id ) {
+            $data['invoice_ninja_product_id'] = $invoice_ninja_product_id;
+            $data_format[] = '%s';
+        }
         if ( '' === $data['room_code'] || '' === $data['room_name'] ) {
             echo '<div class="notice notice-error"><p>' . esc_html__( 'Room code and room name are required.', 'simple-hotel-crm' ) . '</p></div>';
         } else {
@@ -752,6 +757,7 @@ function simple_hotel_crm_render_rooms_page() {
     echo '<tr><th><label for="color">' . esc_html__( 'Color', 'simple-hotel-crm' ) . '</label></th><td><input id="color" name="color" type="color" value="' . esc_attr( (string) $room['color'] ) . '" /> <input id="color_hex" name="color_hex" type="text" class="regular-text" value="' . esc_attr( (string) $room['color'] ) . '" placeholder="#cccccc" style="max-width:110px;" /> <input id="color_rgb" name="color_rgb" type="text" class="regular-text" value="' . esc_attr( $room_color_rgb ) . '" placeholder="rgb(204, 204, 204)" style="max-width:170px;" /> <code>' . esc_html( (string) $room['color'] ) . '</code></td></tr>';
     echo '<tr><th>' . esc_html__( 'Active', 'simple-hotel-crm' ) . '</th><td><label><input type="checkbox" name="active" value="1" ' . checked( (int) $room['active'], 1, false ) . ' /> ' . esc_html__( 'Show this room in the calendar', 'simple-hotel-crm' ) . '</label></td></tr>';
     echo '<tr><th><label for="sync_room_id">' . esc_html__( 'MotoPress Room ID', 'simple-hotel-crm' ) . '</label></th><td><input id="sync_room_id" name="sync_room_id" type="number" class="small-text" value="' . esc_attr( (string) ( $room['sync_room_id'] ?? '' ) ) . '" placeholder="—" /> <p class="description">' . esc_html__( 'Set this to the MotoPress accommodation ID so the importer can match rooms automatically.', 'simple-hotel-crm' ) . '</p></td></tr>';
+    echo '<tr><th><label for="invoice_ninja_product_id">' . esc_html__( 'Invoice Ninja Product ID', 'simple-hotel-crm' ) . '</label></th><td><input id="invoice_ninja_product_id" name="invoice_ninja_product_id" type="text" class="regular-text" value="' . esc_attr( (string) ( $room['invoice_ninja_product_id'] ?? '' ) ) . '" placeholder="—" /> <p class="description">' . esc_html__( 'Product ID in Invoice Ninja for this room. Used when generating invoices.', 'simple-hotel-crm' ) . '</p></td></tr>';
     echo '</table>';
     echo '<h3>' . esc_html__( 'Occupancy pricing', 'simple-hotel-crm' ) . '</h3>';
     echo '<table class="widefat striped" style="max-width:420px;"><thead><tr><th>' . esc_html__( 'Adults', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Price', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Active', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
@@ -3795,6 +3801,24 @@ function simple_hotel_crm_render_settings_page() {
         }
     }
 
+    $invoice_ninja_sync_results = null;
+    if ( isset( $_POST['simple_hotel_crm_run_invoice_ninja_sync'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_run_invoice_ninja_sync', 'simple_hotel_crm_run_invoice_ninja_sync_nonce' );
+        $invoice_ninja_sync_results = simple_hotel_crm_sync_past_bookings_to_invoice_ninja();
+        if ( is_wp_error( $invoice_ninja_sync_results ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html( $invoice_ninja_sync_results->get_error_message() ) . '</p></div>';
+        } else {
+            echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Invoice Ninja sync complete. Invoiced: %1$d / %2$d', 'simple-hotel-crm' ), (int) $invoice_ninja_sync_results['invoiced'], (int) $invoice_ninja_sync_results['total'] ) ) . '</p></div>';
+            if ( ! empty( $invoice_ninja_sync_results['errors'] ) ) {
+                echo '<div class="notice notice-warning"><ul>';
+                foreach ( $invoice_ninja_sync_results['errors'] as $error ) {
+                    echo '<li>' . esc_html( $error ) . '</li>';
+                }
+                echo '</ul></div>';
+            }
+        }
+    }
+
     if ( isset( $_POST['simple_hotel_crm_run_repairs'] ) ) {
         check_admin_referer( 'simple_hotel_crm_run_repairs', 'simple_hotel_crm_run_repairs_nonce' );
         simple_hotel_crm_install_tables();
@@ -3901,6 +3925,14 @@ function simple_hotel_crm_render_settings_page() {
         echo '<td><input type="password" id="simple_hotel_crm_invoice_ninja_token" name="simple_hotel_crm_invoice_ninja_token" value="' . esc_attr( $api_token ) . '" class="regular-text" /></td></tr>';
         echo '</table>';
         submit_button( __( 'Save Invoice Ninja Settings', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_submit' );
+        echo '</form>';
+
+        echo '<form method="post" style="margin-top:12px;">';
+        wp_nonce_field( 'simple_hotel_crm_run_invoice_ninja_sync', 'simple_hotel_crm_run_invoice_ninja_sync_nonce' );
+        echo '<hr />';
+        echo '<h2>' . esc_html__( 'Bulk Sync', 'simple-hotel-crm' ) . '</h2>';
+        echo '<p>' . esc_html__( 'Create invoices in Invoice Ninja for all past confirmed, checked-in, and checked-out bookings that do not yet have an invoice. Each booking gets one invoice with all rooms as line items.', 'simple-hotel-crm' ) . '</p>';
+        submit_button( __( 'Sync Past Bookings to Invoice Ninja', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_run_invoice_ninja_sync', false );
         echo '</form>';
     } else {
         echo '<form method="post">';

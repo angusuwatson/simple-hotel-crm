@@ -1,136 +1,227 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-/**
- * Create invoice in Invoice Ninja via REST API.
- */
-function simple_hotel_crm_rest_create_invoice( WP_REST_Request $request ) {
-    $booking_id = absint( $request->get_param( 'booking_id' ) );
-    $reserved_room_id = absint( $request->get_param( 'reserved_room_id' ) );
-    if ( $booking_id <= 0 || $reserved_room_id <= 0 ) {
-        return new WP_Error( 'invalid_booking', __( 'Invalid booking or room reference.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
-    }
-
+function simple_hotel_crm_invoice_ninja_api_request( $method, $endpoint, $body = null ) {
     $api_url = get_option( 'simple_hotel_crm_invoice_ninja_url', '' );
     $api_token = get_option( 'simple_hotel_crm_invoice_ninja_token', '' );
-
     if ( empty( $api_url ) || empty( $api_token ) ) {
-        return new WP_Error( 'invoice_ninja_not_configured', __( 'Invoice Ninja API not configured. Please set URL and token in settings.', 'simple-hotel-crm' ), [ 'status' => 500 ] );
+        return new WP_Error( 'invoice_ninja_not_configured', 'Invoice Ninja API not configured.' );
     }
-
-    global $wpdb;
-    $crm_bookings_table = simple_hotel_crm_bookings_table();
-    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
-    $client_id = (string) $wpdb->get_var( $wpdb->prepare( "SELECT invoice_ninja_client_id FROM {$crm_bookings_table} WHERE id = %d LIMIT 1", $booking_id ) );
-    if ( '' === $client_id ) {
-        return new WP_Error( 'booking_not_found', __( 'Booking not found in WordPress CRM data, or it has no Invoice Ninja client ID.', 'simple-hotel-crm' ), [ 'status' => 404 ] );
-    }
-
-    if ( '' === $client_id ) {
-        return new WP_Error( 'no_customer', __( 'This booking has no linked Invoice Ninja client ID.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
-    }
-
-    $booking_room = $wpdb->get_row(
-        $wpdb->prepare( "SELECT room_rate_amount, extras_amount, tourist_tax_amount, commission_amount, total_amount FROM {$booking_rooms_table} WHERE booking_id = %d AND legacy_reserved_room_id = %d LIMIT 1", $booking_id, $reserved_room_id ),
-        ARRAY_A
-    );
-
-    $invoice_lines = [];
-    $total = 0.0;
-
-    $tarif = null;
-    if ( is_array( $booking_room ) ) {
-        $tarif = (float) $booking_room['room_rate_amount'];
-    }
-    if ( null !== $tarif && $tarif != 0.0 ) {
-        $invoice_lines[] = [ 'product_key' => 'room-charge', 'quantity' => 1, 'rate' => round( $tarif, 2 ) ];
-        $total += $tarif;
-    }
-
-    $extras = null;
-    if ( is_array( $booking_room ) ) {
-        $extras = (float) $booking_room['extras_amount'];
-    }
-    if ( null !== $extras && $extras != 0.0 ) {
-        $invoice_lines[] = [ 'product_key' => 'extras-charge', 'quantity' => 1, 'rate' => round( $extras, 2 ) ];
-        $total += $extras;
-    }
-
-    $tourist_tax = is_array( $booking_room ) ? (float) $booking_room['tourist_tax_amount'] : 0.0;
-    if ( $tourist_tax != 0.0 ) {
-        $invoice_lines[] = [ 'product_key' => 'tourist-tax', 'quantity' => 1, 'rate' => round( $tourist_tax, 2 ) ];
-        $total += $tourist_tax;
-    }
-
-    $commission = null;
-    if ( is_array( $booking_room ) && isset( $booking_room['commission_amount'] ) ) {
-        $commission = (float) $booking_room['commission_amount'];
-    } elseif ( null !== $tarif ) {
-        $commission = simple_hotel_crm_calculate_channel_commission( (string) $wpdb->get_var( $wpdb->prepare( "SELECT source_channel FROM {$crm_bookings_table} WHERE id = %d LIMIT 1", $booking_id ) ), (float) $tarif );
-    }
-    if ( null !== $commission && $commission != 0.0 ) {
-        $invoice_lines[] = [ 'product_key' => 'booking-commission', 'quantity' => 1, 'rate' => -round( $commission, 2 ) ];
-        $total -= $commission;
-    }
-
-    if ( empty( $invoice_lines ) ) {
-        return new WP_Error( 'empty_invoice', __( 'No invoiceable lines were found.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
-    }
-
-    $payload = [
-        'client_id' => $client_id,
-        'lines' => $invoice_lines,
-        'amount' => round( $total, 2 ),
-        'is_amount_discount' => false,
-        'discount' => 0,
-    ];
-
-    $response = wp_remote_post( trailingslashit( $api_url ) . 'api/v1/invoices', [
+    $args = [
+        'method' => strtoupper( $method ),
         'headers' => [
             'Authorization' => 'Bearer ' . $api_token,
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
         ],
-        'body' => wp_json_encode( $payload ),
         'timeout' => 15,
-    ] );
-
+    ];
+    if ( null !== $body ) {
+        $args['body'] = wp_json_encode( $body );
+    }
+    $url = trailingslashit( $api_url ) . 'api/v1/' . ltrim( $endpoint, '/' );
+    $response = wp_remote_request( $url, $args );
     if ( is_wp_error( $response ) ) {
-        return new WP_Error( 'invoice_ninja_request_failed', $response->get_error_message(), [ 'status' => 500 ] );
+        return $response;
     }
-
     $code = wp_remote_retrieve_response_code( $response );
-    $body = wp_remote_retrieve_body( $response );
-    $data = json_decode( $body, true );
-
-    if ( 201 !== $code || empty( $data['id'] ) ) {
-        return new WP_Error( 'invoice_ninja_invalid_response', __( 'Failed to create invoice. Response:', 'simple-hotel-crm' ) . ' ' . $code . ' - ' . $body, [ 'status' => $code >= 500 ? 502 : 500 ] );
+    $response_body = wp_remote_retrieve_body( $response );
+    $data = json_decode( $response_body, true );
+    if ( $code >= 400 ) {
+        return new WP_Error( 'invoice_ninja_api_error', sprintf( 'Invoice Ninja API error %d: %s', $code, substr( $response_body, 0, 500 ) ) );
     }
+    return $data;
+}
 
-    $crm_bookings_table = simple_hotel_crm_bookings_table();
-    $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
+function simple_hotel_crm_find_or_create_invoice_ninja_client( $guest ) {
+    if ( ! empty( $guest['invoice_ninja_client_id'] ) ) {
+        $existing = simple_hotel_crm_invoice_ninja_api_request( 'GET', 'clients/' . rawurlencode( (string) $guest['invoice_ninja_client_id'] ) );
+        if ( ! is_wp_error( $existing ) && ! empty( $existing['data'] ) ) {
+            return (string) $guest['invoice_ninja_client_id'];
+        }
+    }
+    if ( ! empty( $guest['email'] ) ) {
+        $search = simple_hotel_crm_invoice_ninja_api_request( 'GET', 'clients?email=' . rawurlencode( $guest['email'] ) );
+        if ( ! is_wp_error( $search ) && ! empty( $search['data'] ) && is_array( $search['data'] ) ) {
+            $match = $search['data'][0];
+            $client_id = (string) ( $match['id'] ?? '' );
+            if ( '' !== $client_id ) {
+                global $wpdb;
+                $wpdb->update( simple_hotel_crm_guests_table(), [ 'invoice_ninja_client_id' => $client_id ], [ 'id' => $guest['id'] ], [ '%s' ], [ '%d' ] );
+                return $client_id;
+            }
+        }
+    }
+    $name = trim( ( $guest['first_name'] ?? '' ) . ' ' . ( $guest['last_name'] ?? '' ) );
+    if ( '' === $name ) {
+        $name = $guest['email'] ?? $guest['phone'] ?? 'Guest #' . $guest['id'];
+    }
+    $payload = [
+        'name' => $name,
+    ];
+    if ( ! empty( $guest['email'] ) ) {
+        $payload['email'] = $guest['email'];
+    }
+    if ( ! empty( $guest['phone'] ) ) {
+        $payload['phone'] = $guest['phone'];
+    }
+    $result = simple_hotel_crm_invoice_ninja_api_request( 'POST', 'clients', $payload );
+    if ( is_wp_error( $result ) ) {
+        return $result;
+    }
+    $client_id = (string) ( $result['data']['id'] ?? '' );
+    if ( '' === $client_id ) {
+        return new WP_Error( 'invoice_ninja_no_client_id', 'Client was created but no ID was returned.' );
+    }
+    global $wpdb;
+    $wpdb->update( simple_hotel_crm_guests_table(), [ 'invoice_ninja_client_id' => $client_id ], [ 'id' => $guest['id'] ], [ '%s' ], [ '%d' ] );
+    return $client_id;
+}
+
+function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
+    global $wpdb;
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $guests_table = simple_hotel_crm_guests_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $rooms_table = simple_hotel_crm_rooms_table();
+    $booking = $wpdb->get_row( $wpdb->prepare( "SELECT b.*, g.first_name, g.last_name, g.email, g.phone, g.invoice_ninja_client_id AS guest_client_id FROM {$bookings_table} b LEFT JOIN {$guests_table} g ON g.id = b.guest_id WHERE b.id = %d LIMIT 1", $booking_id ), ARRAY_A );
+    if ( empty( $booking ) ) {
+        return new WP_Error( 'booking_not_found', 'Booking not found.' );
+    }
+    if ( ! empty( $booking['invoice_ninja_invoice_id'] ) ) {
+        return new WP_Error( 'already_invoiced', 'This booking already has an Invoice Ninja invoice.' );
+    }
+    $guest = [
+        'id' => $booking['guest_id'],
+        'first_name' => $booking['first_name'],
+        'last_name' => $booking['last_name'],
+        'email' => $booking['email'],
+        'phone' => $booking['phone'],
+        'invoice_ninja_client_id' => $booking['guest_client_id'],
+    ];
+    $client_id = simple_hotel_crm_find_or_create_invoice_ninja_client( $guest );
+    if ( is_wp_error( $client_id ) ) {
+        return $client_id;
+    }
+    $booking_rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.*, r.invoice_ninja_product_id FROM {$booking_rooms_table} br LEFT JOIN {$rooms_table} r ON r.id = br.room_id WHERE br.booking_id = %d ORDER BY br.id ASC", $booking_id ), ARRAY_A );
+    $line_items = [];
+    $current_currency = $booking['currency'] ?? 'EUR';
+    foreach ( $booking_rooms as $room ) {
+        $product_key = ! empty( $room['invoice_ninja_product_id'] ) ? (string) $room['invoice_ninja_product_id'] : 'room-charge';
+        $rate = (float) $room['room_rate_amount'];
+        if ( $rate > 0 ) {
+            $line_items[] = [
+                'product_key' => $product_key,
+                'quantity' => 1,
+                'rate' => round( $rate, 2 ),
+            ];
+        }
+        $extras = (float) $room['extras_amount'];
+        if ( $extras > 0 ) {
+            $line_items[] = [
+                'product_key' => 'extras-charge',
+                'quantity' => 1,
+                'rate' => round( $extras, 2 ),
+            ];
+        }
+        $tourist_tax = (float) $room['tourist_tax_amount'];
+        if ( $tourist_tax > 0 ) {
+            $line_items[] = [
+                'product_key' => 'tourist-tax',
+                'quantity' => 1,
+                'rate' => round( $tourist_tax, 2 ),
+            ];
+        }
+        $commission = (float) $room['commission_amount'];
+        if ( $commission > 0 ) {
+            $line_items[] = [
+                'product_key' => 'booking-commission',
+                'quantity' => 1,
+                'rate' => -round( $commission, 2 ),
+            ];
+        }
+    }
+    if ( empty( $line_items ) ) {
+        return new WP_Error( 'empty_invoice', 'No invoiceable line items found for this booking.' );
+    }
+    $total_amount = array_sum( array_column( $line_items, 'rate' ) );
+    $payload = [
+        'client_id' => $client_id,
+        'line_items' => $line_items,
+        'amount' => round( $total_amount, 2 ),
+        'is_amount_discount' => false,
+        'discount' => 0,
+    ];
+    $result = simple_hotel_crm_invoice_ninja_api_request( 'POST', 'invoices', $payload );
+    if ( is_wp_error( $result ) ) {
+        return $result;
+    }
+    $invoice_id = (string) ( $result['data']['id'] ?? '' );
+    if ( '' === $invoice_id ) {
+        return new WP_Error( 'invoice_ninja_no_invoice_id', 'Invoice was created but no ID was returned.' );
+    }
     $wpdb->update(
-        $crm_bookings_table,
+        $bookings_table,
         [
-            'invoice_ninja_invoice_id' => (string) $data['id'],
+            'invoice_ninja_client_id' => $client_id,
+            'invoice_ninja_invoice_id' => $invoice_id,
             'invoiced_at' => current_time( 'mysql' ),
         ],
         [ 'id' => $booking_id ],
-        [ '%s', '%s' ],
+        [ '%s', '%s', '%s' ],
         [ '%d' ]
     );
-    $wpdb->update(
-        $sync_bookings_table,
-        [ 'invoice_ninja_invoice_id' => (string) $data['id'] ],
-        [ 'external_booking_room_id' => $reserved_room_id ],
-        [ '%s' ],
-        [ '%d' ]
-    );
-
-    return rest_ensure_response( [
+    return [
         'success' => true,
-        'invoice_id' => $data['id'],
-        'invoice_number' => $data['invoice_number'] ?? '',
-        'amount' => $data['amount'] ?? $total,
-    ] );
+        'invoice_id' => $invoice_id,
+        'invoice_number' => $result['data']['invoice_number'] ?? '',
+        'amount' => $result['data']['amount'] ?? $total_amount,
+    ];
+}
+
+function simple_hotel_crm_sync_past_bookings_to_invoice_ninja() {
+    global $wpdb;
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $results = [];
+    $bookings = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT id FROM {$bookings_table} WHERE is_deleted = 0 AND invoice_ninja_invoice_id IS NULL AND status_code IN ( 'checked-in', 'checked-out', 'confirmed' ) ORDER BY check_in_date ASC"
+        ),
+        ARRAY_A
+    );
+    if ( empty( $bookings ) ) {
+        return [ 'success' => true, 'message' => 'No uninvoiced past bookings found.', 'total' => 0 ];
+    }
+    $invoiced = 0;
+    $errors = [];
+    foreach ( $bookings as $row ) {
+        $invoice = simple_hotel_crm_create_invoice_ninja_invoice( (int) $row['id'] );
+        if ( is_wp_error( $invoice ) ) {
+            $errors[] = sprintf( 'Booking #%d: %s', $row['id'], $invoice->get_error_message() );
+        } else {
+            $invoiced++;
+            $results[] = $invoice;
+        }
+    }
+    return [
+        'success' => true,
+        'total' => count( $bookings ),
+        'invoiced' => $invoiced,
+        'errors' => $errors,
+        'results' => $results,
+    ];
+}
+
+function simple_hotel_crm_rest_create_invoice( WP_REST_Request $request ) {
+    $booking_id = absint( $request->get_param( 'booking_id' ) );
+    if ( $booking_id <= 0 ) {
+        return new WP_Error( 'invalid_booking', __( 'Invalid booking ID.', 'simple-hotel-crm' ), [ 'status' => 400 ] );
+    }
+    $result = simple_hotel_crm_create_invoice_ninja_invoice( $booking_id );
+    if ( is_wp_error( $result ) ) {
+        $code = $result->get_error_code();
+        $http_code = 'invoice_ninja_not_configured' === $code ? 500 : ( 'already_invoiced' === $code ? 400 : ( 'booking_not_found' === $code ? 404 : 500 ) );
+        return new WP_Error( $code, $result->get_error_message(), [ 'status' => $http_code ] );
+    }
+    return rest_ensure_response( $result );
 }
