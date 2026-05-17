@@ -231,7 +231,7 @@ function simple_hotel_crm_import_motopress_bookings() {
         }
 
         // Check if already imported
-        $existing = $wpdb->get_row( $wpdb->prepare( "SELECT id, status_code FROM {$bookings_table} WHERE source_booking_id = %s LIMIT 1", $external_id ), ARRAY_A );
+        $existing = $wpdb->get_row( $wpdb->prepare( "SELECT id, status_code FROM {$bookings_table} WHERE source_booking_id = %s AND (internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR internal_notes IS NULL) LIMIT 1", $external_id ), ARRAY_A );
         if ( $existing ) {
             // If MotoPress says cancelled and CRM isn't, update CRM
             $mp_status = strtolower( (string) ( $raw_booking['status'] ?? $raw_booking['status_code'] ?? '' ) );
@@ -2755,7 +2755,7 @@ function simple_hotel_crm_find_booking_for_import_row( $row, $guest_id = 0 ) {
     $check_out = sanitize_text_field( $row['check_out'] ?? '' );
 
     if ( $external_booking_id ) {
-        $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE source_booking_id = %s LIMIT 1", $external_booking_id ), ARRAY_A );
+        $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$table} WHERE source_booking_id = %s AND (internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR internal_notes IS NULL) LIMIT 1", $external_booking_id ), ARRAY_A );
         if ( $booking ) return $booking;
     }
     if ( $guest_id > 0 && $check_in && $check_out ) {
@@ -2909,7 +2909,7 @@ function simple_hotel_crm_import_booking_rooms_csv( $rows, $dry_run = false ) {
         $booking = null;
         $guest = null;
         if ( $external_booking_id ) {
-            $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bookings_table} WHERE source_booking_id = %s LIMIT 1", $external_booking_id ), ARRAY_A );
+            $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bookings_table} WHERE source_booking_id = %s AND (internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR internal_notes IS NULL) LIMIT 1", $external_booking_id ), ARRAY_A );
         }
         if ( $booking ) {
             $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$guests_table} WHERE id = %d LIMIT 1", (int) $booking['guest_id'] ), ARRAY_A );

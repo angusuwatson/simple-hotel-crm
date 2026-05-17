@@ -877,7 +877,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         $source_id = (string) ( $booking_group['source_booking_id'] ?: $booking_group['external_booking_id'] );
 
         $guest_id = $wpdb->get_var( $wpdb->prepare(
-            "SELECT b.guest_id FROM {$crm_bookings_table} b WHERE b.source_booking_id = %s AND b.source_channel = %s LIMIT 1",
+            "SELECT b.guest_id FROM {$crm_bookings_table} b WHERE b.source_booking_id = %s AND b.source_channel = %s AND (b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR b.internal_notes IS NULL) LIMIT 1",
             $source_id,
             $booking_group['source_channel']
         ) );
@@ -900,7 +900,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                     continue;
                 }
                 $existing_guest_id = (int) $wpdb->get_var( $wpdb->prepare(
-                    "SELECT b.guest_id FROM {$crm_bookings_table} b INNER JOIN {$crm_booking_rooms_table} br ON br.booking_id = b.id WHERE b.source_channel = 'booking_com' AND b.is_deleted = 0 AND br.room_id = %d AND b.check_in_date < %s AND b.check_out_date > %s AND b.status_code != 'cancelled' ORDER BY b.id DESC LIMIT 1",
+                    "SELECT b.guest_id FROM {$crm_bookings_table} b INNER JOIN {$crm_booking_rooms_table} br ON br.booking_id = b.id WHERE b.source_channel = 'booking_com' AND b.is_deleted = 0 AND (b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR b.internal_notes IS NULL) AND br.room_id = %d AND b.check_in_date < %s AND b.check_out_date > %s AND b.status_code != 'cancelled' ORDER BY b.id DESC LIMIT 1",
                     $crm_room_id,
                     $check_out_date,
                     $check_in_date
@@ -938,7 +938,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
 
         $booking = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT * FROM {$crm_bookings_table} WHERE source_channel = %s AND (source_booking_id = %s OR source_booking_id = %s) LIMIT 1",
+                "SELECT * FROM {$crm_bookings_table} WHERE source_channel = %s AND (source_booking_id = %s OR source_booking_id = %s) AND (internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR internal_notes IS NULL) LIMIT 1",
                 (string) $booking_group['source_channel'],
                 (string) ( $booking_group['source_booking_id'] ?: '' ),
                 (string) $booking_group['external_booking_id']
@@ -970,7 +970,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                     continue;
                 }
                 $fallback = $wpdb->get_row( $wpdb->prepare(
-                    "SELECT b.* FROM {$crm_bookings_table} b INNER JOIN {$crm_booking_rooms_table} br ON br.booking_id = b.id WHERE b.source_channel = 'booking_com' AND b.is_deleted = 0 AND br.room_id = %d AND b.check_in_date < %s AND b.check_out_date > %s AND b.status_code != 'cancelled' ORDER BY b.id DESC LIMIT 1",
+                    "SELECT b.* FROM {$crm_bookings_table} b INNER JOIN {$crm_booking_rooms_table} br ON br.booking_id = b.id WHERE b.source_channel = 'booking_com' AND b.is_deleted = 0 AND (b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR b.internal_notes IS NULL) AND br.room_id = %d AND b.check_in_date < %s AND b.check_out_date > %s AND b.status_code != 'cancelled' ORDER BY b.id DESC LIMIT 1",
                     $crm_room_id,
                     $check_out_date,
                     $check_in_date
@@ -989,7 +989,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
 
         if ( ! $booking ) {
             $fallback = $wpdb->get_row( $wpdb->prepare(
-                "SELECT * FROM {$crm_bookings_table} WHERE source_channel = 'booking_com' AND is_deleted = 0 AND check_in_date < %s AND check_out_date > %s AND status_code != 'cancelled' ORDER BY id DESC LIMIT 1",
+                "SELECT * FROM {$crm_bookings_table} WHERE source_channel = 'booking_com' AND is_deleted = 0 AND (internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR internal_notes IS NULL) AND check_in_date < %s AND check_out_date > %s AND status_code != 'cancelled' ORDER BY id DESC LIMIT 1",
                 (string) $booking_group['check_out_date'],
                 (string) $booking_group['check_in_date']
             ), ARRAY_A );
