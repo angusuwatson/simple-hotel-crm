@@ -56,15 +56,20 @@ function simple_hotel_crm_find_or_create_invoice_ninja_client( $guest ) {
     if ( '' === $name ) {
         $name = $guest['email'] ?? $guest['phone'] ?? 'Guest #' . $guest['id'];
     }
-    $payload = [
-        'name' => $name,
+    $contacts = [
+        'first_name' => $guest['first_name'] ?? '',
+        'last_name' => $guest['last_name'] ?? '',
     ];
     if ( ! empty( $guest['email'] ) ) {
-        $payload['email'] = $guest['email'];
+        $contacts['email'] = $guest['email'];
     }
     if ( ! empty( $guest['phone'] ) ) {
-        $payload['phone'] = $guest['phone'];
+        $contacts['phone'] = $guest['phone'];
     }
+    $payload = [
+        'name' => $name,
+        'contacts' => [ $contacts ],
+    ];
     $result = simple_hotel_crm_invoice_ninja_api_request( 'POST', 'clients', $payload );
     if ( is_wp_error( $result ) ) {
         return $result;
@@ -136,7 +141,7 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
             $line_items[] = [
                 'product_key' => $product_key,
                 'quantity' => 1,
-                'rate' => round( $rate, 2 ),
+                'cost' => round( $rate, 2 ),
             ];
         }
         $extras = (float) $room['extras_amount'];
@@ -144,7 +149,7 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
             $line_items[] = [
                 'product_key' => 'extras-charge',
                 'quantity' => 1,
-                'rate' => round( $extras, 2 ),
+                'cost' => round( $extras, 2 ),
             ];
         }
         $tourist_tax = (float) $room['tourist_tax_amount'];
@@ -152,7 +157,7 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
             $line_items[] = [
                 'product_key' => 'tourist-tax',
                 'quantity' => 1,
-                'rate' => round( $tourist_tax, 2 ),
+                'cost' => round( $tourist_tax, 2 ),
             ];
         }
         $commission = (float) $room['commission_amount'];
@@ -160,14 +165,14 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
             $line_items[] = [
                 'product_key' => 'booking-commission',
                 'quantity' => 1,
-                'rate' => -round( $commission, 2 ),
+                'cost' => -round( $commission, 2 ),
             ];
         }
     }
     if ( empty( $line_items ) ) {
         return new WP_Error( 'empty_invoice', 'No invoiceable line items found for this booking.' );
     }
-    $total_amount = array_sum( array_column( $line_items, 'rate' ) );
+    $total_amount = array_sum( array_column( $line_items, 'cost' ) );
     $payload = [
         'client_id' => $client_id,
         'line_items' => $line_items,
