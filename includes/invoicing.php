@@ -10,7 +10,7 @@ function simple_hotel_crm_invoice_ninja_api_request( $method, $endpoint, $body =
     $args = [
         'method' => strtoupper( $method ),
         'headers' => [
-            'Authorization' => 'Bearer ' . $api_token,
+            'X-API-Token' => $api_token,
             'Content-Type' => 'application/json',
             'Accept' => 'application/json',
         ],
@@ -78,6 +78,19 @@ function simple_hotel_crm_find_or_create_invoice_ninja_client( $guest ) {
     return $client_id;
 }
 
+function simple_hotel_crm_find_invoice_ninja_product_by_key( $product_key ) {
+    $result = simple_hotel_crm_invoice_ninja_api_request( 'GET', 'products?product_key=' . rawurlencode( $product_key ) );
+    if ( is_wp_error( $result ) || empty( $result['data'] ) || ! is_array( $result['data'] ) ) {
+        return null;
+    }
+    foreach ( $result['data'] as $product ) {
+        if ( ( $product['product_key'] ?? '' ) === $product_key && empty( $product['archived_at'] ) && empty( $product['is_deleted'] ) ) {
+            return $product;
+        }
+    }
+    return null;
+}
+
 function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
     global $wpdb;
     $bookings_table = simple_hotel_crm_bookings_table();
@@ -103,11 +116,21 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
     if ( is_wp_error( $client_id ) ) {
         return $client_id;
     }
-    $booking_rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.*, r.invoice_ninja_product_id FROM {$booking_rooms_table} br LEFT JOIN {$rooms_table} r ON r.id = br.room_id WHERE br.booking_id = %d ORDER BY br.id ASC", $booking_id ), ARRAY_A );
+    $booking_rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.*, r.invoice_ninja_product_key, r.invoice_ninja_product_id FROM {$booking_rooms_table} br LEFT JOIN {$rooms_table} r ON r.id = br.room_id WHERE br.booking_id = %d ORDER BY br.id ASC", $booking_id ), ARRAY_A );
     $line_items = [];
-    $current_currency = $booking['currency'] ?? 'EUR';
+    $product_cache = [];
     foreach ( $booking_rooms as $room ) {
-        $product_key = ! empty( $room['invoice_ninja_product_id'] ) ? (string) $room['invoice_ninja_product_id'] : 'room-charge';
+        $product_key = 'room-charge';
+        if ( ! empty( $room['invoice_ninja_product_id'] ) ) {
+            $product_key = (string) $room['invoice_ninja_product_id'];
+        } elseif ( ! empty( $room['invoice_ninja_product_key'] ) ) {
+            $resolved_key = sprintf( (string) $room['invoice_ninja_product_key'], (int) $room['occupancy_adults'] );
+            if ( ! isset( $product_cache[ $resolved_key ] ) ) {
+                $found = simple_hotel_crm_find_invoice_ninja_product_by_key( $resolved_key );
+                $product_cache[ $resolved_key ] = $found ? ( $found['id'] ?? $resolved_key ) : $resolved_key;
+            }
+            $product_key = $product_cache[ $resolved_key ];
+        }
         $rate = (float) $room['room_rate_amount'];
         if ( $rate > 0 ) {
             $line_items[] = [

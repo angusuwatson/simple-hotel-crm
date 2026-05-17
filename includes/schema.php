@@ -129,6 +129,7 @@ function simple_hotel_crm_install_tables() {
         color varchar(20) NULL,
         active tinyint(1) NOT NULL DEFAULT 1,
         invoice_ninja_product_id varchar(191) NULL,
+        invoice_ninja_product_key varchar(255) NULL,
         created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),

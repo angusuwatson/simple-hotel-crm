@@ -683,6 +683,11 @@ function simple_hotel_crm_render_rooms_page() {
             $data['sync_room_id'] = $sync_room_id;
             $data_format[] = '%d';
         }
+        $invoice_ninja_product_key = isset( $_POST['invoice_ninja_product_key'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['invoice_ninja_product_key'] ) ) ) : '';
+        if ( '' !== $invoice_ninja_product_key ) {
+            $data['invoice_ninja_product_key'] = $invoice_ninja_product_key;
+            $data_format[] = '%s';
+        }
         $invoice_ninja_product_id = isset( $_POST['invoice_ninja_product_id'] ) ? sanitize_text_field( trim( wp_unslash( $_POST['invoice_ninja_product_id'] ) ) ) : '';
         if ( '' !== $invoice_ninja_product_id ) {
             $data['invoice_ninja_product_id'] = $invoice_ninja_product_id;
@@ -757,7 +762,8 @@ function simple_hotel_crm_render_rooms_page() {
     echo '<tr><th><label for="color">' . esc_html__( 'Color', 'simple-hotel-crm' ) . '</label></th><td><input id="color" name="color" type="color" value="' . esc_attr( (string) $room['color'] ) . '" /> <input id="color_hex" name="color_hex" type="text" class="regular-text" value="' . esc_attr( (string) $room['color'] ) . '" placeholder="#cccccc" style="max-width:110px;" /> <input id="color_rgb" name="color_rgb" type="text" class="regular-text" value="' . esc_attr( $room_color_rgb ) . '" placeholder="rgb(204, 204, 204)" style="max-width:170px;" /> <code>' . esc_html( (string) $room['color'] ) . '</code></td></tr>';
     echo '<tr><th>' . esc_html__( 'Active', 'simple-hotel-crm' ) . '</th><td><label><input type="checkbox" name="active" value="1" ' . checked( (int) $room['active'], 1, false ) . ' /> ' . esc_html__( 'Show this room in the calendar', 'simple-hotel-crm' ) . '</label></td></tr>';
     echo '<tr><th><label for="sync_room_id">' . esc_html__( 'MotoPress Room ID', 'simple-hotel-crm' ) . '</label></th><td><input id="sync_room_id" name="sync_room_id" type="number" class="small-text" value="' . esc_attr( (string) ( $room['sync_room_id'] ?? '' ) ) . '" placeholder="—" /> <p class="description">' . esc_html__( 'Set this to the MotoPress accommodation ID so the importer can match rooms automatically.', 'simple-hotel-crm' ) . '</p></td></tr>';
-    echo '<tr><th><label for="invoice_ninja_product_id">' . esc_html__( 'Invoice Ninja Product ID', 'simple-hotel-crm' ) . '</label></th><td><input id="invoice_ninja_product_id" name="invoice_ninja_product_id" type="text" class="regular-text" value="' . esc_attr( (string) ( $room['invoice_ninja_product_id'] ?? '' ) ) . '" placeholder="—" /> <p class="description">' . esc_html__( 'Product ID in Invoice Ninja for this room. Used when generating invoices.', 'simple-hotel-crm' ) . '</p></td></tr>';
+    echo '<tr><th><label for="invoice_ninja_product_key">' . esc_html__( 'Invoice Ninja Product Key', 'simple-hotel-crm' ) . '</label></th><td><input id="invoice_ninja_product_key" name="invoice_ninja_product_key" type="text" class="regular-text" value="' . esc_attr( (string) ( $room['invoice_ninja_product_key'] ?? '' ) ) . '" placeholder="e.g. 03 - Lys (%d pax)" style="font-family:monospace;" /> <p class="description">' . esc_html__( 'Pattern for the Invoice Ninja product key. Use <code>%d</code> for the occupancy (number of adults). Example: <code>03 - Lys (%d pax)</code> becomes <code>03 - Lys (2 pax)</code>. Leave empty for no occupancy-based lookup.', 'simple-hotel-crm' ) . '</p></td></tr>';
+    echo '<tr><th><label for="invoice_ninja_product_id">' . esc_html__( 'Invoice Ninja Product ID (override)', 'simple-hotel-crm' ) . '</label></th><td><input id="invoice_ninja_product_id" name="invoice_ninja_product_id" type="text" class="regular-text" value="' . esc_attr( (string) ( $room['invoice_ninja_product_id'] ?? '' ) ) . '" placeholder="—" /> <p class="description">' . esc_html__( 'Direct product ID override. If set, takes precedence over the key pattern above.', 'simple-hotel-crm' ) . '</p></td></tr>';
     echo '</table>';
     echo '<h3>' . esc_html__( 'Occupancy pricing', 'simple-hotel-crm' ) . '</h3>';
     echo '<table class="widefat striped" style="max-width:420px;"><thead><tr><th>' . esc_html__( 'Adults', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Price', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Active', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
