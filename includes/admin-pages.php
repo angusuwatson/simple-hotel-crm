@@ -3825,6 +3825,22 @@ function simple_hotel_crm_render_settings_page() {
         }
     }
 
+    $invoice_ninja_test_result = null;
+    if ( isset( $_POST['simple_hotel_crm_run_invoice_ninja_test_sync'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_run_invoice_ninja_test_sync', 'simple_hotel_crm_run_invoice_ninja_test_sync_nonce' );
+        $test_booking_id = absint( $_POST['simple_hotel_crm_invoice_ninja_test_booking_id'] ?? 0 );
+        if ( $test_booking_id > 0 ) {
+            $invoice_ninja_test_result = simple_hotel_crm_create_invoice_ninja_invoice( $test_booking_id );
+            if ( is_wp_error( $invoice_ninja_test_result ) ) {
+                echo '<div class="notice notice-error"><p>' . esc_html( sprintf( __( 'Booking #%d: %s', 'simple-hotel-crm' ), $test_booking_id, $invoice_ninja_test_result->get_error_message() ) ) . '</p></div>';
+            } else {
+                echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Invoice created for Booking #%1$d — Invoice Ninja ID: %2$s, Number: %3$s, Amount: %4$s', 'simple-hotel-crm' ), $test_booking_id, $invoice_ninja_test_result['invoice_id'], $invoice_ninja_test_result['invoice_number'], number_format( (float) $invoice_ninja_test_result['amount'], 2 ) ) ) . '</p></div>';
+            }
+        } else {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'No booking selected.', 'simple-hotel-crm' ) . '</p></div>';
+        }
+    }
+
     if ( isset( $_POST['simple_hotel_crm_run_repairs'] ) ) {
         check_admin_referer( 'simple_hotel_crm_run_repairs', 'simple_hotel_crm_run_repairs_nonce' );
         simple_hotel_crm_install_tables();
@@ -3931,6 +3947,30 @@ function simple_hotel_crm_render_settings_page() {
         echo '<td><input type="password" id="simple_hotel_crm_invoice_ninja_token" name="simple_hotel_crm_invoice_ninja_token" value="' . esc_attr( $api_token ) . '" class="regular-text" /></td></tr>';
         echo '</table>';
         submit_button( __( 'Save Invoice Ninja Settings', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_submit' );
+        echo '</form>';
+
+        echo '<form method="post" style="margin-top:12px;">';
+        wp_nonce_field( 'simple_hotel_crm_run_invoice_ninja_test_sync', 'simple_hotel_crm_run_invoice_ninja_test_sync_nonce' );
+        echo '<hr />';
+        echo '<h2>' . esc_html__( 'Test Sync — Single Booking', 'simple-hotel-crm' ) . '</h2>';
+        echo '<p>' . esc_html__( 'Select one uninvoiced booking to create an invoice in Invoice Ninja. Check the result before running the full bulk sync.', 'simple-hotel-crm' ) . '</p>';
+        echo '<table class="form-table"><tr><th scope="row"><label for="simple_hotel_crm_invoice_ninja_test_booking_id">' . esc_html__( 'Booking', 'simple-hotel-crm' ) . '</label></th><td><select id="simple_hotel_crm_invoice_ninja_test_booking_id" name="simple_hotel_crm_invoice_ninja_test_booking_id">';
+        echo '<option value="">' . esc_html__( '— Select a booking —', 'simple-hotel-crm' ) . '</option>';
+        $bt = simple_hotel_crm_bookings_table();
+        $gt = simple_hotel_crm_guests_table();
+        $uninvoiced_bookings = $wpdb->get_results(
+            $wpdb->prepare(
+                "SELECT b.id, b.check_in_date, b.check_out_date, b.total_amount, g.first_name, g.last_name FROM {$bt} b LEFT JOIN {$gt} g ON g.id = b.guest_id WHERE b.is_deleted = 0 AND b.invoice_ninja_invoice_id IS NULL AND b.status_code IN ( 'confirmed', 'checked-in', 'checked-out' ) ORDER BY b.check_in_date DESC LIMIT 100"
+            ),
+            ARRAY_A
+        );
+        foreach ( $uninvoiced_bookings as $ub ) {
+            $guest_name = trim( (string) ( $ub['first_name'] ?? '' ) . ' ' . ( $ub['last_name'] ?? '' ) );
+            $label = '#' . $ub['id'] . ' — ' . $ub['check_in_date'] . ' → ' . $ub['check_out_date'] . ' — ' . ( '' !== $guest_name ? $guest_name . ' — ' : '' ) . number_format( (float) $ub['total_amount'], 2 ) . ' €';
+            echo '<option value="' . esc_attr( (string) $ub['id'] ) . '">' . esc_html( $label ) . '</option>';
+        }
+        echo '</select></td></tr></table>';
+        submit_button( __( 'Test Invoice Creation', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_run_invoice_ninja_test_sync', false );
         echo '</form>';
 
         echo '<form method="post" style="margin-top:12px;">';
