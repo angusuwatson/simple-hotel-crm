@@ -1296,8 +1296,8 @@ function simple_hotel_crm_merge_bookings( $primary_booking_id, $merge_booking_id
                 $wpdb->insert( $booking_nights_table, $night_payload );
             }
         }
-        $merged_note = trim( (string) $booking['internal_notes'] . ' [MERGED_ARCHIVE] [MERGED_INTO_BOOKING:' . (int) $primary_booking_id . ']' );
-        $wpdb->update( $bookings_table, [ 'internal_notes' => $merged_note ], [ 'id' => $merge_booking_id ], [ '%s' ], [ '%d' ] );
+        $merged_note = trim( (string) $booking['internal_notes'] . ' [MERGED_INTO_BOOKING:' . (int) $primary_booking_id . ']' );
+        $wpdb->update( $bookings_table, [ 'is_deleted' => 1, 'deleted_at' => current_time( 'mysql' ), 'internal_notes' => $merged_note ], [ 'id' => $merge_booking_id ], [ '%d', '%s', '%s' ], [ '%d' ] );
     }
     simple_hotel_crm_recalculate_booking_header_totals();
     $wpdb->query( 'COMMIT' );
