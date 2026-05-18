@@ -3843,6 +3843,11 @@ function simple_hotel_crm_render_settings_page() {
         }
     }
 
+    if ( isset( $_POST['simple_hotel_crm_ics_export_refresh'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_ics_export_refresh', 'simple_hotel_crm_ics_export_refresh_nonce' );
+        simple_hotel_crm_ics_export_refresh_all_files();
+        echo '<div class="notice notice-success"><p>' . esc_html__( 'All ICS feeds regenerated.', 'simple-hotel-crm' ) . '</p></div>';
+    }
     if ( isset( $_POST['simple_hotel_crm_run_repairs'] ) ) {
         check_admin_referer( 'simple_hotel_crm_run_repairs', 'simple_hotel_crm_run_repairs_nonce' );
         simple_hotel_crm_install_tables();
@@ -4090,6 +4095,11 @@ function simple_hotel_crm_render_ics_export_panel() {
     echo '</tbody>';
     echo '</table>';
     echo '<p class="description" style="margin-top:12px;">' . esc_html__( 'Exports only confirmed direct bookings. Airbnb and MotoPress bookings are excluded — they sync to Booking.com via their own ICS feeds.', 'simple-hotel-crm' ) . '</p>';
+    echo '<form method="post" style="margin-top:16px;">';
+    wp_nonce_field( 'simple_hotel_crm_ics_export_refresh', 'simple_hotel_crm_ics_export_refresh_nonce' );
+    submit_button( __( 'Regenerate All ICS Feeds', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_ics_export_refresh', false );
+    echo ' <span class="description">' . esc_html__( 'Refresh all .ics files in /wp-content/uploads/lgf-ics/. Run this after creating or updating direct bookings.', 'simple-hotel-crm' ) . '</span>';
+    echo '</form>';
 }
 
 function simple_hotel_crm_shortcode( $atts ) {
