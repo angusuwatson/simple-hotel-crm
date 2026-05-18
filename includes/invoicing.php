@@ -121,7 +121,7 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
     if ( is_wp_error( $client_id ) ) {
         return $client_id;
     }
-    $booking_rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.*, r.name AS room_name, r.invoice_ninja_product_key, r.invoice_ninja_product_id FROM {$booking_rooms_table} br LEFT JOIN {$rooms_table} r ON r.id = br.room_id WHERE br.booking_id = %d ORDER BY br.id ASC", $booking_id ), ARRAY_A );
+    $booking_rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.*, r.room_name, r.invoice_ninja_product_key, r.invoice_ninja_product_id FROM {$booking_rooms_table} br LEFT JOIN {$rooms_table} r ON r.id = br.room_id WHERE br.booking_id = %d ORDER BY br.id ASC", $booking_id ), ARRAY_A );
     $line_items = [];
     $product_cache = [];
     foreach ( $booking_rooms as $room ) {
