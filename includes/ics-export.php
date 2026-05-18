@@ -57,7 +57,7 @@ function simple_hotel_crm_ics_export_generate( $room_id ) {
          FROM {$booking_rooms_table} br
          INNER JOIN {$bookings_table} b ON b.id = br.booking_id
          WHERE br.room_id = %d
-           AND b.source_channel = 'direct'
+           AND b.source_channel IN ( 'direct', 'website' )
            AND b.status_code = 'confirmed'
            AND b.is_deleted = 0
          ORDER BY b.check_in_date ASC",
