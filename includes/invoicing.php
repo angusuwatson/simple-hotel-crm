@@ -149,30 +149,47 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
     $line_items = [];
     $product_cache = [];
     foreach ( $booking_rooms as $room ) {
-        $product_key = 'room-charge';
+        $product_id = null;
+        $product_key_display = 'room-charge';
         if ( ! empty( $room['invoice_ninja_product_key'] ) ) {
             $resolved_key = sprintf( (string) $room['invoice_ninja_product_key'], (int) $room['occupancy_adults'] );
             if ( ! isset( $product_cache[ $resolved_key ] ) ) {
                 $found = simple_hotel_crm_find_invoice_ninja_product_by_key( $resolved_key );
-                $product_cache[ $resolved_key ] = $found ? ( $found['id'] ?? $resolved_key ) : $resolved_key;
+                $product_cache[ $resolved_key ] = $found;
             }
-            $product_key = $product_cache[ $resolved_key ];
+            $found = $product_cache[ $resolved_key ];
+            if ( $found ) {
+                $product_id = (int) ( $found['id'] ?? 0 );
+                $product_key_display = (string) ( $found['product_key'] ?? $resolved_key );
+            } else {
+                $product_key_display = $resolved_key;
+            }
         } elseif ( ! empty( $room['invoice_ninja_product_id'] ) ) {
-            $product_key = (string) $room['invoice_ninja_product_id'];
+            $product_id = (int) $room['invoice_ninja_product_id'];
         } elseif ( ! empty( $room['room_name'] ) ) {
             if ( ! isset( $product_cache[ $room['room_name'] ] ) ) {
                 $found = simple_hotel_crm_find_invoice_ninja_product_by_name( (string) $room['room_name'] );
-                $product_cache[ $room['room_name'] ] = $found ? ( $found['id'] ?? $room['room_name'] ) : $room['room_name'];
+                $product_cache[ $room['room_name'] ] = $found;
             }
-            $product_key = $product_cache[ $room['room_name'] ];
+            $found = $product_cache[ $room['room_name'] ];
+            if ( $found ) {
+                $product_id = (int) ( $found['id'] ?? 0 );
+                $product_key_display = (string) ( $found['product_key'] ?? $room['room_name'] );
+            } else {
+                $product_key_display = (string) $room['room_name'];
+            }
         }
         $rate = (float) $room['room_rate_amount'];
         if ( $rate > 0 ) {
-            $line_items[] = [
-                'product_key' => $product_key,
+            $item = [
                 'quantity' => 1,
                 'cost' => round( $rate, 2 ),
             ];
+            if ( $product_id ) {
+                $item['product_id'] = $product_id;
+            }
+            $item['product_key'] = $product_key_display;
+            $line_items[] = $item;
         }
         $extras = (float) $room['extras_amount'];
         if ( $extras > 0 ) {
