@@ -125,7 +125,7 @@ function simple_hotel_crm_calculate_room_pricing( array $line, int $nights, int 
 
     $subtotal_amount = max( 0, round( $base_price_amount - $discount_amount, 2 ) );
     $commission_amount = simple_hotel_crm_calculate_channel_commission( $source_channel, $subtotal_amount );
-    $tourist_tax_total = round( $adults * 0.80 * $nights, 2 );
+    $tourist_tax_total = round( $adults * (float) get_option( 'simple_hotel_crm_taxe_sejour_rate', 0.80 ) * $nights, 2 );
     $room_rate_amount = $subtotal_amount;
     $total_amount = round( $room_rate_amount + $extras_amount + $tourist_tax_total, 2 );
 

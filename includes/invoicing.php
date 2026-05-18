@@ -180,7 +180,19 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
         return new WP_Error( 'empty_invoice', 'No invoiceable line items found for this booking.' );
     }
     $total_amount = array_sum( array_column( $line_items, 'cost' ) );
-    $taxe_sejour = (float) ( $booking['tourist_tax_amount'] ?? 0 );
+    $taxe_sejour_rate = (float) get_option( 'simple_hotel_crm_taxe_sejour_rate', 0.80 );
+    $check_in = strtotime( (string) $booking['check_in_date'] );
+    $check_out = strtotime( (string) $booking['check_out_date'] );
+    $nights = 0;
+    if ( $check_in && $check_out && $check_out > $check_in ) {
+        $nights = (int) round( ( $check_out - $check_in ) / 86400 );
+    }
+    $stored_tax = (float) ( $booking['tourist_tax_amount'] ?? 0 );
+    $recalc_tax = 0.0;
+    if ( $nights > 0 && $taxe_sejour_rate > 0 && (int) ( $booking['adults'] ?? 0 ) > 0 ) {
+        $recalc_tax = round( (int) $booking['adults'] * $taxe_sejour_rate * $nights, 2 );
+    }
+    $taxe_sejour = $recalc_tax > 0 ? $recalc_tax : $stored_tax;
     $payload = [
         'client_id' => $client_id,
         'line_items' => $line_items,
