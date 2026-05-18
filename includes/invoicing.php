@@ -193,7 +193,8 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
         'discount' => 0,
     ];
     if ( $taxe_sejour > 0 ) {
-        $payload['custom_value1'] = (string) round( $taxe_sejour, 2 );
+        $payload['custom_surcharge1'] = round( $taxe_sejour, 2 );
+        $payload['custom_surcharge_tax1'] = true;
     }
     $result = simple_hotel_crm_invoice_ninja_api_request( 'POST', 'invoices', $payload );
     if ( is_wp_error( $result ) ) {
