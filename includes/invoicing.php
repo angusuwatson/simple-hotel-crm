@@ -152,7 +152,11 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
         $product_id = null;
         $product_key_display = 'room-charge';
         if ( ! empty( $room['invoice_ninja_product_key'] ) ) {
-            $resolved_key = sprintf( (string) $room['invoice_ninja_product_key'], (int) $room['occupancy_adults'] );
+            if ( false !== strpos( (string) $room['invoice_ninja_product_key'], '%d' ) ) {
+                $resolved_key = sprintf( (string) $room['invoice_ninja_product_key'], (int) $room['occupancy_adults'] );
+            } else {
+                $resolved_key = (string) $room['invoice_ninja_product_key'];
+            }
             if ( ! isset( $product_cache[ $resolved_key ] ) ) {
                 $found = simple_hotel_crm_find_invoice_ninja_product_by_key( $resolved_key );
                 $product_cache[ $resolved_key ] = $found;
