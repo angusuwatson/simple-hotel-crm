@@ -117,7 +117,7 @@ add_action( 'edit_attachment', 'simple_hotel_crm_ics_export_on_booking_change' )
 add_action( 'init', 'simple_hotel_crm_ics_export_serve_file' );
 function simple_hotel_crm_ics_export_serve_file() {
     $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? $_SERVER['REQUEST_URI'] : '';
-    if ( preg_match '#^/wp-content/uploads/lgf-ics/([A-Za-z0-9]+)\.ics$#', $request_uri, $m ) ) {
+    if ( preg_match( '|^/wp-content/uploads/lgf-ics/([A-Za-z0-9]+)\.ics$|', $request_uri, $m ) ) {
         $token = $m[1];
         $file_path = simple_hotel_crm_ics_export_get_file_path( $token );
         if ( file_exists( $file_path ) ) {
