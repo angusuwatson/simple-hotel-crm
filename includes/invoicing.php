@@ -180,6 +180,7 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
         return new WP_Error( 'empty_invoice', 'No invoiceable line items found for this booking.' );
     }
     $total_amount = array_sum( array_column( $line_items, 'cost' ) );
+    $taxe_sejour = (float) ( $booking['tourist_tax_amount'] ?? 0 );
     $payload = [
         'client_id' => $client_id,
         'line_items' => $line_items,
@@ -187,6 +188,9 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
         'is_amount_discount' => false,
         'discount' => 0,
     ];
+    if ( $taxe_sejour > 0 ) {
+        $payload['custom_value1'] = (string) round( $taxe_sejour, 2 );
+    }
     $result = simple_hotel_crm_invoice_ninja_api_request( 'POST', 'invoices', $payload );
     if ( is_wp_error( $result ) ) {
         return $result;
