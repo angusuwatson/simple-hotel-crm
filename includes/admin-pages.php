@@ -3519,8 +3519,8 @@ function simple_hotel_crm_map_motopress_booking_preview_row( $row ) {
 
     $status = sanitize_key( (string) ( $row['status'] ?? $row['status_code'] ?? '' ) );
 
-    // MotoPress syncs always use "website" channel
-    $source_channel = 'website';
+    // MotoPress syncs always use "direct" channel
+    $source_channel = 'direct';
 
     // Extract guest details from customer and accommodation data
     $customer = $row['customer'] ?? [];
@@ -4077,7 +4077,7 @@ function simple_hotel_crm_render_ics_export_panel() {
         $bookings_table = simple_hotel_crm_bookings_table();
         $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
         $direct_count = (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT COUNT(*) FROM {$booking_rooms_table} br INNER JOIN {$bookings_table} b ON b.id = br.booking_id WHERE br.room_id = %d AND b.source_channel IN ( 'direct', 'website' ) AND b.status_code = 'confirmed' AND b.is_deleted = 0 AND b.check_out_date >= CURDATE()",
+            "SELECT COUNT(*) FROM {$booking_rooms_table} br INNER JOIN {$bookings_table} b ON b.id = br.booking_id WHERE br.room_id = %d AND b.source_channel = 'direct' AND b.status_code = 'confirmed' AND b.is_deleted = 0 AND b.check_out_date >= CURDATE()",
             (int) $room['id']
         ) );
         echo '<span class="description">' . esc_html( sprintf(

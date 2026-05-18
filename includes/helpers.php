@@ -623,10 +623,8 @@ function simple_hotel_crm_format_channel_code( $source_channel, $created_date = 
     $prefix_map = [
         'booking_com' => 'B',
         'direct'      => 'W',
-        'website'     => 'W',
         'email'       => 'E',
         'telephone'   => 'T',
-        'phone'       => 'T',
     ];
 
     $prefix = $prefix_map[ $source_channel ] ?? strtoupper( substr( preg_replace( '/[^a-z]/i', '', $source_channel ), 0, 1 ) );
