@@ -159,14 +159,6 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
                 'cost' => round( $extras, 2 ),
             ];
         }
-        $tourist_tax = (float) $room['tourist_tax_amount'];
-        if ( $tourist_tax > 0 ) {
-            $line_items[] = [
-                'product_key' => 'tourist-tax',
-                'quantity' => 1,
-                'cost' => round( $tourist_tax, 2 ),
-            ];
-        }
         $commission = (float) $room['commission_amount'];
         if ( $commission > 0 ) {
             $line_items[] = [
