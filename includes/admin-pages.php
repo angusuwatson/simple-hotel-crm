@@ -3764,7 +3764,7 @@ function simple_hotel_crm_render_settings_page() {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
 
-    $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'general', 'invoice-ninja', 'import', 'export', 'motopress', 'booking-com', 'sync-log' ], true ) ? sanitize_key( $_GET['tab'] ) : 'general';
+    $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'general', 'invoice-ninja', 'import', 'export', 'motopress', 'booking-com', 'ics-export', 'sync-log' ], true ) ? sanitize_key( $_GET['tab'] ) : 'general';
 
     if ( isset( $_POST['simple_hotel_crm_submit'] ) ) {
         check_admin_referer( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
@@ -3902,6 +3902,7 @@ function simple_hotel_crm_render_settings_page() {
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=import' ) ) . '" class="nav-tab ' . ( 'import' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Import', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=export' ) ) . '" class="nav-tab ' . ( 'export' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Export', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=sync-log' ) ) . '" class="nav-tab ' . ( 'sync-log' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Sync Log', 'simple-hotel-crm' ) . '</a>';
+    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=ics-export' ) ) . '" class="nav-tab ' . ( 'ics-export' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'ICS Export', 'simple-hotel-crm' ) . '</a>';
     echo '</nav>';
 
     if ( 'import' === $tab ) {
@@ -3912,6 +3913,8 @@ function simple_hotel_crm_render_settings_page() {
         simple_hotel_crm_render_motopress_sync_page();
     } elseif ( 'sync-log' === $tab ) {
         simple_hotel_crm_render_sync_log_page( true );
+    } elseif ( 'ics-export' === $tab ) {
+        simple_hotel_crm_render_ics_export_panel();
     } elseif ( 'booking-com' === $tab ) {
         echo '<form method="post">';
         wp_nonce_field( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
@@ -4048,6 +4051,45 @@ function simple_hotel_crm_render_calendar( $calendar_data, $context = 'frontend'
     ob_start();
     include $template;
     return ob_get_clean();
+}
+
+function simple_hotel_crm_render_ics_export_panel() {
+    global $wpdb;
+    $rooms_table = simple_hotel_crm_rooms_table();
+    $rooms = $wpdb->get_results( "SELECT id, room_name, room_code, active FROM {$rooms_table} WHERE active = 1 ORDER BY sort_order ASC, room_name ASC", ARRAY_A );
+
+    echo '<h2>' . esc_html__( 'ICS Export Feeds', 'simple-hotel-crm' ) . '</h2>';
+    echo '<p>' . esc_html__( 'Each room has a unique ICS feed URL. Paste this URL into Booking.com extranet to block the room on Booking.com for all direct bookings.', 'simple-hotel-crm' ) . '</p>';
+    echo '<table class="widefat striped" style="max-width:900px;">';
+    echo '<thead><tr><th>' . esc_html__( 'Room', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Code', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'ICS Feed URL', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Booking.com Status', 'simple-hotel-crm' ) . '</th></tr></thead>';
+    echo '<tbody>';
+    foreach ( $rooms as $room ) {
+        $feed_url = simple_hotel_crm_ics_export_feed_url( (int) $room['id'] );
+        $token = simple_hotel_crm_ics_export_get_token( (int) $room['id'] );
+        echo '<tr>';
+        echo '<td><strong>' . esc_html( (string) $room['room_name'] ) . '</strong></td>';
+        echo '<td><code>' . esc_html( (string) $room['room_code'] ) . '</code></td>';
+        echo '<td>';
+        echo '<input type="text" readonly value="' . esc_attr( $feed_url ) . '" class="regular-text" style="font-family:monospace;font-size:11px;" onclick="this.select()" />';
+        echo ' <button type="button" class="button button-small" onclick="navigator.clipboard.writeText(this.previousElementSibling.value).then(function(){alert(\'Copied!\');})">' . esc_html__( 'Copy', 'simple-hotel-crm' ) . '</button>';
+        echo '</td>';
+        echo '<td>';
+        $bookings_table = simple_hotel_crm_bookings_table();
+        $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+        $direct_count = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$booking_rooms_table} br INNER JOIN {$bookings_table} b ON b.id = br.booking_id WHERE br.room_id = %d AND b.source_channel = 'direct' AND b.status_code = 'confirmed' AND b.is_deleted = 0 AND b.check_out_date >= CURDATE()",
+            (int) $room['id']
+        ) );
+        echo '<span class="description">' . esc_html( sprintf(
+            _n( '%d active direct booking', '%d active direct bookings', $direct_count, 'simple-hotel-crm' ),
+            $direct_count
+        ) ) . '</span>';
+        echo '</td>';
+        echo '</tr>';
+    }
+    echo '</tbody>';
+    echo '</table>';
+    echo '<p class="description" style="margin-top:12px;">' . esc_html__( 'Exports only confirmed direct bookings. Airbnb and MotoPress bookings are excluded — they sync to Booking.com via their own ICS feeds.', 'simple-hotel-crm' ) . '</p>';
 }
 
 function simple_hotel_crm_shortcode( $atts ) {

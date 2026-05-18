@@ -130,6 +130,7 @@ function simple_hotel_crm_install_tables() {
         active tinyint(1) NOT NULL DEFAULT 1,
         invoice_ninja_product_id varchar(191) NULL,
         invoice_ninja_product_key varchar(255) NULL,
+        ics_export_token varchar(32) NULL,
         created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
@@ -279,6 +280,7 @@ function simple_hotel_crm_install_tables() {
     simple_hotel_crm_run_repair_routines();
 
     simple_hotel_crm_migrate_overlay_to_booking_rooms();
+    simple_hotel_crm_migrate_ics_export_token();
 
     update_option( 'simple_hotel_crm_db_version', SIMPLE_HOTEL_CRM_DB_VERSION );
 }
@@ -316,6 +318,14 @@ function simple_hotel_crm_migrate_overlay_to_booking_rooms() {
     }
 
     $wpdb->query( "DROP TABLE IF EXISTS {$overlay_table}" );
+}
+
+function simple_hotel_crm_migrate_ics_export_token() {
+    global $wpdb;
+    $rooms_table = simple_hotel_crm_rooms_table();
+    if ( ! simple_hotel_crm_table_has_column( $rooms_table, 'ics_export_token' ) ) {
+        $wpdb->query( "ALTER TABLE {$rooms_table} ADD COLUMN ics_export_token varchar(32) NULL AFTER invoice_ninja_product_key" );
+    }
 }
 
 function simple_hotel_crm_daily_notes_table() {
