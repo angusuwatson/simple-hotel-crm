@@ -49,7 +49,8 @@ function simple_hotel_crm_get_booking_status_options() {
 
 function simple_hotel_crm_get_booking_channel_options() {
     return [
-        'direct' => 'Website',
+        'direct' => 'Direct',
+        'website' => 'Website',
         'booking_com' => 'Booking.com',
     ];
 }

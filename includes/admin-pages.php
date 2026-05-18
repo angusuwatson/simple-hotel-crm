@@ -3519,8 +3519,8 @@ function simple_hotel_crm_map_motopress_booking_preview_row( $row ) {
 
     $status = sanitize_key( (string) ( $row['status'] ?? $row['status_code'] ?? '' ) );
 
-    // MotoPress syncs always use "direct" channel
-    $source_channel = 'direct';
+    // MotoPress syncs always use "website" channel
+    $source_channel = 'website';
 
     // Extract guest details from customer and accommodation data
     $customer = $row['customer'] ?? [];
