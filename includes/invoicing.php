@@ -166,7 +166,13 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
                 $product_id = (int) ( $found['id'] ?? 0 );
                 $product_key_display = (string) ( $found['product_key'] ?? $resolved_key );
             } else {
-                $product_key_display = $resolved_key;
+                $found = simple_hotel_crm_find_invoice_ninja_product_by_name( (string) $room['room_name'] );
+                if ( $found ) {
+                    $product_id = (int) ( $found['id'] ?? 0 );
+                    $product_key_display = (string) ( $found['product_key'] ?? $room['room_name'] );
+                } else {
+                    $product_key_display = $resolved_key;
+                }
             }
         } elseif ( ! empty( $room['invoice_ninja_product_id'] ) ) {
             $product_id = (int) $room['invoice_ninja_product_id'];
@@ -201,14 +207,6 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
                 'product_key' => 'extras-charge',
                 'quantity' => 1,
                 'cost' => round( $extras, 2 ),
-            ];
-        }
-        $commission = (float) $room['commission_amount'];
-        if ( $commission > 0 ) {
-            $line_items[] = [
-                'product_key' => 'booking-commission',
-                'quantity' => 1,
-                'cost' => -round( $commission, 2 ),
             ];
         }
     }
