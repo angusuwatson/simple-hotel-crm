@@ -1595,6 +1595,34 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     $booking_tax = round( array_sum( array_column( $calculated_room_lines, 'tourist_tax_total' ) ), 2 );
     $booking_total = round( array_sum( array_column( $calculated_room_lines, 'total_amount' ) ), 2 );
 
+    // Process booking items (extras & charges)
+    $crm_booking_items_table = simple_hotel_crm_booking_items_table();
+    $deleted_items = isset( $_POST['delete_booking_item'] ) ? array_keys( wp_unslash( $_POST['delete_booking_item'] ) ) : [];
+    foreach ( $deleted_items as $item_id ) {
+        $item_id = absint( $item_id );
+        if ( $item_id > 0 ) {
+            $wpdb->delete( $crm_booking_items_table, [ 'id' => $item_id ], [ '%d' ] );
+        }
+    }
+    $new_item_name = isset( $_POST['new_item_name'] ) ? sanitize_text_field( wp_unslash( trim( $_POST['new_item_name'] ) ) ) : '';
+    $new_item_qty = isset( $_POST['new_item_quantity'] ) ? absint( $_POST['new_item_quantity'] ) : 1;
+    $new_item_price = isset( $_POST['new_item_price'] ) ? simple_hotel_crm_normalize_decimal( wp_unslash( $_POST['new_item_price'] ) ) : 0;
+    if ( '' !== $new_item_name && $new_item_price > 0 ) {
+        $wpdb->insert(
+            $crm_booking_items_table,
+            [
+                'booking_id' => $booking_id,
+                'item_name' => $new_item_name,
+                'quantity' => max( 1, $new_item_qty ),
+                'unit_price' => round( max( 0, (float) $new_item_price ), 2 ),
+            ],
+            [ '%d', '%s', '%d', '%f' ]
+        );
+    }
+    $items_total = (float) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(SUM(quantity * unit_price), 0) FROM {$crm_booking_items_table} WHERE booking_id = %d", $booking_id ) );
+    $booking_extras = round( $booking_extras + $items_total, 2 );
+    $booking_total = round( $booking_total + $items_total, 2 );
+
     foreach ( $calculated_room_lines as $line ) {
         $crm_room_id = (int) $line['crm_room_id'];
         $room = $line['room'];
@@ -1975,6 +2003,8 @@ function simple_hotel_crm_render_booking_detail_page() {
             }
         }
     }
+    $booking_items = simple_hotel_crm_get_booking_items( $booking_id );
+    $items_total = simple_hotel_crm_get_booking_items_total( $booking_id );
     $available_rooms = simple_hotel_crm_get_room_options( (string) $booking['check_in_date'], (string) $booking['check_out_date'] );
     if ( ! is_array( $available_rooms ) ) {
         $available_rooms = [];
@@ -2108,6 +2138,32 @@ function simple_hotel_crm_render_booking_detail_page() {
     }
     echo '</tbody></table>';
     echo '<p><strong>' . esc_html__( 'Booking total preview', 'simple-hotel-crm' ) . ':</strong> <span class="simple-hotel-crm-booking-total-preview">0.00</span></p>';
+    echo '<h2>' . esc_html__( 'Extras & Charges', 'simple-hotel-crm' ) . '</h2>';
+    echo '<table class="widefat striped" style="max-width:600px;"><thead><tr><th>' . esc_html__( 'Item', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Qty', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Unit price', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Total', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Remove', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
+    if ( empty( $booking_items ) ) {
+        echo '<tr><td colspan="5"><em>' . esc_html__( 'No extras added yet.', 'simple-hotel-crm' ) . '</em></td></tr>';
+    } else {
+        foreach ( $booking_items as $item ) {
+            $item_total = (float) $item['quantity'] * (float) $item['unit_price'];
+            echo '<tr>';
+            echo '<td>' . esc_html( (string) $item['item_name'] ) . '</td>';
+            echo '<td>' . esc_html( (string) $item['quantity'] ) . '</td>';
+            echo '<td>' . esc_html( number_format( (float) $item['unit_price'], 2, '.', '' ) ) . '</td>';
+            echo '<td>' . esc_html( number_format( $item_total, 2, '.', '' ) ) . '</td>';
+            echo '<td><label><input type="checkbox" name="delete_booking_item[' . esc_attr( (string) $item['id'] ) . ']" value="1" /> ' . esc_html__( 'Remove', 'simple-hotel-crm' ) . '</label></td>';
+            echo '</tr>';
+        }
+    }
+    echo '<tr class="new-item-row">';
+    echo '<td><input type="text" name="new_item_name" placeholder="' . esc_attr__( 'Item name', 'simple-hotel-crm' ) . '" style="width:100%;" /></td>';
+    echo '<td><input type="number" name="new_item_quantity" value="1" min="1" style="width:60px;" /></td>';
+    echo '<td><input type="text" name="new_item_price" placeholder="0.00" style="width:80px;" /></td>';
+    echo '<td></td><td></td>';
+    echo '</tr>';
+    echo '</tbody></table>';
+    echo '<p class="description">' . esc_html__( 'Add items like dinners, drinks, or other charges. Save the booking to apply changes.', 'simple-hotel-crm' ) . '</p>';
+    $display_items_total = round( array_sum( array_map( function( $item ) { return (float) $item['quantity'] * (float) $item['unit_price']; }, $booking_items ) ), 2 );
+    echo '<p><strong>' . esc_html__( 'Extras total', 'simple-hotel-crm' ) . ':</strong> ' . esc_html( number_format( $display_items_total, 2, '.', '' ) ) . ' €</p>';
     submit_button( __( 'Add room line', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_add_booking_room', false );
     echo ' ';
     submit_button( __( 'Save Booking', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_save_booking', false );

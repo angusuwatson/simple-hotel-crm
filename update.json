@@ -1,16 +1,16 @@
 {
     "name": "LGF Bookings",
     "slug": "simple-hotel-crm",
-    "version": "1.9.2.05",
+    "version": "1.9.2.06",
     "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
     "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
     "requires": "6.0",
     "tested": "6.8",
     "requires_php": "7.4",
     "last_updated": "2026-05-19",
-    "upgrade_notice": "Quantity=nights, cost=nightly rate; TVA at line-item level for totals visibility.",
+    "upgrade_notice": "Booking items system: manage extras per booking; itemized IN invoice lines.",
     "sections": {
         "description": "WordPress-native hotel CRM with calendar, bookings, guests, Invoice Ninja integration, and GitHub-based updating.",
-        "changelog": "<ul><li>1.9.2.05: Line items show quantity=nights and cost=nightly rate. TVA 10% set at both invoice and line-item level for tax breakdown visibility in totals. Inclusive tax mode.</li><li>1.9.2.04: Invoice line items now show quantity = number of nights and cost = nightly rate.</li><li>1.9.2.03: Fix: always set product_key on invoice line items so room name and description appear.</li><li>1.9.2.02: Version bump.</li><li>1.9.2.01: Block invoice creation if IN products are missing (clear error with list of missing keys). Pre-select TVA 10% tax on invoices. Include product notes as line item description.</li></ul>"
+        "changelog": "<ul><li>1.9.2.06: New booking items system — add/remove named extras (dinners, drinks, etc.) on the booking detail page. Included as individual line items on IN invoices. Items total feeds into booking totals. DB version 18.</li><li>1.9.2.05: Line items show quantity=nights and cost=nightly rate. TVA 10% at invoice and line-item level.</li><li>1.9.2.04: Invoice line items now show quantity = number of nights and cost = nightly rate.</li><li>1.9.2.03: Fix: always set product_key on invoice line items so room name and description appear.</li><li>1.9.2.02: Version bump.</li><li>1.9.2.01: Block invoice creation if IN products are missing. Pre-select TVA 10%. Include product notes.</li></ul>"
     }
 }

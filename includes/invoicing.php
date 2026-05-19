@@ -199,11 +199,18 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
             $line_items[] = $item;
         }
         $extras = (float) $room['extras_amount'];
-        if ( $extras > 0 ) {
+    }
+    // Add individual booking items as line items
+    $booking_items_table = simple_hotel_crm_booking_items_table();
+    $booking_items = $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$booking_items_table} WHERE booking_id = %d ORDER BY id ASC", $booking_id ), ARRAY_A );
+    foreach ( $booking_items as $item ) {
+        $qty = max( 1, (int) $item['quantity'] );
+        $price = (float) $item['unit_price'];
+        if ( $price > 0 ) {
             $line_items[] = [
-                'product_key' => 'extras-charge',
-                'quantity' => 1,
-                'cost' => round( $extras, 2 ),
+                'product_key' => (string) $item['item_name'],
+                'quantity' => $qty,
+                'cost' => round( $price, 2 ),
                 'tax_name1' => 'TVA',
                 'tax_rate1' => 10,
             ];

@@ -25,6 +25,7 @@ function simple_hotel_crm_install_tables() {
     $crm_bookings_table = simple_hotel_crm_bookings_table();
     $crm_booking_rooms_table = simple_hotel_crm_booking_rooms_table();
     $crm_booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+    $crm_booking_items_table = simple_hotel_crm_booking_items_table();
 
     $sql_daily_notes = "CREATE TABLE {$daily_notes_table} (
         note_date date NOT NULL,
@@ -262,6 +263,17 @@ function simple_hotel_crm_install_tables() {
         KEY stay_date (stay_date)
     ) {$charset_collate};";
 
+    $sql_crm_booking_items = "CREATE TABLE {$crm_booking_items_table} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        booking_id bigint(20) unsigned NOT NULL,
+        item_name varchar(255) NOT NULL,
+        quantity int(11) NOT NULL DEFAULT 1,
+        unit_price decimal(10,2) NOT NULL DEFAULT 0.00,
+        created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY booking_id (booking_id)
+    ) {$charset_collate};";
+
     dbDelta( $sql_daily_notes );
     dbDelta( $sql_booking_notes );
     dbDelta( $sql_booking_adjustments );
@@ -273,6 +285,7 @@ function simple_hotel_crm_install_tables() {
     dbDelta( $sql_crm_bookings );
     dbDelta( $sql_crm_booking_rooms );
     dbDelta( $sql_crm_booking_nights );
+    dbDelta( $sql_crm_booking_items );
 
     simple_hotel_crm_seed_rooms_table();
     simple_hotel_crm_maybe_migrate_sync_data_to_crm();
@@ -281,6 +294,7 @@ function simple_hotel_crm_install_tables() {
 
     simple_hotel_crm_migrate_overlay_to_booking_rooms();
     simple_hotel_crm_migrate_ics_export_token();
+    simple_hotel_crm_migrate_booking_items();
 
     update_option( 'simple_hotel_crm_db_version', SIMPLE_HOTEL_CRM_DB_VERSION );
 }
@@ -326,6 +340,60 @@ function simple_hotel_crm_migrate_ics_export_token() {
     if ( ! simple_hotel_crm_table_has_column( $rooms_table, 'ics_export_token' ) ) {
         $wpdb->query( "ALTER TABLE {$rooms_table} ADD COLUMN ics_export_token varchar(32) NULL AFTER invoice_ninja_product_key" );
     }
+}
+
+function simple_hotel_crm_migrate_booking_items() {
+    global $wpdb;
+    $table = simple_hotel_crm_booking_items_table();
+    if ( simple_hotel_crm_table_has_column( $table, 'id' ) ) {
+        return;
+    }
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    $charset_collate = $wpdb->get_charset_collate();
+    $sql = "CREATE TABLE {$table} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        booking_id bigint(20) unsigned NOT NULL,
+        item_name varchar(255) NOT NULL,
+        quantity int(11) NOT NULL DEFAULT 1,
+        unit_price decimal(10,2) NOT NULL DEFAULT 0.00,
+        created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY booking_id (booking_id)
+    ) {$charset_collate};";
+    dbDelta( $sql );
+}
+
+function simple_hotel_crm_get_booking_items( $booking_id ) {
+    global $wpdb;
+    $table = simple_hotel_crm_booking_items_table();
+    return $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} WHERE booking_id = %d ORDER BY id ASC", $booking_id ), ARRAY_A );
+}
+
+function simple_hotel_crm_get_booking_items_total( $booking_id ) {
+    global $wpdb;
+    $table = simple_hotel_crm_booking_items_table();
+    return (float) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(SUM(quantity * unit_price), 0) FROM {$table} WHERE booking_id = %d", $booking_id ) );
+}
+
+function simple_hotel_crm_add_booking_item( $booking_id, $item_name, $quantity, $unit_price ) {
+    global $wpdb;
+    $table = simple_hotel_crm_booking_items_table();
+    return $wpdb->insert(
+        $table,
+        [
+            'booking_id' => absint( $booking_id ),
+            'item_name' => sanitize_text_field( (string) $item_name ),
+            'quantity' => max( 1, absint( $quantity ) ),
+            'unit_price' => round( max( 0, (float) $unit_price ), 2 ),
+        ],
+        [ '%d', '%s', '%d', '%f' ]
+    );
+}
+
+function simple_hotel_crm_delete_booking_item( $item_id ) {
+    global $wpdb;
+    $table = simple_hotel_crm_booking_items_table();
+    return $wpdb->delete( $table, [ 'id' => absint( $item_id ) ], [ '%d' ] );
 }
 
 function simple_hotel_crm_daily_notes_table() {
@@ -381,6 +449,11 @@ function simple_hotel_crm_booking_rooms_table() {
 function simple_hotel_crm_booking_room_nights_table() {
     global $wpdb;
     return $wpdb->prefix . 'simple_hotel_crm_booking_room_nights';
+}
+
+function simple_hotel_crm_booking_items_table() {
+    global $wpdb;
+    return $wpdb->prefix . 'simple_hotel_crm_booking_items';
 }
 
 function simple_hotel_crm_get_room_colors() {
@@ -648,10 +721,11 @@ function simple_hotel_crm_recalculate_booking_header_totals() {
 
     $bookings_table = simple_hotel_crm_bookings_table();
     $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_items_table = simple_hotel_crm_booking_items_table();
 
     $wpdb->query(
         "UPDATE {$bookings_table} b
-         JOIN (
+         LEFT JOIN (
             SELECT booking_id,
                    COALESCE(SUM(adults), 0) AS adults,
                    COALESCE(SUM(children), 0) AS children,
@@ -663,13 +737,19 @@ function simple_hotel_crm_recalculate_booking_header_totals() {
             FROM {$booking_rooms_table}
             GROUP BY booking_id
          ) room_totals ON room_totals.booking_id = b.id
-         SET b.adults = room_totals.adults,
-             b.children = room_totals.children,
-             b.babies = room_totals.babies,
-             b.room_rate_amount = room_totals.room_rate_amount,
-             b.extras_amount = room_totals.extras_amount,
-             b.tourist_tax_amount = room_totals.tourist_tax_amount,
-             b.total_amount = room_totals.total_amount"
+         LEFT JOIN (
+            SELECT booking_id,
+                   COALESCE(SUM(quantity * unit_price), 0) AS items_total
+            FROM {$booking_items_table}
+            GROUP BY booking_id
+         ) items ON items.booking_id = b.id
+         SET b.adults = COALESCE(room_totals.adults, 0),
+             b.children = COALESCE(room_totals.children, 0),
+             b.babies = COALESCE(room_totals.babies, 0),
+             b.room_rate_amount = COALESCE(room_totals.room_rate_amount, 0),
+             b.extras_amount = COALESCE(room_totals.extras_amount, 0) + COALESCE(items.items_total, 0),
+             b.tourist_tax_amount = COALESCE(room_totals.tourist_tax_amount, 0),
+             b.total_amount = COALESCE(room_totals.total_amount, 0) + COALESCE(items.items_total, 0)"
     );
 
     return max( 0, (int) $wpdb->rows_affected );
