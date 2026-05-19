@@ -1949,7 +1949,63 @@ function simple_hotel_crm_render_booking_detail_page() {
         }
         return;
     }
-    
+
+    // Handle Square Terminal actions
+    if ( isset( $_POST['square_create_checkout'] ) ) {
+        check_admin_referer( 'square_pay_booking_' . $booking_id, 'square_pay_booking_nonce' );
+        $amount = isset( $booking['total_amount'] ) ? (float) $booking['total_amount'] : 0;
+        $result = simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount );
+        if ( is_wp_error( $result ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html( $result->get_error_message() ) . '</p></div>';
+        } else {
+            echo '<div class="notice notice-success"><p>' . esc_html__( 'Payment request sent to Square Terminal.', 'simple-hotel-crm' ) . '</p></div>';
+        }
+    }
+    if ( isset( $_POST['square_check_payment'] ) ) {
+        check_admin_referer( 'square_check_payment_' . $booking_id, 'square_check_payment_nonce' );
+        $checkout_id = get_post_meta( $booking_id, '_square_checkout_id', true );
+        if ( $checkout_id ) {
+            $status = simple_hotel_crm_square_get_checkout_status( $checkout_id );
+            if ( is_wp_error( $status ) ) {
+                echo '<div class="notice notice-error"><p>' . esc_html( $status->get_error_message() ) . '</p></div>';
+            } elseif ( 'completed' === $status ) {
+                $result = simple_hotel_crm_square_handle_payment_complete( $booking_id, $checkout_id );
+                if ( is_wp_error( $result ) ) {
+                    echo '<div class="notice notice-error"><p>' . esc_html__( 'Payment confirmed but invoice creation failed:', 'simple-hotel-crm' ) . ' ' . esc_html( $result->get_error_message() ) . '</p></div>';
+                } else {
+                    echo '<div class="notice notice-success"><p>' . esc_html__( 'Payment completed and invoice created in Invoice Ninja.', 'simple-hotel-crm' ) . '</p></div>';
+                    echo '<script>location.reload();</script>';
+                }
+            } else {
+                echo '<div class="notice notice-info"><p>' . esc_html( sprintf( __( 'Payment status: %s', 'simple-hotel-crm' ), simple_hotel_crm_square_get_payment_status_label( $status ) ) ) . '</p></div>';
+            }
+        }
+    }
+    if ( isset( $_POST['square_cancel_payment'] ) ) {
+        check_admin_referer( 'square_cancel_payment_' . $booking_id, 'square_cancel_payment_nonce' );
+        $checkout_id = get_post_meta( $booking_id, '_square_checkout_id', true );
+        if ( $checkout_id ) {
+            $result = simple_hotel_crm_square_cancel_checkout( $checkout_id );
+            if ( is_wp_error( $result ) ) {
+                echo '<div class="notice notice-error"><p>' . esc_html( $result->get_error_message() ) . '</p></div>';
+            } else {
+                delete_post_meta( $booking_id, '_square_checkout_id' );
+                delete_post_meta( $booking_id, '_square_checkout_status' );
+                echo '<div class="notice notice-success"><p>' . esc_html__( 'Payment request cancelled.', 'simple-hotel-crm' ) . '</p></div>';
+            }
+        }
+    }
+    if ( isset( $_GET['square_confirm'] ) && '1' === $_GET['square_confirm'] ) {
+        $checkout_id = get_post_meta( $booking_id, '_square_checkout_id', true );
+        $result = simple_hotel_crm_square_handle_payment_complete( $booking_id, $checkout_id );
+        if ( is_wp_error( $result ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'Invoice creation failed:', 'simple-hotel-crm' ) . ' ' . esc_html( $result->get_error_message() ) . '</p></div>';
+        } else {
+            echo '<div class="notice notice-success"><p>' . esc_html__( 'Invoice created in Invoice Ninja.', 'simple-hotel-crm' ) . '</p></div>';
+            echo '<script>location.reload();</script>';
+        }
+    }
+
     if ( isset( $_POST['simple_hotel_crm_save_booking'] ) && $booking ) {
         check_admin_referer( 'simple_hotel_crm_save_booking' );
         $posted_room_lines = array_values( array_filter( $posted_room_lines, function( $line ) {
@@ -2499,7 +2555,46 @@ function simple_hotel_crm_render_guest_detail_page() {
                 } else {
                     echo esc_html__( 'No other guests available', 'simple-hotel-crm' );
                 }
-                echo '</form>';
+    echo '</form>';
+
+    // Square Terminal payment section
+    if ( simple_hotel_crm_square_is_configured() ) {
+        $square_checkout_id = get_post_meta( $booking_id, '_square_checkout_id', true );
+        $square_status = get_post_meta( $booking_id, '_square_checkout_status', true );
+        $payment_status = isset( $booking['payment_status'] ) ? $booking['payment_status'] : 'pending';
+        echo '<div style="margin:12px 0;padding:12px;background:#fff;border:1px solid #ccd0d4;">';
+        echo '<h2>' . esc_html__( 'Card Payment (Square Terminal)', 'simple-hotel-crm' ) . '</h2>';
+        if ( 'paid' === $payment_status ) {
+            echo '<p><strong style="color:green;">' . esc_html__( '✓ Paid', 'simple-hotel-crm' ) . '</strong></p>';
+        } elseif ( $square_checkout_id && 'completed' === $square_status ) {
+            echo '<p><strong style="color:green;">' . esc_html__( '✓ Payment completed', 'simple-hotel-crm' ) . '</strong>';
+            echo ' <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-detail&booking_id=' . $booking_id . '&square_confirm=1' ) ) . '" class="button button-small">' . esc_html__( 'Create IN Invoice', 'simple-hotel-crm' ) . '</a></p>';
+        } elseif ( $square_checkout_id ) {
+            $current_status = simple_hotel_crm_square_get_checkout_status( $square_checkout_id );
+            if ( is_string( $current_status ) ) {
+                echo '<p>' . esc_html__( 'Status:', 'simple-hotel-crm' ) . ' <strong>' . esc_html( simple_hotel_crm_square_get_payment_status_label( $current_status ) ) . '</strong></p>';
+            }
+            echo '<form method="post" style="display:inline;">';
+            wp_nonce_field( 'square_check_payment_' . $booking_id, 'square_check_payment_nonce' );
+            echo '<input type="hidden" name="square_check_payment" value="1" />';
+            submit_button( __( 'Check Payment Status', 'simple-hotel-crm' ), 'small', '', false );
+            echo '</form>';
+            echo ' ';
+            echo '<form method="post" style="display:inline;" onsubmit="return confirm(' . wp_json_encode( __( 'Cancel this payment request?', 'simple-hotel-crm' ) ) . ');">';
+            wp_nonce_field( 'square_cancel_payment_' . $booking_id, 'square_cancel_payment_nonce' );
+            echo '<input type="hidden" name="square_cancel_payment" value="1" />';
+            submit_button( __( 'Cancel', 'simple-hotel-crm' ), 'small', '', false );
+            echo '</form>';
+        } else {
+            echo '<p><strong>' . esc_html__( 'Total due:', 'simple-hotel-crm' ) . ' ' . esc_html( number_format( (float) $booking['total_amount'], 2, '.', '' ) ) . ' €</strong></p>';
+            echo '<form method="post">';
+            wp_nonce_field( 'square_pay_booking_' . $booking_id, 'square_pay_booking_nonce' );
+            echo '<input type="hidden" name="square_create_checkout" value="1" />';
+            submit_button( __( 'Pay with Square Terminal', 'simple-hotel-crm' ), 'primary', '', false );
+            echo '</form>';
+        }
+        echo '</div>';
+    }
                 echo '</td>';
                 
                 echo '</tr>';
@@ -3882,7 +3977,7 @@ function simple_hotel_crm_render_settings_page() {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
 
-    $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'general', 'invoice-ninja', 'import', 'export', 'motopress', 'booking-com', 'ics-export', 'sync-log', 'item-catalog' ], true ) ? sanitize_key( $_GET['tab'] ) : 'general';
+    $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'general', 'invoice-ninja', 'import', 'export', 'motopress', 'booking-com', 'ics-export', 'sync-log', 'item-catalog', 'square' ], true ) ? sanitize_key( $_GET['tab'] ) : 'general';
 
     if ( isset( $_POST['simple_hotel_crm_submit'] ) ) {
         check_admin_referer( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
@@ -4030,6 +4125,7 @@ function simple_hotel_crm_render_settings_page() {
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=sync-log' ) ) . '" class="nav-tab ' . ( 'sync-log' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Sync Log', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=ics-export' ) ) . '" class="nav-tab ' . ( 'ics-export' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'ICS Export', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=item-catalog' ) ) . '" class="nav-tab ' . ( 'item-catalog' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Item Catalog', 'simple-hotel-crm' ) . '</a>';
+    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=square' ) ) . '" class="nav-tab ' . ( 'square' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Square Payments', 'simple-hotel-crm' ) . '</a>';
     echo '</nav>';
 
     if ( 'import' === $tab ) {
@@ -4173,6 +4269,33 @@ function simple_hotel_crm_render_settings_page() {
         echo '<p>' . esc_html__( 'Create invoices in Invoice Ninja for all past confirmed, checked-in, and checked-out bookings that do not yet have an invoice. Each booking gets one invoice with all rooms as line items.', 'simple-hotel-crm' ) . '</p>';
         submit_button( __( 'Sync Past Bookings to Invoice Ninja', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_run_invoice_ninja_sync', false );
         echo '</form>';
+    } elseif ( 'square' === $tab ) {
+        if ( isset( $_POST['simple_hotel_crm_submit'] ) ) {
+            check_admin_referer( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
+            update_option( 'simple_hotel_crm_square_access_token', sanitize_text_field( wp_unslash( $_POST['simple_hotel_crm_square_access_token'] ?? '' ) ) );
+            update_option( 'simple_hotel_crm_square_location_id', sanitize_text_field( wp_unslash( $_POST['simple_hotel_crm_square_location_id'] ?? '' ) ) );
+            simple_hotel_crm_square_maybe_add_columns();
+            echo '<div class="notice notice-success"><p>' . esc_html__( 'Square settings saved.', 'simple-hotel-crm' ) . '</p></div>';
+        }
+        $access_token = simple_hotel_crm_square_get_access_token();
+        $location_id = simple_hotel_crm_square_get_location_id();
+        echo '<form method="post">';
+        wp_nonce_field( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
+        echo '<h2>' . esc_html__( 'Square Payments', 'simple-hotel-crm' ) . '</h2>';
+        echo '<p>' . esc_html__( 'Configure Square Terminal to accept card payments at your property.', 'simple-hotel-crm' ) . '</p>';
+        echo '<table class="form-table">';
+        echo '<tr><th scope="row"><label for="simple_hotel_crm_square_access_token">' . esc_html__( 'Square Access Token', 'simple-hotel-crm' ) . '</label></th>';
+        echo '<td><input type="password" id="simple_hotel_crm_square_access_token" name="simple_hotel_crm_square_access_token" value="' . esc_attr( $access_token ) . '" class="regular-text" style="font-family:monospace;" /><p class="description">' . esc_html__( 'From Square Developer Dashboard → Applications → Your App → OAuth → Access Token.', 'simple-hotel-crm' ) . '</p></td></tr>';
+        echo '<tr><th scope="row"><label for="simple_hotel_crm_square_location_id">' . esc_html__( 'Square Location ID', 'simple-hotel-crm' ) . '</label></th>';
+        echo '<td><input type="text" id="simple_hotel_crm_square_location_id" name="simple_hotel_crm_square_location_id" value="' . esc_attr( $location_id ) . '" class="regular-text" style="font-family:monospace;" /><p class="description">' . esc_html__( 'Your Square Location ID. Found in Square Dashboard → Locations.', 'simple-hotel-crm' ) . '</p></td></tr>';
+        echo '</table>';
+        submit_button( __( 'Save Square Settings', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_submit' );
+        echo '</form>';
+        if ( simple_hotel_crm_square_is_configured() ) {
+            echo '<div class="notice notice-success inline"><p>' . esc_html__( 'Square is configured and ready.', 'simple-hotel-crm' ) . '</p></div>';
+        } else {
+            echo '<div class="notice notice-info inline"><p>' . esc_html__( 'Enter your Square API credentials above to enable Terminal payments.', 'simple-hotel-crm' ) . '</p></div>';
+        }
     } else {
         echo '<form method="post">';
         wp_nonce_field( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );

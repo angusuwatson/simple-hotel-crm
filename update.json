@@ -1,16 +1,16 @@
 {
     "name": "LGF Bookings",
     "slug": "simple-hotel-crm",
-    "version": "1.9.2.09",
+    "version": "1.9.2.10",
     "homepage": "https://github.com/angusuwatson/lgf-bookings-plugin",
     "download_url": "https://github.com/angusuwatson/lgf-bookings-plugin/archive/refs/heads/master.zip",
     "requires": "6.0",
     "tested": "6.8",
     "requires_php": "7.4",
     "last_updated": "2026-05-19",
-    "upgrade_notice": "Per-room per-day extras: unified items system replaces Stored Extras + booking-level items. DB v20.",
+    "upgrade_notice": "Square Terminal payments: accept card payments at your property. Auto-creates IN invoice on payment.",
     "sections": {
         "description": "WordPress-native hotel CRM with calendar, bookings, guests, Invoice Ninja integration, and GitHub-based updating.",
-        "changelog": "<ul><li>1.9.2.09: ICS export fix — cron refresh every 15min, proper booking save hooks. Git remote updated to lgf-bookings-plugin.</li><li>1.9.2.08: Unified extras system — per-room per-day items; removed old Stored Extras section. DB v20.</li></ul>"
+        "changelog": "<ul><li>1.9.2.10: Square Terminal payments — add API credentials in Settings → Square Payments, then 'Pay with Square Terminal' button on booking detail page. Auto-creates IN invoice on payment confirmation. New DB columns: payment_status, payment_method, square_checkout_id.</li><li>1.9.2.09: ICS export fix — cron refresh every 15min, proper booking save hooks. Git remote updated to lgf-bookings-plugin.</li></ul>"
     }
 }
