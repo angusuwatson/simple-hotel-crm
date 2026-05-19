@@ -1604,26 +1604,23 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
             $wpdb->delete( $crm_booking_items_table, [ 'id' => $item_id ], [ '%d' ] );
         }
     }
-    $new_item_name_raw = isset( $_POST['new_item_name'] ) ? sanitize_text_field( wp_unslash( $_POST['new_item_name'] ) ) : '';
-    $new_item_name = '';
-    if ( '__custom__' === $new_item_name_raw ) {
-        $new_item_name = isset( $_POST['new_item_name_custom'] ) ? sanitize_text_field( wp_unslash( trim( $_POST['new_item_name_custom'] ) ) ) : '';
-    } elseif ( '' !== $new_item_name_raw && '__' !== substr( $new_item_name_raw, 0, 2 ) ) {
-        $new_item_name = $new_item_name_raw;
-    }
-    $new_item_qty = isset( $_POST['new_item_quantity'] ) ? absint( $_POST['new_item_quantity'] ) : 1;
-    $new_item_price = isset( $_POST['new_item_price'] ) ? simple_hotel_crm_normalize_decimal( wp_unslash( $_POST['new_item_price'] ) ) : 0;
-    if ( '' !== $new_item_name && $new_item_price > 0 ) {
-        $wpdb->insert(
-            $crm_booking_items_table,
-            [
-                'booking_id' => $booking_id,
-                'item_name' => $new_item_name,
-                'quantity' => max( 1, $new_item_qty ),
-                'unit_price' => round( max( 0, (float) $new_item_price ), 2 ),
-            ],
-            [ '%d', '%s', '%d', '%f' ]
-        );
+    $pending_items = isset( $_POST['pending_items'] ) ? (array) wp_unslash( $_POST['pending_items'] ) : [];
+    foreach ( $pending_items as $pending ) {
+        $name = isset( $pending['name'] ) ? sanitize_text_field( trim( (string) $pending['name'] ) ) : '';
+        $qty = isset( $pending['qty'] ) ? absint( $pending['qty'] ) : 1;
+        $price = isset( $pending['price'] ) ? simple_hotel_crm_normalize_decimal( $pending['price'] ) : 0;
+        if ( '' !== $name && $price > 0 ) {
+            $wpdb->insert(
+                $crm_booking_items_table,
+                [
+                    'booking_id' => $booking_id,
+                    'item_name' => $name,
+                    'quantity' => max( 1, $qty ),
+                    'unit_price' => round( max( 0, (float) $price ), 2 ),
+                ],
+                [ '%d', '%s', '%d', '%f' ]
+            );
+        }
     }
     $items_total = (float) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(SUM(quantity * unit_price), 0) FROM {$crm_booking_items_table} WHERE booking_id = %d", $booking_id ) );
     $booking_extras = round( $booking_extras + $items_total, 2 );
@@ -2161,20 +2158,63 @@ function simple_hotel_crm_render_booking_detail_page() {
         }
     }
     echo '<tr class="new-item-row">';
-    echo '<td><select name="new_item_name" id="new_item_name" style="width:100%;"><option value="">' . esc_html__( '— Select item —', 'simple-hotel-crm' ) . '</option>';
+    echo '<td colspan="5" style="padding:8px;background:#f0f6fc;">';
+    echo '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+    echo '<select id="new_item_name" style="min-width:180px;"><option value="">' . esc_html__( '— Select item —', 'simple-hotel-crm' ) . '</option>';
     $catalog_items = simple_hotel_crm_get_catalog_items();
     foreach ( $catalog_items as $cat_item ) {
         echo '<option value="' . esc_attr( (string) $cat_item['item_name'] ) . '" data-price="' . esc_attr( number_format( (float) $cat_item['unit_price'], 2, '.', '' ) ) . '">' . esc_html( (string) $cat_item['item_name'] . ' (' . number_format( (float) $cat_item['unit_price'], 2, '.', '' ) . ' €)' ) . '</option>';
     }
     echo '<option value="__custom__">' . esc_html__( '— Custom item —', 'simple-hotel-crm' ) . '</option>';
     echo '</select>';
-    echo '<input type="text" name="new_item_name_custom" id="new_item_name_custom" placeholder="' . esc_attr__( 'Custom item name', 'simple-hotel-crm' ) . '" style="width:100%;display:none;margin-top:4px;" /></td>';
-    echo '<td><input type="number" name="new_item_quantity" id="new_item_quantity" value="1" min="1" style="width:60px;" /></td>';
-    echo '<td><input type="text" name="new_item_price" id="new_item_price" placeholder="0.00" style="width:80px;" /></td>';
-    echo '<td></td><td></td>';
+    echo '<input type="text" id="new_item_name_custom" placeholder="' . esc_attr__( 'Custom item name', 'simple-hotel-crm' ) . '" style="width:160px;display:none;" />';
+    echo '<input type="number" id="new_item_quantity" value="1" min="1" style="width:60px;" />';
+    echo '<input type="text" id="new_item_price" placeholder="0.00" style="width:80px;" />';
+    echo '<button type="button" id="add_pending_item" class="button">' . esc_html__( 'Add item', 'simple-hotel-crm' ) . '</button>';
+    echo '</div>';
+    echo '</td>';
     echo '</tr>';
     echo '</tbody></table>';
-    echo '<p class="description">' . esc_html__( 'Add items like dinners, drinks, or other charges. Save the booking to apply changes.', 'simple-hotel-crm' ) . '</p>';
+    echo '<div id="pending_items_container" style="margin:8px 0;"></div>';
+    echo '<script>
+(function(){
+  var sel=document.getElementById("new_item_name");
+  var cust=document.getElementById("new_item_name_custom");
+  var qty=document.getElementById("new_item_quantity");
+  var price=document.getElementById("new_item_price");
+  var btn=document.getElementById("add_pending_item");
+  var cont=document.getElementById("pending_items_container");
+  var idx=0;
+  if(sel&&price){
+    sel.addEventListener("change",function(){
+      if(this.value==="__custom__"){cust.style.display="";price.value="";}
+      else{cust.style.display="none";var o=this.options[this.selectedIndex];if(o&&o.dataset.price)price.value=o.dataset.price;}
+    });
+  }
+  if(btn){
+    btn.addEventListener("click",function(){
+      var name="";
+      if(sel.value==="__custom__"){name=cust.value.trim();}
+      else if(sel.value&&sel.value.indexOf("__")!==0){name=sel.value;}
+      if(!name||!price.value||parseFloat(price.value)<=0){return;}
+      var q=parseInt(qty.value,10)||1;
+      var p=parseFloat(price.value).toFixed(2);
+      var row=document.createElement("div");
+      row.style.cssText="display:flex;gap:8px;align-items:center;padding:4px 8px;margin:2px 0;background:#fefefe;border:1px solid #ddd;border-radius:3px;";
+      row.innerHTML="<span style=\"flex:1;\">"+escHtml(name)+"</span><span style=\"width:40px;text-align:center;\">"+q+"</span><span style=\"width:80px;\">"+p+" €</span>"+
+        "<input type=\"hidden\" name=\"pending_items["+idx+"][name]\" value=\""+escHtml(name)+"\" />"+
+        "<input type=\"hidden\" name=\"pending_items["+idx+"][qty]\" value=\""+q+"\" />"+
+        "<input type=\"hidden\" name=\"pending_items["+idx+"][price]\" value=\""+p+"\" />"+
+        "<button type=\"button\" class=\"button button-small\" onclick=\"this.parentElement.remove()\">✕</button>";
+      cont.appendChild(row);
+      idx++;
+      sel.value="";cust.value="";cust.style.display="none";qty.value="1";price.value="";
+    });
+  }
+  function escHtml(s){var d=document.createElement("div");d.appendChild(document.createTextNode(s));return d.innerHTML;}
+})();
+</script>';
+    echo '<p class="description">' . esc_html__( 'Add items like dinners, drinks, or other charges. Use "Add item" to queue multiple items, then click Save Booking once.', 'simple-hotel-crm' ) . '</p>';
     $display_items_total = round( array_sum( array_map( function( $item ) { return (float) $item['quantity'] * (float) $item['unit_price']; }, $booking_items ) ), 2 );
     echo '<p><strong>' . esc_html__( 'Extras total', 'simple-hotel-crm' ) . ':</strong> ' . esc_html( number_format( $display_items_total, 2, '.', '' ) ) . ' €</p>';
     submit_button( __( 'Add room line', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_add_booking_room', false );
@@ -2280,27 +2320,6 @@ window.simpleHotelCrmBookingComCommissionPercent = {$booking_com_commission_perc
 </script>
 <script>
 (function(){function g(){document.querySelectorAll(".guest-search-container").forEach(function(c){var i=c.querySelector(".guest-search-input"),s=c.querySelector(".guest-search-select");if(!i||!s)return;i.addEventListener("input",function(){var f=this.value.toLowerCase(),v=false;for(var o=0;o<s.options.length;o++){var p=s.options[o],m=p.text.toLowerCase().indexOf(f)!==-1;p.hidden=!m&&f!=="";if(m&&p.value!=="0")v=true}if(!v&&f!=="")s.value="0"})})}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",g):g()})();
-</script>
-<script>
-(function(){
-  var sel = document.getElementById('new_item_name');
-  var customInput = document.getElementById('new_item_name_custom');
-  var priceInput = document.getElementById('new_item_price');
-  if (sel && priceInput) {
-    sel.addEventListener('change', function(){
-      if (this.value === '__custom__') {
-        customInput.style.display = '';
-        priceInput.value = '';
-      } else {
-        customInput.style.display = 'none';
-        var opt = this.options[this.selectedIndex];
-        if (opt && opt.dataset.price) {
-          priceInput.value = opt.dataset.price;
-        }
-      }
-    });
-  }
-})();
 </script>
 HTML;
     echo '</div>';
