@@ -146,24 +146,31 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
         return $client_id;
     }
     $booking_rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.*, r.room_name, r.room_code FROM {$booking_rooms_table} br LEFT JOIN {$rooms_table} r ON r.id = br.room_id WHERE br.booking_id = %d ORDER BY br.id ASC", $booking_id ), ARRAY_A );
-    $line_items = [];
     $product_cache = [];
+    $missing_products = [];
+    foreach ( $booking_rooms as $room ) {
+        $lookup_key = ! empty( $room['room_code'] ) ? trim( (string) $room['room_code'] . ' - ' . (string) $room['room_name'] ) : (string) $room['room_name'];
+        if ( ! empty( $lookup_key ) && ! isset( $product_cache[ $lookup_key ] ) ) {
+            $found = simple_hotel_crm_find_invoice_ninja_product_by_key( $lookup_key );
+            $product_cache[ $lookup_key ] = $found;
+            if ( empty( $found ) ) {
+                $missing_products[] = $lookup_key;
+            }
+        }
+    }
+    if ( ! empty( $missing_products ) ) {
+        return new WP_Error(
+            'missing_products',
+            'The following Invoice Ninja products do not exist yet: ' . implode( ', ', $missing_products ) . '. Please create them in Invoice Ninja first, then try again.'
+        );
+    }
+    $line_items = [];
     foreach ( $booking_rooms as $room ) {
         $product_id = null;
-        $product_key_display = 'room-charge';
         $lookup_key = ! empty( $room['room_code'] ) ? trim( (string) $room['room_code'] . ' - ' . (string) $room['room_name'] ) : (string) $room['room_name'];
-        if ( ! empty( $lookup_key ) ) {
-            if ( ! isset( $product_cache[ $lookup_key ] ) ) {
-                $found = simple_hotel_crm_find_invoice_ninja_product_by_key( $lookup_key );
-                $product_cache[ $lookup_key ] = $found;
-            }
-            $found = $product_cache[ $lookup_key ];
-            if ( $found ) {
-                $product_id = (int) ( $found['id'] ?? 0 );
-                $product_key_display = $lookup_key;
-            } else {
-                $product_key_display = $lookup_key;
-            }
+        $found = $product_cache[ $lookup_key ] ?? null;
+        if ( $found ) {
+            $product_id = (int) ( $found['id'] ?? 0 );
         }
         $rate = (float) $room['room_rate_amount'];
         if ( $rate > 0 ) {
@@ -172,11 +179,11 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
                 'cost' => round( $rate, 2 ),
             ];
             if ( $product_id ) {
+                $item['product_key'] = $lookup_key;
                 $item['product_id'] = $product_id;
-            }
-            $item['product_key'] = $product_key_display;
-            if ( ! empty( $found['notes'] ) ) {
-                $item['notes'] = $found['notes'];
+                if ( ! empty( $found['notes'] ) ) {
+                    $item['notes'] = $found['notes'];
+                }
             }
             $line_items[] = $item;
         }
@@ -193,14 +200,14 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
         return new WP_Error( 'empty_invoice', 'No invoiceable line items found for this booking.' );
     }
     $total_amount = array_sum( array_column( $line_items, 'cost' ) );
-    $taxe_sejour_rate = (float) get_option( 'simple_hotel_crm_taxe_sejour_rate', 0.80 );
+    $stored_tax = (float) ( $booking['tourist_tax_amount'] ?? 0 );
     $check_in = strtotime( (string) $booking['check_in_date'] );
     $check_out = strtotime( (string) $booking['check_out_date'] );
     $nights = 0;
     if ( $check_in && $check_out && $check_out > $check_in ) {
         $nights = (int) round( ( $check_out - $check_in ) / 86400 );
     }
-    $stored_tax = (float) ( $booking['tourist_tax_amount'] ?? 0 );
+    $taxe_sejour_rate = (float) get_option( 'simple_hotel_crm_taxe_sejour_rate', 0.80 );
     $recalc_tax = 0.0;
     if ( $nights > 0 && $taxe_sejour_rate > 0 && (int) ( $booking['adults'] ?? 0 ) > 0 ) {
         $recalc_tax = round( (int) $booking['adults'] * $taxe_sejour_rate * $nights, 2 );
@@ -212,6 +219,8 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
         'amount' => round( $total_amount, 2 ),
         'is_amount_discount' => false,
         'discount' => 0,
+        'tax_name1' => 'TVA',
+        'tax_rate1' => 10,
     ];
     if ( $taxe_sejour > 0 ) {
         $payload['custom_surcharge1'] = round( $taxe_sejour, 2 );

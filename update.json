@@ -8,9 +8,9 @@
     "tested": "6.8",
     "requires_php": "7.4",
     "last_updated": "2026-05-19",
-    "upgrade_notice": "IN product key: use room_code + room_name (e.g. '01 - Anemone'). IN line items: include notes from product.",
+    "upgrade_notice": "Require existing IN products (block + error if missing); pre-select TVA 10%; include product notes as line description.",
     "sections": {
-        "description": "WordPress-native bookings CRM with calendar, bookings, guests, importer, room management, and GitHub-based updating.",
-        "changelog": "<ul><li>1.9.2.01: Invoice Ninja product key now uses 'room_code - room_name' (e.g. '01 - Anemone'). Line items include the product's notes field as the description.</li><li>1.9.2: Removed IN product mapping from room settings — product lookup uses room name directly.</li></ul>"
+        "description": "WordPress-native hotel CRM with calendar, bookings, guests, Invoice Ninja integration, and GitHub-based updating.",
+        "changelog": "<ul><li>1.9.2.01: Block invoice creation if IN products are missing (clear error with list of missing keys). Pre-select TVA 10% tax on invoices. Include product notes as line item description.</li></ul>"
     }
 }
