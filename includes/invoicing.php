@@ -177,13 +177,13 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
             $item = [
                 'quantity' => 1,
                 'cost' => round( $rate, 2 ),
+                'product_key' => $lookup_key,
             ];
             if ( $product_id ) {
-                $item['product_key'] = $lookup_key;
                 $item['product_id'] = $product_id;
-                if ( ! empty( $found['notes'] ) ) {
-                    $item['notes'] = $found['notes'];
-                }
+            }
+            if ( $found && ! empty( $found['notes'] ) ) {
+                $item['notes'] = $found['notes'];
             }
             $line_items[] = $item;
         }

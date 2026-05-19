@@ -1,16 +1,16 @@
 {
     "name": "LGF Bookings",
     "slug": "simple-hotel-crm",
-    "version": "1.9.2.02",
+    "version": "1.9.2.03",
     "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
     "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
     "requires": "6.0",
     "tested": "6.8",
     "requires_php": "7.4",
     "last_updated": "2026-05-19",
-    "upgrade_notice": "Require existing IN products (block + error if missing); pre-select TVA 10%; include product notes as line description.",
+    "upgrade_notice": "Fix: always set product_key on invoice line items so room names display.",
     "sections": {
         "description": "WordPress-native hotel CRM with calendar, bookings, guests, Invoice Ninja integration, and GitHub-based updating.",
-        "changelog": "<ul><li>1.9.2.02: Version bump.</li><li>1.9.2.01: Block invoice creation if IN products are missing (clear error with list of missing keys). Pre-select TVA 10% tax on invoices. Include product notes as line item description.</li></ul>"
+        "changelog": "<ul><li>1.9.2.03: Fix: always set product_key on invoice line items so room name and description appear.</li><li>1.9.2.02: Version bump.</li><li>1.9.2.01: Block invoice creation if IN products are missing (clear error with list of missing keys). Pre-select TVA 10% tax on invoices. Include product notes as line item description.</li></ul>"
     }
 }
