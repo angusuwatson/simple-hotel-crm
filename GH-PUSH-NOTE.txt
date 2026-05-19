@@ -1,0 +1,10 @@
+Repo: /home/angus/.angus/projects/lgf-bookings-plugin
+Remote: git@github.com:angusuwatson/simple-hotel-crm.git
+Goal: push latest booking-list fix to GitHub.
+
+Important:
+- Local test-site copy at /home/angus/.openclaw/workspace/wp-dev/wp-data/wp-content/plugins/simple-hotel-crm may be dirty/experimental.
+- Source of truth is repo above.
+- Last known problem: bookings list query in includes/admin-pages.php got corrupted while trying to show room codes; current fix should revert to stable room_count-only display unless room-code join is reintroduced cleanly.
+- Before commit/push, run git status, inspect diff, then php -l on touched PHP files.
+- Commit normally, then git push origin master.
