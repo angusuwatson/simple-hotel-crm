@@ -3979,7 +3979,7 @@ function simple_hotel_crm_render_settings_page() {
 
     $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'general', 'invoice-ninja', 'import', 'export', 'motopress', 'booking-com', 'ics-export', 'sync-log', 'item-catalog', 'square' ], true ) ? sanitize_key( $_GET['tab'] ) : 'general';
 
-    if ( isset( $_POST['simple_hotel_crm_submit'] ) ) {
+    if ( 'general' === $tab && isset( $_POST['simple_hotel_crm_submit'] ) ) {
         check_admin_referer( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
 
         $api_url = isset( $_POST['simple_hotel_crm_invoice_ninja_url'] ) ? esc_url_raw( trim( wp_unslash( $_POST['simple_hotel_crm_invoice_ninja_url'] ) ) ) : '';
@@ -4000,7 +4000,7 @@ function simple_hotel_crm_render_settings_page() {
         update_option( 'simple_hotel_crm_invoice_ninja_url', $api_url );
         update_option( 'simple_hotel_crm_invoice_ninja_token', $api_token );
         update_option( 'simple_hotel_crm_booking_com_commission_percent', $booking_com_commission_percent );
-        update_option( 'simple_hotel_crm_taxe_sejour_rate',  );
+        update_option( 'simple_hotel_crm_taxe_sejour_rate', $taxe_sejour_rate );
         update_option( 'simple_hotel_crm_dashboard_api_key', $dashboard_api_key );
         update_option( 'simple_hotel_crm_booking_com_ics_room_urls', $booking_com_ics_urls );
         update_option( 'simple_hotel_crm_booking_source', 'wp_sync' );
