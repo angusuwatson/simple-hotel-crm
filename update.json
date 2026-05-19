@@ -1,16 +1,16 @@
 {
     "name": "LGF Bookings",
     "slug": "simple-hotel-crm",
-    "version": "1.9.2",
+    "version": "1.9.2.01",
     "homepage": "https://github.com/angusuwatson/simple-hotel-crm",
     "download_url": "https://github.com/angusuwatson/simple-hotel-crm/archive/refs/heads/master.zip",
     "requires": "6.0",
     "tested": "6.8",
     "requires_php": "7.4",
-    "last_updated": "2026-05-18",
-    "upgrade_notice": "Invoice Ninja: use room name as product key directly; removed IN product mapping fields from room settings.",
+    "last_updated": "2026-05-19",
+    "upgrade_notice": "IN product key: use room_code + room_name (e.g. '01 - Anemone'). IN line items: include notes from product.",
     "sections": {
         "description": "WordPress-native bookings CRM with calendar, bookings, guests, importer, room management, and GitHub-based updating.",
-        "changelog": "<ul><li>1.9.2: Removed Invoice Ninja product mapping fields from room settings — product lookup now uses room name directly as the product key (e.g. '04 - Tournesol'). Simplifies setup.</li><li>1.9.1: Invoice Ninja product linking: send product_id alongside product_key so line items link to real IN products. Fixes duplicate hash products being created.</li></ul>"
+        "changelog": "<ul><li>1.9.2.01: Invoice Ninja product key now uses 'room_code - room_name' (e.g. '01 - Anemone'). Line items include the product's notes field as the description.</li><li>1.9.2: Removed IN product mapping from room settings — product lookup uses room name directly.</li></ul>"
     }
 }
