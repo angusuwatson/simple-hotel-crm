@@ -1604,7 +1604,13 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
             $wpdb->delete( $crm_booking_items_table, [ 'id' => $item_id ], [ '%d' ] );
         }
     }
-    $new_item_name = isset( $_POST['new_item_name'] ) ? sanitize_text_field( wp_unslash( trim( $_POST['new_item_name'] ) ) ) : '';
+    $new_item_name_raw = isset( $_POST['new_item_name'] ) ? sanitize_text_field( wp_unslash( $_POST['new_item_name'] ) ) : '';
+    $new_item_name = '';
+    if ( '__custom__' === $new_item_name_raw ) {
+        $new_item_name = isset( $_POST['new_item_name_custom'] ) ? sanitize_text_field( wp_unslash( trim( $_POST['new_item_name_custom'] ) ) ) : '';
+    } elseif ( '' !== $new_item_name_raw && '__' !== substr( $new_item_name_raw, 0, 2 ) ) {
+        $new_item_name = $new_item_name_raw;
+    }
     $new_item_qty = isset( $_POST['new_item_quantity'] ) ? absint( $_POST['new_item_quantity'] ) : 1;
     $new_item_price = isset( $_POST['new_item_price'] ) ? simple_hotel_crm_normalize_decimal( wp_unslash( $_POST['new_item_price'] ) ) : 0;
     if ( '' !== $new_item_name && $new_item_price > 0 ) {
@@ -2155,9 +2161,16 @@ function simple_hotel_crm_render_booking_detail_page() {
         }
     }
     echo '<tr class="new-item-row">';
-    echo '<td><input type="text" name="new_item_name" placeholder="' . esc_attr__( 'Item name', 'simple-hotel-crm' ) . '" style="width:100%;" /></td>';
-    echo '<td><input type="number" name="new_item_quantity" value="1" min="1" style="width:60px;" /></td>';
-    echo '<td><input type="text" name="new_item_price" placeholder="0.00" style="width:80px;" /></td>';
+    echo '<td><select name="new_item_name" id="new_item_name" style="width:100%;"><option value="">' . esc_html__( '— Select item —', 'simple-hotel-crm' ) . '</option>';
+    $catalog_items = simple_hotel_crm_get_catalog_items();
+    foreach ( $catalog_items as $cat_item ) {
+        echo '<option value="' . esc_attr( (string) $cat_item['item_name'] ) . '" data-price="' . esc_attr( number_format( (float) $cat_item['unit_price'], 2, '.', '' ) ) . '">' . esc_html( (string) $cat_item['item_name'] . ' (' . number_format( (float) $cat_item['unit_price'], 2, '.', '' ) . ' €)' ) . '</option>';
+    }
+    echo '<option value="__custom__">' . esc_html__( '— Custom item —', 'simple-hotel-crm' ) . '</option>';
+    echo '</select>';
+    echo '<input type="text" name="new_item_name_custom" id="new_item_name_custom" placeholder="' . esc_attr__( 'Custom item name', 'simple-hotel-crm' ) . '" style="width:100%;display:none;margin-top:4px;" /></td>';
+    echo '<td><input type="number" name="new_item_quantity" id="new_item_quantity" value="1" min="1" style="width:60px;" /></td>';
+    echo '<td><input type="text" name="new_item_price" id="new_item_price" placeholder="0.00" style="width:80px;" /></td>';
     echo '<td></td><td></td>';
     echo '</tr>';
     echo '</tbody></table>';
@@ -2267,6 +2280,27 @@ window.simpleHotelCrmBookingComCommissionPercent = {$booking_com_commission_perc
 </script>
 <script>
 (function(){function g(){document.querySelectorAll(".guest-search-container").forEach(function(c){var i=c.querySelector(".guest-search-input"),s=c.querySelector(".guest-search-select");if(!i||!s)return;i.addEventListener("input",function(){var f=this.value.toLowerCase(),v=false;for(var o=0;o<s.options.length;o++){var p=s.options[o],m=p.text.toLowerCase().indexOf(f)!==-1;p.hidden=!m&&f!=="";if(m&&p.value!=="0")v=true}if(!v&&f!=="")s.value="0"})})}document.readyState==="loading"?document.addEventListener("DOMContentLoaded",g):g()})();
+</script>
+<script>
+(function(){
+  var sel = document.getElementById('new_item_name');
+  var customInput = document.getElementById('new_item_name_custom');
+  var priceInput = document.getElementById('new_item_price');
+  if (sel && priceInput) {
+    sel.addEventListener('change', function(){
+      if (this.value === '__custom__') {
+        customInput.style.display = '';
+        priceInput.value = '';
+      } else {
+        customInput.style.display = 'none';
+        var opt = this.options[this.selectedIndex];
+        if (opt && opt.dataset.price) {
+          priceInput.value = opt.dataset.price;
+        }
+      }
+    });
+  }
+})();
 </script>
 HTML;
     echo '</div>';
@@ -3808,7 +3842,7 @@ function simple_hotel_crm_render_settings_page() {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
 
-    $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'general', 'invoice-ninja', 'import', 'export', 'motopress', 'booking-com', 'ics-export', 'sync-log' ], true ) ? sanitize_key( $_GET['tab'] ) : 'general';
+    $tab = isset( $_GET['tab'] ) && in_array( $_GET['tab'], [ 'general', 'invoice-ninja', 'import', 'export', 'motopress', 'booking-com', 'ics-export', 'sync-log', 'item-catalog' ], true ) ? sanitize_key( $_GET['tab'] ) : 'general';
 
     if ( isset( $_POST['simple_hotel_crm_submit'] ) ) {
         check_admin_referer( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
@@ -3955,6 +3989,7 @@ function simple_hotel_crm_render_settings_page() {
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=export' ) ) . '" class="nav-tab ' . ( 'export' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Export', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=sync-log' ) ) . '" class="nav-tab ' . ( 'sync-log' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Sync Log', 'simple-hotel-crm' ) . '</a>';
     echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=ics-export' ) ) . '" class="nav-tab ' . ( 'ics-export' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'ICS Export', 'simple-hotel-crm' ) . '</a>';
+    echo '<a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-settings&tab=item-catalog' ) ) . '" class="nav-tab ' . ( 'item-catalog' === $tab ? 'nav-tab-active' : '' ) . '">' . esc_html__( 'Item Catalog', 'simple-hotel-crm' ) . '</a>';
     echo '</nav>';
 
     if ( 'import' === $tab ) {
@@ -3967,6 +4002,67 @@ function simple_hotel_crm_render_settings_page() {
         simple_hotel_crm_render_sync_log_page( true );
     } elseif ( 'ics-export' === $tab ) {
         simple_hotel_crm_render_ics_export_panel();
+    } elseif ( 'item-catalog' === $tab ) {
+        // Handle CSV import
+        $import_result = null;
+        if ( isset( $_POST['simple_hotel_crm_import_catalog'] ) ) {
+            check_admin_referer( 'simple_hotel_crm_import_catalog', 'simple_hotel_crm_import_catalog_nonce' );
+            if ( isset( $_FILES['catalog_csv'] ) && UPLOAD_ERR_OK === $_FILES['catalog_csv']['error'] ) {
+                $import_result = simple_hotel_crm_import_catalog_csv( $_FILES['catalog_csv']['tmp_name'] );
+            } else {
+                $import_result = new WP_Error( 'upload_failed', 'Please select a CSV file to upload.' );
+            }
+        }
+        // Handle delete
+        if ( isset( $_POST['simple_hotel_crm_delete_catalog_item'] ) ) {
+            check_admin_referer( 'simple_hotel_crm_delete_catalog_item', 'simple_hotel_crm_delete_catalog_item_nonce' );
+            $delete_id = absint( $_POST['catalog_item_id'] ?? 0 );
+            if ( $delete_id > 0 ) {
+                simple_hotel_crm_delete_catalog_item( $delete_id );
+                echo '<div class="notice notice-success"><p>' . esc_html__( 'Item deleted.', 'simple-hotel-crm' ) . '</p></div>';
+            }
+        }
+        $catalog_items = simple_hotel_crm_get_catalog_items();
+        echo '<h2>' . esc_html__( 'Item Catalog', 'simple-hotel-crm' ) . '</h2>';
+        echo '<p>' . esc_html__( 'Import your Square items via CSV to use as a product catalog. Items appear as a dropdown in the Extras & Charges section on the booking detail page.', 'simple-hotel-crm' ) . '</p>';
+        echo '<p>' . esc_html__( 'CSV format: columns "name" and "price" are required. Optional "square_id" column for future Square sync.', 'simple-hotel-crm' ) . '</p>';
+        // Import form
+        echo '<form method="post" enctype="multipart/form-data" style="margin:12px 0;padding:12px;background:#fff;border:1px solid #ccd0d4;">';
+        wp_nonce_field( 'simple_hotel_crm_import_catalog', 'simple_hotel_crm_import_catalog_nonce' );
+        echo '<table class="form-table"><tr><th scope="row"><label for="catalog_csv">' . esc_html__( 'Upload CSV', 'simple-hotel-crm' ) . '</label></th>';
+        echo '<td><input type="file" id="catalog_csv" name="catalog_csv" accept=".csv" required /> ';
+        submit_button( __( 'Import CSV', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_import_catalog', false );
+        echo '</td></tr></table>';
+        echo '</form>';
+        if ( is_wp_error( $import_result ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html( $import_result->get_error_message() ) . '</p></div>';
+        } elseif ( is_array( $import_result ) ) {
+            echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Imported: %1$d items, Skipped: %2$d', 'simple-hotel-crm' ), $import_result['imported'], $import_result['skipped'] ) ) . '</p></div>';
+        }
+        echo '<h3>' . esc_html__( 'Current Items', 'simple-hotel-crm' ) . ' (' . esc_html( (string) count( $catalog_items ) ) . ')</h3>';
+        if ( empty( $catalog_items ) ) {
+            echo '<p><em>' . esc_html__( 'No items in catalog yet. Upload a CSV to get started.', 'simple-hotel-crm' ) . '</em></p>';
+        } else {
+            echo '<table class="widefat striped" style="max-width:500px;"><thead><tr><th>' . esc_html__( 'Item', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Price', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Square ID', 'simple-hotel-crm' ) . '</th><th></th></tr></thead><tbody>';
+            foreach ( $catalog_items as $item ) {
+                echo '<tr>';
+                echo '<td>' . esc_html( (string) $item['item_name'] ) . '</td>';
+                echo '<td>' . esc_html( number_format( (float) $item['unit_price'], 2, '.', '' ) ) . '</td>';
+                echo '<td><code>' . esc_html( (string) ( $item['square_id'] ?? '' ) ) . '</code></td>';
+                echo '<td><form method="post" style="display:inline;" onsubmit="return confirm(\'' . esc_js( __( 'Delete this item?', 'simple-hotel-crm' ) ) . '\');">';
+                wp_nonce_field( 'simple_hotel_crm_delete_catalog_item', 'simple_hotel_crm_delete_catalog_item_nonce' );
+                echo '<input type="hidden" name="catalog_item_id" value="' . esc_attr( (string) $item['id'] ) . '" />';
+                submit_button( __( 'Delete', 'simple-hotel-crm' ), 'small', 'simple_hotel_crm_delete_catalog_item', false );
+                echo '</form></td>';
+                echo '</tr>';
+            }
+            echo '</tbody></table>';
+        }
+        echo '<hr />';
+        echo '<p><strong>' . esc_html__( 'Tips', 'simple-hotel-crm' ) . '</strong></p>';
+        echo '<ul style="list-style:disc;margin-left:20px;"><li>' . esc_html__( 'Export your Square item library as CSV, then upload it here.', 'simple-hotel-crm' ) . '</li>';
+        echo '<li>' . esc_html__( 'Duplicate item names are updated (upsert) — upload the same CSV again to refresh prices.', 'simple-hotel-crm' ) . '</li>';
+        echo '<li>' . esc_html__( 'Items appear in a dropdown on the booking detail page when adding extras.', 'simple-hotel-crm' ) . '</li></ul>';
     } elseif ( 'booking-com' === $tab ) {
         echo '<form method="post">';
         wp_nonce_field( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );

@@ -2,7 +2,7 @@
 /**
  * Plugin Name: LGF Bookings
  * Description: A simple WordPress-native hotel CRM with calendar and booking management tools
- * Version: 1.9.2.06
+ * Version: 1.9.2.07
  * Update URI: https://github.com/angusuwatson/simple-hotel-crm
  * Author: Angus Watson
  * Text Domain: simple-hotel-crm
@@ -11,7 +11,7 @@
 defined( 'ABSPATH' ) || exit;
 
 define( 'SIMPLE_HOTEL_CRM_VERSION', '1.9.1' );
-define( 'SIMPLE_HOTEL_CRM_DB_VERSION', '18' );
+define( 'SIMPLE_HOTEL_CRM_DB_VERSION', '19' );
 define( 'SIMPLE_HOTEL_CRM_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
 register_activation_hook( __FILE__, 'simple_hotel_crm_activate' );

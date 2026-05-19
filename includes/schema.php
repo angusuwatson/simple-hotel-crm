@@ -26,6 +26,7 @@ function simple_hotel_crm_install_tables() {
     $crm_booking_rooms_table = simple_hotel_crm_booking_rooms_table();
     $crm_booking_nights_table = simple_hotel_crm_booking_room_nights_table();
     $crm_booking_items_table = simple_hotel_crm_booking_items_table();
+    $crm_catalog_items_table = simple_hotel_crm_catalog_items_table();
 
     $sql_daily_notes = "CREATE TABLE {$daily_notes_table} (
         note_date date NOT NULL,
@@ -274,6 +275,16 @@ function simple_hotel_crm_install_tables() {
         KEY booking_id (booking_id)
     ) {$charset_collate};";
 
+    $sql_crm_catalog_items = "CREATE TABLE {$crm_catalog_items_table} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        item_name varchar(255) NOT NULL,
+        unit_price decimal(10,2) NOT NULL DEFAULT 0.00,
+        square_id varchar(191) NULL,
+        created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        UNIQUE KEY item_name (item_name)
+    ) {$charset_collate};";
+
     dbDelta( $sql_daily_notes );
     dbDelta( $sql_booking_notes );
     dbDelta( $sql_booking_adjustments );
@@ -286,6 +297,7 @@ function simple_hotel_crm_install_tables() {
     dbDelta( $sql_crm_booking_rooms );
     dbDelta( $sql_crm_booking_nights );
     dbDelta( $sql_crm_booking_items );
+    dbDelta( $sql_crm_catalog_items );
 
     simple_hotel_crm_seed_rooms_table();
     simple_hotel_crm_maybe_migrate_sync_data_to_crm();
@@ -295,6 +307,7 @@ function simple_hotel_crm_install_tables() {
     simple_hotel_crm_migrate_overlay_to_booking_rooms();
     simple_hotel_crm_migrate_ics_export_token();
     simple_hotel_crm_migrate_booking_items();
+    simple_hotel_crm_migrate_catalog_items();
 
     update_option( 'simple_hotel_crm_db_version', SIMPLE_HOTEL_CRM_DB_VERSION );
 }
@@ -396,6 +409,98 @@ function simple_hotel_crm_delete_booking_item( $item_id ) {
     return $wpdb->delete( $table, [ 'id' => absint( $item_id ) ], [ '%d' ] );
 }
 
+function simple_hotel_crm_migrate_catalog_items() {
+    global $wpdb;
+    $table = simple_hotel_crm_catalog_items_table();
+    if ( simple_hotel_crm_table_has_column( $table, 'id' ) ) {
+        return;
+    }
+    require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+    $charset_collate = $wpdb->get_charset_collate();
+    $sql = "CREATE TABLE {$table} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        item_name varchar(255) NOT NULL,
+        unit_price decimal(10,2) NOT NULL DEFAULT 0.00,
+        square_id varchar(191) NULL,
+        created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        UNIQUE KEY item_name (item_name)
+    ) {$charset_collate};";
+    dbDelta( $sql );
+}
+
+function simple_hotel_crm_get_catalog_items() {
+    global $wpdb;
+    return $wpdb->get_results( "SELECT * FROM " . simple_hotel_crm_catalog_items_table() . " ORDER BY item_name ASC", ARRAY_A );
+}
+
+function simple_hotel_crm_import_catalog_csv( $file_path ) {
+    global $wpdb;
+    $table = simple_hotel_crm_catalog_items_table();
+    $handle = fopen( $file_path, 'r' );
+    if ( ! $handle ) {
+        return new WP_Error( 'csv_open_failed', 'Could not open CSV file.' );
+    }
+    $header = fgetcsv( $handle );
+    if ( ! $header ) {
+        fclose( $handle );
+        return new WP_Error( 'csv_empty', 'CSV file is empty.' );
+    }
+    $header = array_map( 'strtolower', $header );
+    $name_col = null;
+    $price_col = null;
+    $square_col = null;
+    foreach ( $header as $i => $col ) {
+        $col = trim( $col );
+        if ( in_array( $col, [ 'name', 'item name', 'item_name' ], true ) ) {
+            $name_col = $i;
+        } elseif ( in_array( $col, [ 'price', 'unit_price', 'unit price', 'amount' ], true ) ) {
+            $price_col = $i;
+        } elseif ( in_array( $col, [ 'id', 'sku', 'square_id', 'item id' ], true ) ) {
+            $square_col = $i;
+        }
+    }
+    if ( null === $name_col || null === $price_col ) {
+        fclose( $handle );
+        return new WP_Error( 'csv_columns', 'CSV must have at least "name" and "price" columns. Found: ' . implode( ', ', $header ) );
+    }
+    $imported = 0;
+    $skipped = 0;
+    while ( ( $row = fgetcsv( $handle ) ) !== false ) {
+        $name = isset( $row[ $name_col ] ) ? sanitize_text_field( trim( (string) $row[ $name_col ] ) ) : '';
+        $price = isset( $row[ $price_col ] ) ? (float) str_replace( [ ',', '€', '$' ], [ '.', '', '' ], trim( (string) $row[ $price_col ] ) ) : 0;
+        $square_id = null !== $square_col && isset( $row[ $square_col ] ) ? sanitize_text_field( trim( (string) $row[ $square_col ] ) ) : null;
+        if ( '' === $name || $price <= 0 ) {
+            $skipped++;
+            continue;
+        }
+        $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE item_name = %s", $name ) );
+        if ( $existing ) {
+            $wpdb->update(
+                $table,
+                [ 'unit_price' => $price, 'square_id' => $square_id ],
+                [ 'id' => $existing ],
+                [ '%f', '%s' ],
+                [ '%d' ]
+            );
+        } else {
+            $wpdb->insert(
+                $table,
+                [ 'item_name' => $name, 'unit_price' => $price, 'square_id' => $square_id ],
+                [ '%s', '%f', '%s' ]
+            );
+        }
+        $imported++;
+    }
+    fclose( $handle );
+    return [ 'imported' => $imported, 'skipped' => $skipped ];
+}
+
+function simple_hotel_crm_delete_catalog_item( $item_id ) {
+    global $wpdb;
+    return $wpdb->delete( simple_hotel_crm_catalog_items_table(), [ 'id' => absint( $item_id ) ], [ '%d' ] );
+}
+
 function simple_hotel_crm_daily_notes_table() {
     global $wpdb;
     return $wpdb->prefix . 'simple_hotel_crm_daily_notes';
@@ -454,6 +559,11 @@ function simple_hotel_crm_booking_room_nights_table() {
 function simple_hotel_crm_booking_items_table() {
     global $wpdb;
     return $wpdb->prefix . 'simple_hotel_crm_booking_items';
+}
+
+function simple_hotel_crm_catalog_items_table() {
+    global $wpdb;
+    return $wpdb->prefix . 'simple_hotel_crm_catalog_items';
 }
 
 function simple_hotel_crm_get_room_colors() {
