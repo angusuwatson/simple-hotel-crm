@@ -1,8 +1,8 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-define( 'SIMPLE_HOTEL_CRM_UPDATE_METADATA_URL', 'https://raw.githubusercontent.com/angusuwatson/simple-hotel-crm/master/update.json' );
-define( 'SIMPLE_HOTEL_CRM_UPDATE_METADATA_FALLBACK_URL', 'https://github.com/angusuwatson/simple-hotel-crm/raw/master/update.json' );
+define( 'SIMPLE_HOTEL_CRM_UPDATE_METADATA_URL', 'https://raw.githubusercontent.com/angusuwatson/lgf-bookings-plugin/master/update.json' );
+define( 'SIMPLE_HOTEL_CRM_UPDATE_METADATA_FALLBACK_URL', 'https://github.com/angusuwatson/lgf-bookings-plugin/raw/master/update.json' );
 define( 'SIMPLE_HOTEL_CRM_UPDATE_CACHE_KEY', 'simple_hotel_crm_update_metadata' );
 define( 'SIMPLE_HOTEL_CRM_UPDATE_ERROR_KEY', 'simple_hotel_crm_update_error' );
 define( 'SIMPLE_HOTEL_CRM_PLUGIN_DIRNAME', dirname( SIMPLE_HOTEL_CRM_PLUGIN_BASENAME ) );
@@ -74,7 +74,7 @@ function simple_hotel_crm_check_for_updates( $transient ) {
             'plugin' => $plugin_file,
             'new_version' => (string) $metadata['version'],
             'package' => (string) $metadata['download_url'],
-            'url' => (string) ( $metadata['homepage'] ?? 'https://github.com/angusuwatson/simple-hotel-crm' ),
+            'url' => (string) ( $metadata['homepage'] ?? 'https://github.com/angusuwatson/lgf-bookings-plugin' ),
             'tested' => (string) ( $metadata['tested'] ?? '' ),
             'requires' => (string) ( $metadata['requires'] ?? '' ),
             'requires_php' => (string) ( $metadata['requires_php'] ?? '' ),
