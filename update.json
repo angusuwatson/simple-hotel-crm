@@ -1,7 +1,7 @@
 {
     "name": "LGF Bookings",
     "slug": "simple-hotel-crm",
-    "version": "1.9.2.08",
+    "version": "1.9.2.09",
     "homepage": "https://github.com/angusuwatson/lgf-bookings-plugin",
     "download_url": "https://github.com/angusuwatson/lgf-bookings-plugin/archive/refs/heads/master.zip",
     "requires": "6.0",
@@ -11,6 +11,6 @@
     "upgrade_notice": "Per-room per-day extras: unified items system replaces Stored Extras + booking-level items. DB v20.",
     "sections": {
         "description": "WordPress-native hotel CRM with calendar, bookings, guests, Invoice Ninja integration, and GitHub-based updating.",
-        "changelog": "<ul><li>1.9.2.08: Unified extras system — items can be per-room per-day (or booking-level). Removed separate Stored Extras section. Room + Date columns on Extras & Charges table. Add items with room/date selectors, no page reload per item. DB version 20.</li><li>1.9.2.07: Item catalog — CSV import of Square items, dropdown selector on booking page auto-fills price, custom item fallback. DB version 19.</li></ul>"
+        "changelog": "<ul><li>1.9.2.09: ICS export fix — cron refresh every 15min, proper booking save hooks. Git remote updated to lgf-bookings-plugin.</li><li>1.9.2.08: Unified extras system — per-room per-day items; removed old Stored Extras section. DB v20.</li></ul>"
     }
 }
