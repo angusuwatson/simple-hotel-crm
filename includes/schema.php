@@ -267,12 +267,16 @@ function simple_hotel_crm_install_tables() {
     $sql_crm_booking_items = "CREATE TABLE {$crm_booking_items_table} (
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         booking_id bigint(20) unsigned NOT NULL,
+        booking_room_id bigint(20) unsigned NULL,
+        stay_date date NULL,
         item_name varchar(255) NOT NULL,
         quantity int(11) NOT NULL DEFAULT 1,
         unit_price decimal(10,2) NOT NULL DEFAULT 0.00,
         created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
-        KEY booking_id (booking_id)
+        KEY booking_id (booking_id),
+        KEY booking_room_id (booking_room_id),
+        KEY stay_date (stay_date)
     ) {$charset_collate};";
 
     $sql_crm_catalog_items = "CREATE TABLE {$crm_catalog_items_table} (
@@ -307,6 +311,7 @@ function simple_hotel_crm_install_tables() {
     simple_hotel_crm_migrate_overlay_to_booking_rooms();
     simple_hotel_crm_migrate_ics_export_token();
     simple_hotel_crm_migrate_booking_items();
+    simple_hotel_crm_migrate_booking_items_rooms();
     simple_hotel_crm_migrate_catalog_items();
 
     update_option( 'simple_hotel_crm_db_version', SIMPLE_HOTEL_CRM_DB_VERSION );
@@ -366,41 +371,75 @@ function simple_hotel_crm_migrate_booking_items() {
     $sql = "CREATE TABLE {$table} (
         id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
         booking_id bigint(20) unsigned NOT NULL,
+        booking_room_id bigint(20) unsigned NULL,
+        stay_date date NULL,
         item_name varchar(255) NOT NULL,
         quantity int(11) NOT NULL DEFAULT 1,
         unit_price decimal(10,2) NOT NULL DEFAULT 0.00,
         created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
-        KEY booking_id (booking_id)
+        KEY booking_id (booking_id),
+        KEY booking_room_id (booking_room_id),
+        KEY stay_date (stay_date)
     ) {$charset_collate};";
     dbDelta( $sql );
 }
 
-function simple_hotel_crm_get_booking_items( $booking_id ) {
+function simple_hotel_crm_migrate_booking_items_rooms() {
     global $wpdb;
     $table = simple_hotel_crm_booking_items_table();
+    if ( simple_hotel_crm_table_has_column( $table, 'booking_room_id' ) ) {
+        return;
+    }
+    $wpdb->query( "ALTER TABLE {$table} ADD COLUMN booking_room_id bigint(20) unsigned NULL AFTER booking_id" );
+    $wpdb->query( "ALTER TABLE {$table} ADD COLUMN stay_date date NULL AFTER booking_room_id" );
+    $wpdb->query( "ALTER TABLE {$table} ADD KEY booking_room_id (booking_room_id)" );
+    $wpdb->query( "ALTER TABLE {$table} ADD KEY stay_date (stay_date)" );
+}
+
+function simple_hotel_crm_get_booking_items( $booking_id, $booking_room_id = null ) {
+    global $wpdb;
+    $table = simple_hotel_crm_booking_items_table();
+    if ( null !== $booking_room_id ) {
+        return $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} WHERE booking_id = %d AND booking_room_id = %d ORDER BY id ASC", $booking_id, $booking_room_id ), ARRAY_A );
+    }
     return $wpdb->get_results( $wpdb->prepare( "SELECT * FROM {$table} WHERE booking_id = %d ORDER BY id ASC", $booking_id ), ARRAY_A );
 }
 
-function simple_hotel_crm_get_booking_items_total( $booking_id ) {
+function simple_hotel_crm_get_booking_items_by_room( $booking_id ) {
     global $wpdb;
     $table = simple_hotel_crm_booking_items_table();
+    return $wpdb->get_results( $wpdb->prepare( "SELECT bi.*, br.room_sync_id, sr.room_code, sr.room_name FROM {$table} bi LEFT JOIN " . simple_hotel_crm_booking_rooms_table() . " br ON br.id = bi.booking_room_id LEFT JOIN " . simple_hotel_crm_rooms_table() . " sr ON sr.id = br.room_sync_id WHERE bi.booking_id = %d ORDER BY bi.booking_room_id IS NOT NULL ASC, bi.booking_room_id ASC, bi.stay_date ASC, bi.id ASC", $booking_id ), ARRAY_A );
+}
+
+function simple_hotel_crm_get_booking_items_total( $booking_id, $booking_room_id = null ) {
+    global $wpdb;
+    $table = simple_hotel_crm_booking_items_table();
+    if ( null !== $booking_room_id ) {
+        return (float) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(SUM(quantity * unit_price), 0) FROM {$table} WHERE booking_id = %d AND booking_room_id = %d", $booking_id, $booking_room_id ) );
+    }
     return (float) $wpdb->get_var( $wpdb->prepare( "SELECT COALESCE(SUM(quantity * unit_price), 0) FROM {$table} WHERE booking_id = %d", $booking_id ) );
 }
 
-function simple_hotel_crm_add_booking_item( $booking_id, $item_name, $quantity, $unit_price ) {
+function simple_hotel_crm_add_booking_item( $booking_id, $item_name, $quantity, $unit_price, $booking_room_id = null, $stay_date = null ) {
     global $wpdb;
     $table = simple_hotel_crm_booking_items_table();
-    return $wpdb->insert(
-        $table,
-        [
-            'booking_id' => absint( $booking_id ),
-            'item_name' => sanitize_text_field( (string) $item_name ),
-            'quantity' => max( 1, absint( $quantity ) ),
-            'unit_price' => round( max( 0, (float) $unit_price ), 2 ),
-        ],
-        [ '%d', '%s', '%d', '%f' ]
-    );
+    $data = [
+        'booking_id' => absint( $booking_id ),
+        'item_name' => sanitize_text_field( (string) $item_name ),
+        'quantity' => max( 1, absint( $quantity ) ),
+        'unit_price' => round( max( 0, (float) $unit_price ), 2 ),
+    ];
+    $format = [ '%d', '%s', '%d', '%f' ];
+    if ( null !== $booking_room_id ) {
+        $data['booking_room_id'] = absint( $booking_room_id );
+        $format[] = '%d';
+    }
+    if ( null !== $stay_date ) {
+        $data['stay_date'] = (string) $stay_date;
+        $format[] = '%s';
+    }
+    return $wpdb->insert( $table, $data, $format );
 }
 
 function simple_hotel_crm_delete_booking_item( $item_id ) {
