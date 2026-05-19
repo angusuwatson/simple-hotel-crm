@@ -1761,6 +1761,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     $wpdb->query( 'COMMIT' );
 
     simple_hotel_crm_clear_calendar_cache();
+    simple_hotel_crm_ics_export_on_booking_change( $booking_id );
     return true;
 }
 
@@ -1981,6 +1982,7 @@ function simple_hotel_crm_render_booking_detail_page() {
                 'email' => $email,
             ], [ 'id' => (int) $booking['guest_id'] ], [ '%s', '%s', '%s', '%s' ], [ '%d' ] );
             simple_hotel_crm_clear_calendar_cache();
+            simple_hotel_crm_ics_export_on_booking_change( $booking_id );
             echo '<div class="notice notice-success"><p>' . esc_html__( 'Booking updated.', 'simple-hotel-crm' ) . '</p></div>';
         }
         $booking = $wpdb->get_row( $wpdb->prepare( "SELECT b.*, g.first_name, g.last_name, g.phone, g.email, g.id AS guest_id FROM {$bookings_table} b JOIN {$guests_table} g ON g.id = b.guest_id WHERE b.id = %d AND b.is_deleted = 0 LIMIT 1", $booking_id ), ARRAY_A );

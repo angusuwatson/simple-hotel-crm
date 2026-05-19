@@ -111,8 +111,7 @@ function simple_hotel_crm_ics_export_on_booking_change( $booking_id ) {
     }
 }
 
-add_action( 'add_attachment', 'simple_hotel_crm_ics_export_on_booking_change' );
-add_action( 'edit_attachment', 'simple_hotel_crm_ics_export_on_booking_change' );
+add_action( 'simple_hotel_crm_ics_cron', 'simple_hotel_crm_ics_export_refresh_all_files' );
 
 add_action( 'init', 'simple_hotel_crm_ics_export_serve_file' );
 function simple_hotel_crm_ics_export_serve_file() {

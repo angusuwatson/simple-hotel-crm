@@ -34,12 +34,19 @@ function simple_hotel_crm_activate() {
     if ( ! wp_next_scheduled( 'simple_hotel_crm_motopress_sync_cron' ) ) {
         wp_schedule_event( time(), 'shc_15min', 'simple_hotel_crm_motopress_sync_cron' );
     }
+    if ( ! wp_next_scheduled( 'simple_hotel_crm_ics_cron' ) ) {
+        wp_schedule_event( time(), 'shc_15min', 'simple_hotel_crm_ics_cron' );
+    }
 }
 
 function simple_hotel_crm_deactivate() {
     $timestamp = wp_next_scheduled( 'simple_hotel_crm_motopress_sync_cron' );
     if ( $timestamp ) {
         wp_unschedule_event( $timestamp, 'simple_hotel_crm_motopress_sync_cron' );
+    }
+    $timestamp = wp_next_scheduled( 'simple_hotel_crm_ics_cron' );
+    if ( $timestamp ) {
+        wp_unschedule_event( $timestamp, 'simple_hotel_crm_ics_cron' );
     }
 }
 
