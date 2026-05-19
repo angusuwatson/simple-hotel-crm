@@ -194,6 +194,8 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
             if ( $found && ! empty( $found['notes'] ) ) {
                 $item['notes'] = $found['notes'];
             }
+            $item['tax_name1'] = 'TVA';
+            $item['tax_rate1'] = 10;
             $line_items[] = $item;
         }
         $extras = (float) $room['extras_amount'];
@@ -202,6 +204,8 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
                 'product_key' => 'extras-charge',
                 'quantity' => 1,
                 'cost' => round( $extras, 2 ),
+                'tax_name1' => 'TVA',
+                'tax_rate1' => 10,
             ];
         }
     }
@@ -227,7 +231,6 @@ function simple_hotel_crm_create_invoice_ninja_invoice( $booking_id ) {
         'discount' => 0,
         'tax_name1' => 'TVA',
         'tax_rate1' => 10,
-        'uses_inclusive_taxes' => false,
     ];
     if ( $taxe_sejour > 0 ) {
         $payload['custom_surcharge1'] = round( $taxe_sejour, 2 );
