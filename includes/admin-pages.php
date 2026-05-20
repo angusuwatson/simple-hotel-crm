@@ -2269,8 +2269,9 @@ function simple_hotel_crm_render_booking_detail_page() {
       else{cust.style.display="none";var o=this.options[this.selectedIndex];if(o&&o.dataset.price)price.value=o.dataset.price;}
     });
   }
-  if(btn){
-    btn.addEventListener("click",function(){
+    if(btn){
+      console.log('SHC JS: Add item button found, attaching click handler');
+      btn.addEventListener("click",function(){
       var name="";
       if(sel.value==="__custom__"){name=cust.value.trim();}
       else if(sel.value&&sel.value.indexOf("__")!==0){name=sel.value;}
