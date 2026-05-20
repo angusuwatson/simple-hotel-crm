@@ -3231,6 +3231,59 @@ function simple_hotel_crm_import_booking_rooms_csv( $rows, $dry_run = false ) {
     return $summary;
 }
 
+function simple_hotel_crm_import_whole_site_csv( $rows, $dry_run = false ) {
+    global $wpdb;
+    
+    $summary = [
+        'created' => 0,
+        'skipped' => 0,
+        'errors' => [],
+    ];
+    
+    if ( $dry_run ) {
+        $summary['created'] = count( $rows );
+        return $summary;
+    }
+    
+    // Import guests first
+    $guest_rows = array_filter( $rows, function( $row ) {
+        return isset( $row['external_guest_id'] );
+    } );
+    
+    if ( ! empty( $guest_rows ) ) {
+        $guest_result = simple_hotel_crm_import_guests_csv( $guest_rows, $dry_run );
+        $summary['created'] += $guest_result['created'];
+        $summary['skipped'] += $guest_result['skipped'];
+        $summary['errors'] = array_merge( $summary['errors'], $guest_result['errors'] );
+    }
+    
+    // Import bookings next
+    $booking_rows = array_filter( $rows, function( $row ) {
+        return isset( $row['external_booking_id'] );
+    } );
+    
+    if ( ! empty( $booking_rows ) ) {
+        $booking_result = simple_hotel_crm_import_bookings_csv( $booking_rows, $dry_run );
+        $summary['created'] += $booking_result['created'];
+        $summary['skipped'] += $booking_result['skipped'];
+        $summary['errors'] = array_merge( $summary['errors'], $booking_result['errors'] );
+    }
+    
+    // Import booking rooms last
+    $room_rows = array_filter( $rows, function( $row ) {
+        return isset( $row['external_booking_id'] ) && isset( $row['room_code'] );
+    } );
+    
+    if ( ! empty( $room_rows ) ) {
+        $room_result = simple_hotel_crm_import_booking_rooms_csv( $room_rows, $dry_run );
+        $summary['created'] += $room_result['created'];
+        $summary['skipped'] += $room_result['skipped'];
+        $summary['errors'] = array_merge( $summary['errors'], $room_result['errors'] );
+    }
+    
+    return $summary;
+}
+
 function simple_hotel_crm_repair_bookings_csv( $rows, $dry_run = false ) {
     global $wpdb;
 
@@ -3415,7 +3468,8 @@ function simple_hotel_crm_render_import_panel() {
                 $result = simple_hotel_crm_repair_bookings_csv( $rows, $dry_run );
             } elseif ( 'booking_rooms_repair' === $type ) {
                 $result = simple_hotel_crm_repair_booking_rooms_csv( $rows, $dry_run );
-            }
+            } elseif ( 'whole_site' === $type ) {
+                $result = simple_hotel_crm_import_whole_site_csv( $rows, $dry_run );
         }
     }
 
@@ -3436,7 +3490,7 @@ function simple_hotel_crm_render_import_panel() {
     }
     echo '<form method="post" enctype="multipart/form-data">';
     wp_nonce_field( 'simple_hotel_crm_import', 'simple_hotel_crm_import_nonce' );
-    echo '<table class="form-table"><tr><th><label for="import_type">' . esc_html__( 'Import type', 'simple-hotel-crm' ) . '</label></th><td><select name="import_type" id="import_type"><option value="guests">' . esc_html__( 'Guests', 'simple-hotel-crm' ) . '</option><option value="bookings">' . esc_html__( 'Bookings', 'simple-hotel-crm' ) . '</option><option value="booking_rooms">' . esc_html__( 'Booking rooms', 'simple-hotel-crm' ) . '</option><option value="bookings_repair">' . esc_html__( 'Repair existing bookings', 'simple-hotel-crm' ) . '</option><option value="booking_rooms_repair">' . esc_html__( 'Repair existing booking rooms', 'simple-hotel-crm' ) . '</option></select></td></tr>';
+    echo '<table class="form-table"><tr><th><label for="import_type">' . esc_html__( 'Import type', 'simple-hotel-crm' ) . '</label></th><td><select name="import_type" id="import_type"><option value="guests">' . esc_html__( 'Guests', 'simple-hotel-crm' ) . '</option><option value="bookings">' . esc_html__( 'Bookings', 'simple-hotel-crm' ) . '</option><option value="booking_rooms">' . esc_html__( 'Booking rooms', 'simple-hotel-crm' ) . '</option><option value="whole_site">' . esc_html__( 'Whole Site Import', 'simple-hotel-crm' ) . '</option><option value="bookings_repair">' . esc_html__( 'Repair existing bookings', 'simple-hotel-crm' ) . '</option><option value="booking_rooms_repair">' . esc_html__( 'Repair existing booking rooms', 'simple-hotel-crm' ) . '</option></select></td></tr>';
     echo '<tr><th><label for="import_csv">' . esc_html__( 'CSV file', 'simple-hotel-crm' ) . '</label></th><td><input type="file" name="import_csv" id="import_csv" accept=".csv,text/csv" required /></td></tr></table>';
     submit_button( __( 'Preview / Dry Run', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_import_preview', false );
     echo ' ';
