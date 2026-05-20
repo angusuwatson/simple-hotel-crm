@@ -1918,6 +1918,7 @@ function simple_hotel_crm_create_booking_from_rooms($booking_ids) {
 }
 
 function simple_hotel_crm_render_booking_detail_page() {
+    file_put_contents('/tmp/shc_debug.log', 'SHC DEBUG: Page loaded' . "\n", FILE_APPEND);
     if ( ! simple_hotel_crm_user_can_access() ) {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
