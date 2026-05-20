@@ -2248,8 +2248,9 @@ function simple_hotel_crm_render_booking_detail_page() {
     echo '</tbody></table>';
     echo '<div id="pending_items_container" style="margin:8px 0;"></div>';
     echo '<script>
-(function(){
-  var sel=document.getElementById("new_item_name");
+  (function(){
+    console.log('SHC JS: Extras JavaScript loaded');
+    var sel=document.getElementById("new_item_name");
   var cust=document.getElementById("new_item_name_custom");
   var qty=document.getElementById("new_item_quantity");
   var price=document.getElementById("new_item_price");
