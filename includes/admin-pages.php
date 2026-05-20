@@ -2006,6 +2006,7 @@ function simple_hotel_crm_render_booking_detail_page() {
     }
 
     if ( isset( $_POST['simple_hotel_crm_save_booking'] ) && $booking ) {
+        error_log('SHC DEBUG: Form handler triggered');
         check_admin_referer( 'simple_hotel_crm_save_booking' );
         $posted_room_lines = array_values( array_filter( $posted_room_lines, function( $line ) {
             return empty( $line['remove'] );
