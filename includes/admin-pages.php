@@ -1603,6 +1603,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
         }
     }
     $pending_items = isset( $_POST['pending_items'] ) ? (array) wp_unslash( $_POST['pending_items'] ) : [];
+    error_log('SHC DEBUG: pending_items = ' . print_r($pending_items, true));
     foreach ( $pending_items as $pending ) {
         $name = isset( $pending['name'] ) ? sanitize_text_field( trim( (string) $pending['name'] ) ) : '';
         $qty = isset( $pending['qty'] ) ? absint( $pending['qty'] ) : 1;
