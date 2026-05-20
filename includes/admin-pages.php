@@ -2251,6 +2251,10 @@ function simple_hotel_crm_render_booking_detail_page() {
   (function(){
     console.log('SHC JS: Extras JavaScript loaded');
     var sel=document.getElementById("new_item_name");
+    if (!sel) {
+      console.log('SHC JS: ERROR: new_item_name element not found');
+      return;
+    }
   var cust=document.getElementById("new_item_name_custom");
   var qty=document.getElementById("new_item_quantity");
   var price=document.getElementById("new_item_price");
