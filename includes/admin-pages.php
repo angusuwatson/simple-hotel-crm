@@ -1603,7 +1603,6 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
         }
     }
     $pending_items = isset( $_POST['pending_items'] ) ? (array) wp_unslash( $_POST['pending_items'] ) : [];
-    error_log('SHC DEBUG: pending_items = ' . print_r($pending_items, true));
     foreach ( $pending_items as $pending ) {
         $name = isset( $pending['name'] ) ? sanitize_text_field( trim( (string) $pending['name'] ) ) : '';
         $qty = isset( $pending['qty'] ) ? absint( $pending['qty'] ) : 1;
@@ -1918,7 +1917,6 @@ function simple_hotel_crm_create_booking_from_rooms($booking_ids) {
 }
 
 function simple_hotel_crm_render_booking_detail_page() {
-    file_put_contents('/tmp/shc_debug.log', 'SHC DEBUG: Page loaded' . "\n", FILE_APPEND);
     if ( ! simple_hotel_crm_user_can_access() ) {
         wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
     }
@@ -2007,9 +2005,6 @@ function simple_hotel_crm_render_booking_detail_page() {
     }
 
     if ( isset( $_POST['simple_hotel_crm_save_booking'] ) && $booking ) {
-        wp_die( '<pre>' . var_export( $_POST, true ) . '</pre>' );
-        error_log('SHC DEBUG: Form handler triggered');
-    file_put_contents('/tmp/shc_debug.log', 'SHC DEBUG: Form handler triggered' . "\n", FILE_APPEND);
         check_admin_referer( 'simple_hotel_crm_save_booking' );
         $posted_room_lines = array_values( array_filter( $posted_room_lines, function( $line ) {
             return empty( $line['remove'] );
