@@ -21,6 +21,7 @@ function simple_hotel_crm_register_admin_menu() {
     add_submenu_page( null, __( 'Booking Merges', 'simple-hotel-crm' ), __( 'Booking Merges', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-booking-merges', 'simple_hotel_crm_render_booking_merges_page' );
     add_submenu_page( null, __( 'Guest Detail', 'simple-hotel-crm' ), __( 'Guest Detail', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-detail', 'simple_hotel_crm_render_guest_detail_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Settings', 'simple-hotel-crm' ), __( 'Settings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-settings', 'simple_hotel_crm_render_settings_page' );
+    add_submenu_page( 'simple-hotel-crm', __( 'Tickets', 'simple-hotel-crm' ), __( 'Tickets', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-tickets', 'simple_hotel_crm_render_tickets_page' );
 }
 
 function simple_hotel_crm_render_admin_sync_notice() {
@@ -4670,5 +4671,567 @@ function simple_hotel_crm_shortcode( $atts ) {
 function simple_hotel_crm_clear_calendar_cache() {
     global $wpdb;
     $wpdb->query( "DELETE FROM {$wpdb->options} WHERE option_name LIKE '_transient_simple_hotel_crm_%' OR option_name LIKE '_transient_timeout_simple_hotel_crm_%'" );
+}
+
+function simple_hotel_crm_render_tickets_page() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
+        wp_die( __( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
+    }
+    $square_configured = simple_hotel_crm_square_is_configured();
+    $today = current_time( 'Y-m-d' );
+    $rest_url = rest_url( 'simple-hotel-crm/v1/' );
+    ?>
+    <div class="wrap" id="ticket-app">
+        <h1><?php esc_html_e( 'Tickets / Bar Orders', 'simple-hotel-crm' ); ?></h1>
+        <p>
+            <label><?php esc_html_e( 'Date:', 'simple-hotel-crm' ); ?>
+                <input type="date" id="ticket-date" value="<?php echo esc_attr( $today ); ?>">
+            </label>
+        </p>
+        <div id="ticket-save-indicator" style="display:none;color:#999;margin-bottom:8px;"><?php esc_html_e( 'Saving...', 'simple-hotel-crm' ); ?></div>
+        <div id="ticket-layout">
+            <div id="ticket-bookings">
+                <h2><?php esc_html_e( 'Bookings', 'simple-hotel-crm' ); ?></h2>
+                <div id="booking-cards"><?php esc_html_e( 'Select a date to load bookings.', 'simple-hotel-crm' ); ?></div>
+            </div>
+            <div id="ticket-main" style="display:none">
+                <div id="ticket-catalog">
+                    <h2><?php esc_html_e( 'Catalog', 'simple-hotel-crm' ); ?></h2>
+                    <div id="item-grid"></div>
+                </div>
+                <div id="ticket-panel">
+                    <h2 id="ticket-heading"><?php esc_html_e( 'Selected: -', 'simple-hotel-crm' ); ?></h2>
+                    <div id="room-selector" style="display:none"></div>
+                    <div id="ticket-items"></div>
+                    <div id="ticket-total" class="ticket-total"></div>
+                    <div class="ticket-actions">
+                        <button id="save-ticket" class="button button-primary"><?php esc_html_e( 'Save Ticket', 'simple-hotel-crm' ); ?></button>
+                        <button id="pay-ticket" class="button button-secondary"<?php echo $square_configured ? '' : ' disabled'; ?>><?php esc_html_e( 'Pay with Square Terminal', 'simple-hotel-crm' ); ?></button>
+                    </div>
+                    <div id="ticket-error" class="notice notice-error" style="display:none;margin-top:8px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="pay-modal" class="ticket-modal-overlay" style="display:none">
+            <div class="ticket-modal">
+                <h2><?php esc_html_e( 'Select charges to send to Square Terminal', 'simple-hotel-crm' ); ?></h2>
+                <p class="description"><?php esc_html_e( 'Check items to include in the payment.', 'simple-hotel-crm' ); ?></p>
+                <div id="pay-items-list"></div>
+                <div id="pay-total" class="ticket-total"></div>
+                <p>
+                    <label><input type="checkbox" id="pay-skip-receipt"> <?php esc_html_e( 'Skip receipt', 'simple-hotel-crm' ); ?></label>
+                </p>
+                <div class="ticket-actions">
+                    <button id="pay-confirm" class="button button-primary"><?php esc_html_e( 'Send to Square Terminal', 'simple-hotel-crm' ); ?></button>
+                    <button id="pay-cancel" class="button"><?php esc_html_e( 'Cancel', 'simple-hotel-crm' ); ?></button>
+                </div>
+                <div id="pay-error" class="notice notice-error" style="display:none;margin-top:8px;"></div>
+                <div id="pay-success" class="notice notice-success" style="display:none;margin-top:8px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        #ticket-layout { display:flex; gap:16px; align-items:flex-start; }
+        #ticket-bookings { flex:0 0 320px; max-height:80vh; overflow-y:auto; position:sticky; top:40px; }
+        #ticket-bookings h2 { margin-top:0; }
+        #ticket-main { flex:1; min-width:0; }
+        #ticket-catalog { margin-bottom:16px; }
+        #item-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:6px; }
+        .booking-card, .booking-card-active { display:block; width:100%; padding:10px 12px; margin-bottom:6px; border:1px solid #ccc; border-radius:4px; cursor:pointer; text-align:left; background:#fff; transition:all .15s; }
+        .booking-card:hover { background:#f0f0f1; border-color:#8c8f94; }
+        .booking-card-active { background:#2271b1; color:#fff; border-color:#2271b1; }
+        .booking-card-active:hover { background:#135e96; }
+        .booking-card .booking-name, .booking-card-active .booking-name { font-weight:600; font-size:14px; }
+        .booking-card .booking-meta, .booking-card-active .booking-meta { font-size:12px; margin-top:4px; }
+        .booking-card .booking-room, .booking-card-active .booking-room { font-size:11px; margin-top:2px; opacity:.8; }
+        .booking-card .payment-paid { color:#46b450; }
+        .booking-card-active .payment-paid { color:#a7f0ba; }
+        .item-card { display:flex; flex-direction:column; align-items:center; justify-content:center; padding:10px 6px; border:1px solid #ddd; border-radius:6px; cursor:pointer; background:#fff; text-align:center; min-height:70px; transition:all .12s; }
+        .item-card:hover { border-color:#2271b1; box-shadow:0 1px 4px rgba(0,0,0,.1); transform:translateY(-1px); }
+        .item-card .item-name { font-weight:600; font-size:13px; }
+        .item-card .item-price { font-size:12px; color:#666; margin-top:2px; }
+        #ticket-panel { background:#f6f7f7; padding:12px; border-radius:6px; border:1px solid #dcdcde; }
+        #ticket-panel h2 { margin:0 0 8px 0; font-size:16px; }
+        #room-selector { margin-bottom:8px; }
+        #room-selector select { margin-left:4px; }
+        .ticket-item { display:flex; align-items:center; padding:4px 0; border-bottom:1px solid #eee; cursor:pointer; }
+        .ticket-item:last-child { border-bottom:none; }
+        .ticket-item .ti-name { flex:1; font-size:13px; }
+        .ticket-item .ti-qty { background:#f0f0f1; border-radius:3px; padding:0 8px; margin:0 8px; font-size:12px; line-height:22px; }
+        .ticket-item .ti-total { font-weight:600; font-size:13px; margin-right:8px; min-width:50px; text-align:right; }
+        .ticket-item .ti-remove { color:#b32d2e; cursor:pointer; font-size:16px; line-height:1; background:none; border:none; padding:2px 6px; border-radius:3px; }
+        .ticket-item .ti-remove:hover { background:#f7dadb; }
+        .ticket-total { font-size:16px; font-weight:700; padding:8px 0; text-align:right; border-top:2px solid #ccc; margin-top:4px; }
+        .ticket-actions { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; }
+        .ticket-actions .button { flex:1; text-align:center; }
+        .ticket-modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:100000; display:flex; align-items:center; justify-content:center; }
+        .ticket-modal { background:#fff; border-radius:8px; padding:24px; min-width:400px; max-width:600px; max-height:80vh; overflow-y:auto; box-shadow:0 4px 20px rgba(0,0,0,.3); }
+        .ticket-modal h2 { margin-top:0; }
+        .ticket-modal .description { color:#666; margin-bottom:12px; }
+        .pay-item { display:flex; align-items:center; padding:6px 0; border-bottom:1px solid #f0f0f1; }
+        .pay-item:last-child { border-bottom:none; }
+        .pay-item label { flex:1; margin-left:8px; cursor:pointer; }
+        .pay-item .pay-amount { font-weight:600; min-width:60px; text-align:right; }
+        .pay-item input[type=checkbox] { margin:0; }
+        #pay-error, #pay-success { margin:8px 0 0 0; }
+    </style>
+
+    <script>
+    (function() {
+        var restUrl = <?php echo wp_json_encode( $rest_url ); ?>;
+        var state = {
+            date: '',
+            bookings: [],
+            catalog: [],
+            roomsByBooking: {},
+            activeBookingId: 0,
+            activeRoomId: 0,
+            bookingRooms: [],
+            ticketItems: [],
+            savedItems: [],
+            roomNights: [],
+            activeBooking: null,
+            tempIdCounter: 0,
+        };
+
+        function el(tag, attrs, children) {
+            var elem = document.createElement(tag);
+            if (attrs) {
+                for (var key in attrs) {
+                    if (key === 'className') { elem.className = attrs[key]; }
+                    else if (key === 'style' && typeof attrs[key] === 'object') {
+                        for (var sk in attrs[key]) { elem.style[sk] = attrs[key][sk]; }
+                    } else if (key.indexOf('on') === 0 && typeof attrs[key] === 'function') {
+                        elem.addEventListener(key.slice(2).toLowerCase(), attrs[key]);
+                    } else if (key === 'innerHTML') {
+                        elem.innerHTML = attrs[key];
+                    } else { elem.setAttribute(key, attrs[key]); }
+                }
+            }
+            if (children) {
+                if (typeof children === 'string') { elem.textContent = children; }
+                else if (Array.isArray(children)) {
+                    for (var i = 0; i < children.length; i++) {
+                        if (children[i]) elem.appendChild(children[i]);
+                    }
+                } else if (children instanceof Node) { elem.appendChild(children); }
+            }
+            return elem;
+        }
+
+        function qs(sel) { return document.querySelector(sel); }
+
+        function qsa(sel) { return Array.from(document.querySelectorAll(sel)); }
+
+        function show(id) { var e = document.getElementById(id); if (e) e.style.display = ''; }
+
+        function hide(id) { var e = document.getElementById(id); if (e) e.style.display = 'none'; }
+
+        function setText(id, text) { var e = document.getElementById(id); if (e) e.textContent = text; }
+
+        function setHTML(id, html) { var e = document.getElementById(id); if (e) e.innerHTML = html; }
+
+        function apiGet(path) {
+            return fetch(restUrl + path).then(function(r) {
+                if (!r.ok) return r.json().then(function(e) { throw new Error(e.message || 'API error'); });
+                return r.json();
+            });
+        }
+
+        function apiPost(path, body) {
+            return fetch(restUrl + path, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            }).then(function(r) {
+                if (!r.ok) return r.json().then(function(e) { throw new Error(e.code ? e.message : 'API error'); });
+                return r.json();
+            });
+        }
+
+        function formatPrice(cents) {
+            return (cents / 100).toFixed(2) + '€';
+        }
+
+        function formatPriceFloat(amount) {
+            return parseFloat(amount).toFixed(2) + '€';
+        }
+
+        function fetchData() {
+            var params = new URLSearchParams({ date: state.date });
+            if (state.activeBookingId > 0) params.set('booking_id', state.activeBookingId);
+            return apiGet('ticket-data?' + params.toString()).then(function(data) {
+                state.bookings = data.bookings || [];
+                state.catalog = data.catalog || [];
+                state.roomsByBooking = data.rooms_by_booking || {};
+                if (state.activeBookingId > 0) {
+                    state.savedItems = data.items || [];
+                    state.bookingRooms = data.booking_rooms || [];
+                    state.roomNights = data.room_nights || [];
+                    state.ticketItems = (data.items || []).map(function(item) {
+                        return { id: item.id, name: item.item_name, qty: parseInt(item.quantity, 10), price: parseFloat(item.unit_price) };
+                    });
+                } else {
+                    state.savedItems = [];
+                    state.bookingRooms = [];
+                    state.roomNights = [];
+                    state.ticketItems = [];
+                }
+                render();
+            });
+        }
+
+        function render() {
+            renderBookings();
+            renderCatalog();
+            renderTicket();
+        }
+
+        function renderBookings() {
+            var container = document.getElementById('booking-cards');
+            if (state.bookings.length === 0) {
+                container.innerHTML = '<em><?php echo esc_js( __( 'No bookings on this date.', 'simple-hotel-crm' ) ); ?></em>';
+                hide('ticket-main');
+                return;
+            }
+            show('ticket-main');
+            var items = state.bookings.map(function(b) {
+                var isActive = parseInt(b.id, 10) === state.activeBookingId;
+                var rooms = state.roomsByBooking[b.id] || [];
+                var roomLabels = rooms.map(function(r) { return r.room_code; }).join(', ');
+                var name = (b.first_name || '') + ' ' + (b.last_name || '');
+                var card = el('button', {
+                    className: isActive ? 'booking-card-active' : 'booking-card',
+                    type: 'button',
+                    onClick: function() { selectBooking(parseInt(b.id, 10)); }
+                }, [
+                    el('div', { className: 'booking-name' }, [name.trim() || '#' + b.id]),
+                    el('div', { className: 'booking-meta' }, [
+                        '#' + b.id + ' \u00b7 ' + b.check_in_date + ' \u2192 ' + b.check_out_date,
+                        ' \u00b7 ' + (b.total_amount ? parseFloat(b.total_amount).toFixed(2) + '\u20ac' : ''),
+                        b.payment_status === 'paid' || b.payment_status === 'completed' ? ' \u2713' : '',
+                    ]),
+                    roomLabels ? el('div', { className: 'booking-room' }, [roomLabels]) : null,
+                ]);
+                return card;
+            });
+            container.innerHTML = '';
+            items.forEach(function(card) { container.appendChild(card); });
+        }
+
+        function renderCatalog() {
+            var grid = document.getElementById('item-grid');
+            if (state.catalog.length === 0) {
+                grid.innerHTML = '<em><?php echo esc_js( __( 'No catalog items. Import CSV in Settings.', 'simple-hotel-crm' ) ); ?></em>';
+                return;
+            }
+            var cards = state.catalog.map(function(item) {
+                return el('div', { className: 'item-card', onClick: function() { addItem(item); } }, [
+                    el('div', { className: 'item-name' }, [item.item_name]),
+                    el('div', { className: 'item-price' }, [parseFloat(item.unit_price).toFixed(2) + '\u20ac']),
+                ]);
+            });
+            grid.innerHTML = '';
+            cards.forEach(function(card) { grid.appendChild(card); });
+        }
+
+        function renderTicket() {
+            if (!state.activeBookingId) {
+                hide('ticket-panel');
+                return;
+            }
+            show('ticket-panel');
+
+            var b = state.activeBooking;
+            var name = b ? ((b.first_name || '') + ' ' + (b.last_name || '')).trim() : '#' + state.activeBookingId;
+            setText('ticket-heading', name + ' \u2014 ' + (state.bookingRooms.map(function(r) { return r.room_code; }).join(', ') || 'No room'));
+
+            var roomSel = document.getElementById('room-selector');
+            if (state.bookingRooms.length > 1) {
+                roomSel.style.display = '';
+                var current = state.bookingRooms.filter(function(r) { return r.booking_room_id === state.activeRoomId; });
+                var label = el('label', {}, ['Room: ']);
+                var select = el('select', {
+                    onChange: function(e) { selectRoom(parseInt(e.target.value, 10)); }
+                }, [
+                    el('option', { value: '0' }, ['All rooms']),
+                    state.bookingRooms.map(function(r) {
+                        return el('option', { value: r.booking_room_id }, [r.room_name || r.room_code]);
+                    }),
+                ]);
+                select.value = state.activeRoomId || '0';
+                roomSel.innerHTML = '';
+                roomSel.appendChild(label);
+                roomSel.appendChild(select);
+            } else {
+                roomSel.style.display = 'none';
+            }
+
+            var itemsDiv = document.getElementById('ticket-items');
+            if (state.ticketItems.length === 0) {
+                itemsDiv.innerHTML = '<em style="color:#999;"><?php echo esc_js( __( 'Click catalog items to add.', 'simple-hotel-crm' ) ); ?></em>';
+            } else {
+                var rows = state.ticketItems.map(function(item, idx) {
+                    return el('div', { className: 'ticket-item', onClick: function() { incrementItem(idx); } }, [
+                        el('span', { className: 'ti-name' }, [item.name]),
+                        el('span', { className: 'ti-qty' }, ['\u00d7' + item.qty]),
+                        el('span', { className: 'ti-total' }, [(item.qty * item.price).toFixed(2) + '\u20ac']),
+                        el('button', { className: 'ti-remove', type: 'button', title: 'Remove',
+                            onClick: function(e) { e.stopPropagation(); removeItem(idx); } }, ['\u00d7']),
+                    ]);
+                });
+                itemsDiv.innerHTML = '';
+                rows.forEach(function(row) { itemsDiv.appendChild(row); });
+            }
+
+            var total = state.ticketItems.reduce(function(sum, item) { return sum + item.qty * item.price; }, 0);
+            setText('ticket-total', 'Total: ' + total.toFixed(2) + '\u20ac');
+        }
+
+        function selectBooking(bookingId) {
+            if (state.activeBookingId === bookingId) return;
+            state.activeBookingId = bookingId;
+            state.activeRoomId = 0;
+            state.activeBooking = null;
+            state.ticketItems = [];
+            for (var i = 0; i < state.bookings.length; i++) {
+                if (parseInt(state.bookings[i].id, 10) === bookingId) {
+                    state.activeBooking = state.bookings[i];
+                    break;
+                }
+            }
+            var rooms = state.roomsByBooking[bookingId] || [];
+            if (rooms.length === 1) {
+                state.activeRoomId = rooms[0].booking_room_id;
+            }
+            fetchData();
+        }
+
+        function selectRoom(roomId) {
+            state.activeRoomId = roomId;
+            state.ticketItems = [];
+            fetchData();
+        }
+
+        function addItem(catalogItem) {
+            if (!state.activeBookingId) {
+                showError('<?php echo esc_js( __( 'Select a booking first.', 'simple-hotel-crm' ) ); ?>');
+                return;
+            }
+            var name = catalogItem.item_name;
+            var price = parseFloat(catalogItem.unit_price);
+            var existing = null;
+            var existingIdx = -1;
+            for (var i = 0; i < state.ticketItems.length; i++) {
+                if (state.ticketItems[i].name === name) {
+                    existing = state.ticketItems[i];
+                    existingIdx = i;
+                    break;
+                }
+            }
+            if (existing) {
+                existing.qty += 1;
+            } else {
+                state.tempIdCounter -= 1;
+                state.ticketItems.push({ id: state.tempIdCounter, name: name, qty: 1, price: price });
+            }
+            renderTicket();
+        }
+
+        function incrementItem(idx) {
+            if (idx >= 0 && idx < state.ticketItems.length) {
+                state.ticketItems[idx].qty += 1;
+                renderTicket();
+            }
+        }
+
+        function removeItem(idx) {
+            if (idx >= 0 && idx < state.ticketItems.length) {
+                state.ticketItems.splice(idx, 1);
+                renderTicket();
+            }
+        }
+
+        function showError(msg) {
+            var el = document.getElementById('ticket-error');
+            if (el) { el.textContent = msg; el.style.display = ''; setTimeout(function() { el.style.display = 'none'; }, 3000); }
+        }
+
+        function showPayError(msg) {
+            var el = document.getElementById('pay-error');
+            if (el) { el.textContent = msg; el.style.display = ''; }
+        }
+
+        function hidePayError() { hide('pay-error'); hide('pay-success'); }
+
+        function saveTicket() {
+            hideError();
+            show('ticket-save-indicator');
+            return apiPost('ticket-save', {
+                booking_id: state.activeBookingId,
+                booking_room_id: state.activeRoomId || null,
+                date: state.date,
+                items: state.ticketItems.map(function(item) { return { name: item.name, qty: item.qty, price: item.price }; }),
+            }).then(function(data) {
+                state.ticketItems = (data.items || []).map(function(item) {
+                    return { id: item.id, name: item.item_name, qty: parseInt(item.quantity, 10), price: parseFloat(item.unit_price) };
+                });
+                state.savedItems = data.items || [];
+                renderTicket();
+                hide('ticket-save-indicator');
+            }).catch(function(err) {
+                hide('ticket-save-indicator');
+                showError(err.message || 'Save failed');
+                throw err;
+            });
+        }
+
+        function showPayModal() {
+            if (!state.activeBookingId) { showError('Select a booking first.'); return; }
+            hidePayError();
+            saveTicket().then(function() {
+                var list = document.getElementById('pay-items-list');
+
+                var roomGroups = {};
+                state.roomNights.forEach(function(n) {
+                    var key = n.booking_room_id;
+                    if (!roomGroups[key]) roomGroups[key] = { roomName: n.room_name || n.room_code, total: 0, nights: 0 };
+                    roomGroups[key].total += parseFloat(n.room_rate_amount);
+                    roomGroups[key].nights += 1;
+                });
+
+                var charges = [];
+                Object.keys(roomGroups).forEach(function(key) {
+                    var rg = roomGroups[key];
+                    charges.push({ id: 'room-' + key, label: rg.roomName + ' (' + rg.nights + ' nuits)', amount: rg.total, type: 'room' });
+                });
+
+                var savedItems = state.savedItems || [];
+                savedItems.forEach(function(item) {
+                    var total = parseFloat(item.quantity) * parseFloat(item.unit_price);
+                    var label = item.item_name + ' \u00d7' + item.quantity;
+                    charges.push({ id: 'item-' + item.id, label: label, amount: total, type: 'item' });
+                });
+
+                if (charges.length === 0) {
+                    showPayError('<?php echo esc_js( __( 'No charges to display for this booking.', 'simple-hotel-crm' ) ); ?>');
+                    return;
+                }
+
+                var rows = charges.map(function(c, idx) {
+                    var checked = c.type === 'item';
+                    return el('div', { className: 'pay-item' }, [
+                        el('input', { type: 'checkbox', id: 'pay-chk-' + idx, checked: checked, value: c.amount, 'data-label': c.label }),
+                        el('label', { htmlFor: 'pay-chk-' + idx }, [c.label]),
+                        el('span', { className: 'pay-amount' }, [c.amount.toFixed(2) + '\u20ac']),
+                    ]);
+                });
+
+                list.innerHTML = '';
+                rows.forEach(function(row) { list.appendChild(row); });
+
+                updatePayTotal();
+                show('pay-modal');
+            }).catch(function() {});
+        }
+
+        function updatePayTotal() {
+            var checkboxes = qsa('#pay-items-list input[type=checkbox]:checked');
+            var total = 0;
+            checkboxes.forEach(function(cb) { total += parseFloat(cb.value || 0); });
+            setText('pay-total', 'Total: ' + total.toFixed(2) + '\u20ac');
+        }
+
+        function sendToTerminal() {
+            hidePayError();
+            var checkboxes = qsa('#pay-items-list input[type=checkbox]:checked');
+            if (checkboxes.length === 0) {
+                showPayError('<?php echo esc_js( __( 'Select at least one item to charge.', 'simple-hotel-crm' ) ); ?>');
+                return;
+            }
+            var total = 0;
+            var labels = [];
+            checkboxes.forEach(function(cb) {
+                total += parseFloat(cb.value || 0);
+                labels.push(cb.getAttribute('data-label') || '');
+            });
+            var skipReceipt = document.getElementById('pay-skip-receipt').checked;
+            var btn = document.getElementById('pay-confirm');
+            btn.disabled = true;
+            btn.textContent = '<?php echo esc_js( __( 'Sending...', 'simple-hotel-crm' ) ); ?>';
+
+            var b = state.activeBooking;
+            var guestName = b ? ((b.first_name || '') + ' ' + (b.last_name || '')).trim() : '#' + state.activeBookingId;
+            var note = guestName + ' \u2014 #' + state.activeBookingId;
+
+            apiPost('ticket-checkout', {
+                booking_id: state.activeBookingId,
+                amount: total,
+                skip_receipt: skipReceipt,
+                note: note,
+            }).then(function(data) {
+                setHTML('pay-success', '<?php echo esc_js( __( 'Payment sent to terminal!', 'simple-hotel-crm' ) ); ?> <a href="<?php echo esc_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-detail&booking_id=' ) ); ?>' + data.booking_id + '"><?php echo esc_js( __( 'View booking', 'simple-hotel-crm' ) ); ?></a>');
+                show('pay-success');
+                btn.textContent = '<?php echo esc_js( __( 'Sent!', 'simple-hotel-crm' ) ); ?>';
+                setTimeout(function() { hide('pay-modal'); closePayModal(); }, 3000);
+            }).catch(function(err) {
+                showPayError(err.message || 'Failed to send payment.');
+                btn.disabled = false;
+                btn.textContent = '<?php echo esc_js( __( 'Send to Square Terminal', 'simple-hotel-crm' ) ); ?>';
+            });
+        }
+
+        function closePayModal() {
+            hide('pay-modal');
+            var btn = document.getElementById('pay-confirm');
+            btn.disabled = false;
+            btn.textContent = '<?php echo esc_js( __( 'Send to Square Terminal', 'simple-hotel-crm' ) ); ?>';
+            hidePayError();
+            hide('pay-success');
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            var dateInput = document.getElementById('ticket-date');
+            if (!dateInput) return;
+
+            state.date = dateInput.value;
+
+            dateInput.addEventListener('change', function() {
+                state.date = this.value;
+                state.activeBookingId = 0;
+                state.activeRoomId = 0;
+                state.activeBooking = null;
+                state.ticketItems = [];
+                state.savedItems = [];
+                fetchData();
+            });
+
+            document.getElementById('save-ticket').addEventListener('click', function() {
+                saveTicket().catch(function() {});
+            });
+
+            document.getElementById('pay-ticket').addEventListener('click', function() {
+                showPayModal();
+            });
+
+            document.getElementById('pay-items-list').addEventListener('change', function(e) {
+                if (e.target.type === 'checkbox') updatePayTotal();
+            });
+
+            document.getElementById('pay-confirm').addEventListener('click', function() {
+                sendToTerminal();
+            });
+
+            document.getElementById('pay-cancel').addEventListener('click', function() {
+                closePayModal();
+            });
+
+            fetchData();
+        });
+    })();
+    </script>
+    <?php
 }
 
