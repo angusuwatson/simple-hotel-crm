@@ -1963,7 +1963,9 @@ function simple_hotel_crm_render_booking_detail_page() {
         check_admin_referer( 'square_pay_booking_' . $booking_id, 'square_pay_booking_nonce' );
         $amount = isset( $_POST['square_payment_amount'] ) ? (float) $_POST['square_payment_amount'] : ( isset( $booking['total_amount'] ) ? (float) $booking['total_amount'] : 0 );
         $skip_receipt = isset( $_POST['square_skip_receipt'] ) && '1' === $_POST['square_skip_receipt'];
-        $result = simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount, $skip_receipt );
+        $guest_name = trim( (string) ( $booking['first_name'] ?? '' ) . ' ' . ( $booking['last_name'] ?? '' ) );
+        $note = '' !== $guest_name ? $guest_name . ' — #' . $booking_id : 'Booking #' . $booking_id;
+        $result = simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount, $skip_receipt, $note );
         if ( is_wp_error( $result ) ) {
             echo '<div class="notice notice-error"><p>' . esc_html( $result->get_error_message() ) . '</p></div>';
         } else {

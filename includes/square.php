@@ -83,7 +83,7 @@ function simple_hotel_crm_square_api_request( $method, $path, $body = null ) {
     return $data;
 }
 
-function simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount, $skip_receipt = false ) {
+function simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount, $skip_receipt = false, $note = '' ) {
     $location_id = simple_hotel_crm_square_get_location_id();
     if ( empty( $location_id ) ) {
         return new WP_Error( 'square_no_location', 'Square Location ID not configured.' );
@@ -101,6 +101,10 @@ function simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount,
         return new WP_Error( 'square_no_device', 'Square Device ID not configured.' );
     }
 
+    if ( '' === $note ) {
+        $note = 'Booking #' . $booking_id;
+    }
+
     $body = [
         'idempotency_key' => $idempotency_key,
         'checkout' => [
@@ -109,7 +113,7 @@ function simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount,
                 'currency' => 'EUR',
             ],
             'reference_id' => (string) $booking_id,
-            'note' => 'Booking #' . $booking_id,
+            'note' => $note,
             'device_options' => [
                 'device_id' => $device_id,
                 'skip_receipt_screen' => $skip_receipt,
