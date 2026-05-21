@@ -1961,8 +1961,9 @@ function simple_hotel_crm_render_booking_detail_page() {
     // Handle Square Terminal actions
     if ( isset( $_POST['square_create_checkout'] ) ) {
         check_admin_referer( 'square_pay_booking_' . $booking_id, 'square_pay_booking_nonce' );
-        $amount = isset( $booking['total_amount'] ) ? (float) $booking['total_amount'] : 0;
-        $result = simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount );
+        $amount = isset( $_POST['square_payment_amount'] ) ? (float) $_POST['square_payment_amount'] : ( isset( $booking['total_amount'] ) ? (float) $booking['total_amount'] : 0 );
+        $skip_receipt = isset( $_POST['square_skip_receipt'] ) && '1' === $_POST['square_skip_receipt'];
+        $result = simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount, $skip_receipt );
         if ( is_wp_error( $result ) ) {
             echo '<div class="notice notice-error"><p>' . esc_html( $result->get_error_message() ) . '</p></div>';
         } else {
@@ -2019,6 +2020,18 @@ function simple_hotel_crm_render_booking_detail_page() {
                 echo '<div class="notice notice-success"><p>' . esc_html__( 'Invoice created in Invoice Ninja.', 'simple-hotel-crm' ) . '</p></div>';
                 echo '<script>location.reload();</script>';
             }
+        }
+    }
+
+    if ( isset( $_POST['square_refund_payment'] ) ) {
+        check_admin_referer( 'square_refund_' . $booking_id, 'square_refund_nonce' );
+        $refund_amount = isset( $_POST['square_refund_amount'] ) ? (float) $_POST['square_refund_amount'] : null;
+        $result = simple_hotel_crm_square_refund_payment( $booking_id, $refund_amount );
+        if ( is_wp_error( $result ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'Refund failed:', 'simple-hotel-crm' ) . ' ' . esc_html( $result->get_error_message() ) . '</p></div>';
+        } else {
+            echo '<div class="notice notice-success"><p>' . esc_html__( 'Refund processed.', 'simple-hotel-crm' ) . '</p></div>';
+            echo '<script>location.reload();</script>';
         }
     }
 
@@ -2329,7 +2342,18 @@ function simple_hotel_crm_render_booking_detail_page() {
         echo '<div style="margin:12px 0;padding:12px;background:#fff;border:1px solid #ccd0d4;">';
         echo '<h2>' . esc_html__( 'Card Payment (Square Terminal)', 'simple-hotel-crm' ) . '</h2>';
         if ( 'paid' === $payment_status ) {
+            $square_payment_id = get_post_meta( $booking_id, '_square_payment_id', true );
             echo '<p><strong style="color:green;">' . esc_html__( '✓ Paid', 'simple-hotel-crm' ) . '</strong></p>';
+            if ( $square_payment_id ) {
+                echo '<form method="post" style="margin-top:8px;padding:8px;background:#fefefe;border:1px solid #ddd;border-radius:3px;">';
+                wp_nonce_field( 'square_refund_' . $booking_id, 'square_refund_nonce' );
+                echo '<p><label>' . esc_html__( 'Refund amount (€):', 'simple-hotel-crm' ) . ' <input type="number" step="0.01" min="0" name="square_refund_amount" class="small-text" /></label>';
+                echo ' <button type="submit" name="square_refund_payment" value="1" class="button button-small" onclick="return confirm(' . wp_json_encode( __( 'Process this refund?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Refund', 'simple-hotel-crm' ) . '</button></p>';
+                echo '<p class="description">' . esc_html__( 'Leave amount empty for full refund.', 'simple-hotel-crm' ) . '</p>';
+                echo '</form>';
+            }
+        } elseif ( 'refunded' === $payment_status ) {
+            echo '<p><strong style="color:#b32d2e;">' . esc_html__( 'Refunded', 'simple-hotel-crm' ) . '</strong></p>';
         } elseif ( $square_checkout_id && 'completed' === $square_status ) {
             echo '<p><strong style="color:green;">' . esc_html__( '✓ Payment completed', 'simple-hotel-crm' ) . '</strong>';
             echo ' <a href="' . esc_url( wp_nonce_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-detail&booking_id=' . $booking_id . '&square_confirm=1' ), 'square_confirm_' . $booking_id ) ) . '" class="button button-small">' . esc_html__( 'Create IN Invoice', 'simple-hotel-crm' ) . '</a></p>';
@@ -2350,10 +2374,12 @@ function simple_hotel_crm_render_booking_detail_page() {
             submit_button( __( 'Cancel', 'simple-hotel-crm' ), 'small', '', false );
             echo '</form>';
         } else {
-            echo '<p><strong>' . esc_html__( 'Total due:', 'simple-hotel-crm' ) . ' ' . esc_html( number_format( (float) $booking['total_amount'], 2, '.', '' ) ) . ' €</strong></p>';
+            $total = (float) $booking['total_amount'];
             echo '<form method="post">';
             wp_nonce_field( 'square_pay_booking_' . $booking_id, 'square_pay_booking_nonce' );
             echo '<input type="hidden" name="square_create_checkout" value="1" />';
+            echo '<p><label>' . esc_html__( 'Amount (€):', 'simple-hotel-crm' ) . ' <input type="number" step="0.01" min="0" name="square_payment_amount" value="' . esc_attr( number_format( $total, 2, '.', '' ) ) . '" class="small-text" /></label></p>';
+            echo '<p><label><input type="checkbox" name="square_skip_receipt" value="1" /> ' . esc_html__( 'Skip receipt screen on terminal', 'simple-hotel-crm' ) . '</label></p>';
             submit_button( __( 'Pay with Square Terminal', 'simple-hotel-crm' ), 'primary', '', false );
             echo '</form>';
         }
@@ -2626,7 +2652,18 @@ function simple_hotel_crm_render_guest_detail_page() {
         echo '<div style="margin:12px 0;padding:12px;background:#fff;border:1px solid #ccd0d4;">';
         echo '<h2>' . esc_html__( 'Card Payment (Square Terminal)', 'simple-hotel-crm' ) . '</h2>';
         if ( 'paid' === $payment_status ) {
+            $square_payment_id = get_post_meta( $booking_id, '_square_payment_id', true );
             echo '<p><strong style="color:green;">' . esc_html__( '✓ Paid', 'simple-hotel-crm' ) . '</strong></p>';
+            if ( $square_payment_id ) {
+                echo '<form method="post" style="margin-top:8px;padding:8px;background:#fefefe;border:1px solid #ddd;border-radius:3px;">';
+                wp_nonce_field( 'square_refund_' . $booking_id, 'square_refund_nonce' );
+                echo '<p><label>' . esc_html__( 'Refund amount (€):', 'simple-hotel-crm' ) . ' <input type="number" step="0.01" min="0" name="square_refund_amount" class="small-text" /></label>';
+                echo ' <button type="submit" name="square_refund_payment" value="1" class="button button-small" onclick="return confirm(' . wp_json_encode( __( 'Process this refund?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Refund', 'simple-hotel-crm' ) . '</button></p>';
+                echo '<p class="description">' . esc_html__( 'Leave amount empty for full refund.', 'simple-hotel-crm' ) . '</p>';
+                echo '</form>';
+            }
+        } elseif ( 'refunded' === $payment_status ) {
+            echo '<p><strong style="color:#b32d2e;">' . esc_html__( 'Refunded', 'simple-hotel-crm' ) . '</strong></p>';
         } elseif ( $square_checkout_id && 'completed' === $square_status ) {
             echo '<p><strong style="color:green;">' . esc_html__( '✓ Payment completed', 'simple-hotel-crm' ) . '</strong>';
             echo ' <a href="' . esc_url( wp_nonce_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-detail&booking_id=' . $booking_id . '&square_confirm=1' ), 'square_confirm_' . $booking_id ) ) . '" class="button button-small">' . esc_html__( 'Create IN Invoice', 'simple-hotel-crm' ) . '</a></p>';
@@ -2647,10 +2684,12 @@ function simple_hotel_crm_render_guest_detail_page() {
             submit_button( __( 'Cancel', 'simple-hotel-crm' ), 'small', '', false );
             echo '</form>';
         } else {
-            echo '<p><strong>' . esc_html__( 'Total due:', 'simple-hotel-crm' ) . ' ' . esc_html( number_format( (float) $booking['total_amount'], 2, '.', '' ) ) . ' €</strong></p>';
+            $total = (float) $booking['total_amount'];
             echo '<form method="post">';
             wp_nonce_field( 'square_pay_booking_' . $booking_id, 'square_pay_booking_nonce' );
             echo '<input type="hidden" name="square_create_checkout" value="1" />';
+            echo '<p><label>' . esc_html__( 'Amount (€):', 'simple-hotel-crm' ) . ' <input type="number" step="0.01" min="0" name="square_payment_amount" value="' . esc_attr( number_format( $total, 2, '.', '' ) ) . '" class="small-text" /></label></p>';
+            echo '<p><label><input type="checkbox" name="square_skip_receipt" value="1" /> ' . esc_html__( 'Skip receipt screen on terminal', 'simple-hotel-crm' ) . '</label></p>';
             submit_button( __( 'Pay with Square Terminal', 'simple-hotel-crm' ), 'primary', '', false );
             echo '</form>';
         }

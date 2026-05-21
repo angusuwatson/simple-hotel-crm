@@ -83,7 +83,7 @@ function simple_hotel_crm_square_api_request( $method, $path, $body = null ) {
     return $data;
 }
 
-function simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount ) {
+function simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount, $skip_receipt = false ) {
     $location_id = simple_hotel_crm_square_get_location_id();
     if ( empty( $location_id ) ) {
         return new WP_Error( 'square_no_location', 'Square Location ID not configured.' );
@@ -112,7 +112,7 @@ function simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount 
             'note' => 'Booking #' . $booking_id,
             'device_options' => [
                 'device_id' => $device_id,
-                'skip_receipt_screen' => false,
+                'skip_receipt_screen' => $skip_receipt,
                 'tip_settings' => [
                     'allow_tipping' => true,
                 ],
@@ -151,9 +151,16 @@ function simple_hotel_crm_square_cancel_checkout( $checkout_id ) {
     return simple_hotel_crm_square_api_request( 'POST', '/v2/terminals/checkouts/' . $checkout_id . '/cancel' );
 }
 
-function simple_hotel_crm_square_handle_payment_complete( $booking_id, $checkout_id ) {
+function simple_hotel_crm_square_handle_payment_complete( $booking_id, $checkout_id, $payment_id = '' ) {
     global $wpdb;
     $bookings_table = simple_hotel_crm_bookings_table();
+
+    if ( empty( $payment_id ) ) {
+        $details = simple_hotel_crm_square_api_request( 'GET', '/v2/terminals/checkouts/' . $checkout_id );
+        if ( ! is_wp_error( $details ) && isset( $details['checkout']['payment_ids'][0] ) ) {
+            $payment_id = $details['checkout']['payment_ids'][0];
+        }
+    }
 
     $wpdb->update(
         $bookings_table,
@@ -164,6 +171,9 @@ function simple_hotel_crm_square_handle_payment_complete( $booking_id, $checkout
     );
 
     update_post_meta( $booking_id, '_square_checkout_status', 'completed' );
+    if ( ! empty( $payment_id ) ) {
+        update_post_meta( $booking_id, '_square_payment_id', $payment_id );
+    }
 
     $invoice = simple_hotel_crm_create_invoice_ninja_invoice( $booking_id );
     if ( is_wp_error( $invoice ) ) {
@@ -173,6 +183,49 @@ function simple_hotel_crm_square_handle_payment_complete( $booking_id, $checkout
     return true;
 }
 
+function simple_hotel_crm_square_refund_payment( $booking_id, $amount = null ) {
+    $payment_id = get_post_meta( $booking_id, '_square_payment_id', true );
+    if ( empty( $payment_id ) ) {
+        return new WP_Error( 'square_no_payment', 'No Square payment found for this booking.' );
+    }
+
+    $amount_cents = null;
+    if ( null !== $amount && (float) $amount > 0 ) {
+        $amount_cents = round( (float) $amount * 100 );
+    }
+
+    $body = [
+        'idempotency_key' => 'refund-' . $booking_id . '-' . time(),
+        'payment_id' => $payment_id,
+    ];
+
+    if ( null !== $amount_cents ) {
+        $body['amount_money'] = [
+            'amount' => $amount_cents,
+            'currency' => 'EUR',
+        ];
+    }
+
+    $result = simple_hotel_crm_square_api_request( 'POST', '/v2/refunds', $body );
+
+    if ( is_wp_error( $result ) ) {
+        return $result;
+    }
+
+    global $wpdb;
+    $wpdb->update(
+        simple_hotel_crm_bookings_table(),
+        [ 'payment_status' => 'refunded' ],
+        [ 'id' => $booking_id ],
+        [ '%s' ],
+        [ '%d' ]
+    );
+
+    update_post_meta( $booking_id, '_square_checkout_status', 'refunded' );
+
+    return $result;
+}
+
 function simple_hotel_crm_square_get_payment_status_label( $status ) {
     $labels = [
         'pending' => __( 'Awaiting terminal', 'simple-hotel-crm' ),
@@ -180,6 +233,7 @@ function simple_hotel_crm_square_get_payment_status_label( $status ) {
         'completed' => __( 'Paid', 'simple-hotel-crm' ),
         'canceled' => __( 'Cancelled', 'simple-hotel-crm' ),
         'failed' => __( 'Failed', 'simple-hotel-crm' ),
+        'refunded' => __( 'Refunded', 'simple-hotel-crm' ),
     ];
     return isset( $labels[ $status ] ) ? $labels[ $status ] : $status;
 }
