@@ -1,5 +1,5 @@
 Repo: /home/angus/.angus/projects/lgf-bookings-plugin
-Remote: git@github.com:angusuwatson/simple-hotel-crm.git
+Remote: git@github.com:angusuwatson/lgf-bookings-plugin.git
 Goal: push latest booking-list fix to GitHub.
 
 Important:
