@@ -34,10 +34,15 @@ function simple_hotel_crm_square_get_location_id() {
     return get_option( 'simple_hotel_crm_square_location_id', '' );
 }
 
+function simple_hotel_crm_square_get_device_id() {
+    return get_option( 'simple_hotel_crm_square_device_id', '' );
+}
+
 function simple_hotel_crm_square_is_configured() {
     $token = simple_hotel_crm_square_get_access_token();
     $location = simple_hotel_crm_square_get_location_id();
-    return ! empty( $token ) && ! empty( $location );
+    $device = simple_hotel_crm_square_get_device_id();
+    return ! empty( $token ) && ! empty( $location ) && ! empty( $device );
 }
 
 function simple_hotel_crm_square_api_request( $method, $path, $body = null ) {
@@ -91,6 +96,11 @@ function simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount 
 
     $idempotency_key = 'booking-' . $booking_id . '-' . time();
 
+    $device_id = simple_hotel_crm_square_get_device_id();
+    if ( empty( $device_id ) ) {
+        return new WP_Error( 'square_no_device', 'Square Device ID not configured.' );
+    }
+
     $body = [
         'idempotency_key' => $idempotency_key,
         'checkout' => [
@@ -100,6 +110,13 @@ function simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount 
             ],
             'reference_id' => (string) $booking_id,
             'note' => 'Booking #' . $booking_id,
+            'device_options' => [
+                'device_id' => $device_id,
+                'skip_receipt_screen' => false,
+                'tip_settings' => [
+                    'allow_tipping' => true,
+                ],
+            ],
         ],
     ];
 

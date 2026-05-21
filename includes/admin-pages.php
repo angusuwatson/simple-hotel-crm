@@ -4351,12 +4351,14 @@ function simple_hotel_crm_render_settings_page() {
             check_admin_referer( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
             update_option( 'simple_hotel_crm_square_access_token', sanitize_text_field( wp_unslash( $_POST['simple_hotel_crm_square_access_token'] ?? '' ) ) );
             update_option( 'simple_hotel_crm_square_location_id', sanitize_text_field( wp_unslash( $_POST['simple_hotel_crm_square_location_id'] ?? '' ) ) );
+            update_option( 'simple_hotel_crm_square_device_id', sanitize_text_field( wp_unslash( $_POST['simple_hotel_crm_square_device_id'] ?? '' ) ) );
             update_option( 'simple_hotel_crm_square_webhook_signature_key', sanitize_text_field( wp_unslash( $_POST['simple_hotel_crm_square_webhook_signature_key'] ?? '' ) ) );
             simple_hotel_crm_square_maybe_add_columns();
             echo '<div class="notice notice-success"><p>' . esc_html__( 'Square settings saved.', 'simple-hotel-crm' ) . '</p></div>';
         }
         $access_token = simple_hotel_crm_square_get_access_token();
         $location_id = simple_hotel_crm_square_get_location_id();
+        $device_id = simple_hotel_crm_square_get_device_id();
         $signature_key = simple_hotel_crm_square_get_webhook_signature_key();
         $webhook_url = simple_hotel_crm_square_get_webhook_url();
         echo '<form method="post">';
@@ -4365,9 +4367,11 @@ function simple_hotel_crm_render_settings_page() {
         echo '<p>' . esc_html__( 'Configure Square Terminal to accept card payments at your property.', 'simple-hotel-crm' ) . '</p>';
         echo '<table class="form-table">';
         echo '<tr><th scope="row"><label for="simple_hotel_crm_square_access_token">' . esc_html__( 'Square Access Token', 'simple-hotel-crm' ) . '</label></th>';
-        echo '<td><input type="password" id="simple_hotel_crm_square_access_token" name="simple_hotel_crm_square_access_token" value="' . esc_attr( $access_token ) . '" class="regular-text" style="font-family:monospace;" /><p class="description">' . esc_html__( 'From Square Developer Dashboard → Applications → Your App → OAuth → Access Token.', 'simple-hotel-crm' ) . '</p></td></tr>';
+        echo '<td><input type="password" id="simple_hotel_crm_square_access_token" name="simple_hotel_crm_square_access_token" value="' . esc_attr( $access_token ) . '" class="regular-text" style="font-family:monospace;" /><p class="description">' . esc_html__( 'From Square Developer Dashboard → Applications → Your App → Credentials → Production Access Token.', 'simple-hotel-crm' ) . '</p></td></tr>';
         echo '<tr><th scope="row"><label for="simple_hotel_crm_square_location_id">' . esc_html__( 'Square Location ID', 'simple-hotel-crm' ) . '</label></th>';
         echo '<td><input type="text" id="simple_hotel_crm_square_location_id" name="simple_hotel_crm_square_location_id" value="' . esc_attr( $location_id ) . '" class="regular-text" style="font-family:monospace;" /><p class="description">' . esc_html__( 'Your Square Location ID. Found in Square Dashboard → Locations.', 'simple-hotel-crm' ) . '</p></td></tr>';
+        echo '<tr><th scope="row"><label for="simple_hotel_crm_square_device_id">' . esc_html__( 'Square Terminal Device ID', 'simple-hotel-crm' ) . '</label></th>';
+        echo '<td><input type="text" id="simple_hotel_crm_square_device_id" name="simple_hotel_crm_square_device_id" value="' . esc_attr( $device_id ) . '" class="regular-text" style="font-family:monospace;" /><p class="description">' . esc_html__( 'Your paired terminal serial number (found on underside of device or in Square Dashboard → Devices).', 'simple-hotel-crm' ) . '</p></td></tr>';
         echo '<tr><th scope="row"><label for="simple_hotel_crm_square_webhook_signature_key">' . esc_html__( 'Webhook Signature Key', 'simple-hotel-crm' ) . '</label></th>';
         echo '<td><input type="password" id="simple_hotel_crm_square_webhook_signature_key" name="simple_hotel_crm_square_webhook_signature_key" value="' . esc_attr( $signature_key ) . '" class="regular-text" style="font-family:monospace;" /><p class="description">' . esc_html__( 'From Square Developer Dashboard → Applications → Your App → Webhooks → Webhook Signature Key.', 'simple-hotel-crm' ) . '</p></td></tr>';
         echo '<tr><th scope="row">' . esc_html__( 'Webhook URL', 'simple-hotel-crm' ) . '</th>';
@@ -4378,7 +4382,11 @@ function simple_hotel_crm_render_settings_page() {
         if ( simple_hotel_crm_square_is_configured() ) {
             echo '<div class="notice notice-success inline"><p>' . esc_html__( 'Square is configured and ready.', 'simple-hotel-crm' ) . '</p></div>';
         } else {
-            echo '<div class="notice notice-info inline"><p>' . esc_html__( 'Enter your Square API credentials above to enable Terminal payments.', 'simple-hotel-crm' ) . '</p></div>';
+            $missing = [];
+            if ( empty( $access_token ) ) { $missing[] = 'Access Token'; }
+            if ( empty( $location_id ) ) { $missing[] = 'Location ID'; }
+            if ( empty( $device_id ) ) { $missing[] = 'Device ID'; }
+            echo '<div class="notice notice-info inline"><p>' . esc_html__( 'Enter your Square API credentials above to enable Terminal payments. Missing: ', 'simple-hotel-crm' ) . esc_html( implode( ', ', $missing ) ) . '</p></div>';
         }
     } else {
         echo '<form method="post">';
