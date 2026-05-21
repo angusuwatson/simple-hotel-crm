@@ -2002,6 +2002,7 @@ function simple_hotel_crm_render_booking_detail_page() {
                 delete_post_meta( $booking_id, '_square_checkout_id' );
                 delete_post_meta( $booking_id, '_square_checkout_status' );
                 echo '<div class="notice notice-success"><p>' . esc_html__( 'Payment request cancelled.', 'simple-hotel-crm' ) . '</p></div>';
+                echo '<script>location.reload();</script>';
             }
         }
     }
