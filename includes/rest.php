@@ -78,6 +78,12 @@ add_action( 'rest_api_init', function() {
         'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
     ] );
 
+    register_rest_route( 'simple-hotel-crm/v1', '/square-webhook', [
+        'methods'  => 'POST',
+        'callback' => 'simple_hotel_crm_rest_square_webhook',
+        'permission_callback' => '__return_true',
+    ] );
+
     register_rest_route( 'simple-hotel-crm/v1', '/dashboard', [
         'methods'  => 'GET',
         'callback' => 'simple_hotel_crm_rest_dashboard',
@@ -456,5 +462,54 @@ function simple_hotel_crm_rest_save_quick_booking( WP_REST_Request $request ) {
     simple_hotel_crm_clear_calendar_cache();
 
     return rest_ensure_response( [ 'success' => true ] );
+}
+
+function simple_hotel_crm_rest_square_webhook( WP_REST_Request $request ) {
+    $signature = $request->get_header( 'x-square-hmacsha256-signature' );
+    if ( empty( $signature ) ) {
+        return new WP_Error( 'missing_signature', 'Missing webhook signature header.', [ 'status' => 401 ] );
+    }
+
+    $body = $request->get_body();
+
+    if ( ! simple_hotel_crm_square_verify_webhook_signature( $body, $signature ) ) {
+        return new WP_Error( 'invalid_signature', 'Invalid webhook signature.', [ 'status' => 401 ] );
+    }
+
+    $data = json_decode( $body, true );
+    if ( empty( $data['type'] ) ) {
+        return new WP_Error( 'invalid_payload', 'Invalid webhook payload.', [ 'status' => 400 ] );
+    }
+
+    if ( 'terminal.checkout.updated' !== $data['type'] ) {
+        return rest_ensure_response( [ 'status' => 'ignored', 'type' => $data['type'] ] );
+    }
+
+    $checkout = isset( $data['data']['object']['checkout'] ) ? $data['data']['object']['checkout'] : [];
+    $checkout_id = isset( $checkout['id'] ) ? $checkout['id'] : '';
+    $checkout_status = isset( $checkout['status'] ) ? $checkout['status'] : '';
+    $reference_id = isset( $checkout['reference_id'] ) ? $checkout['reference_id'] : '';
+
+    if ( 'COMPLETED' !== $checkout_status || empty( $reference_id ) ) {
+        return rest_ensure_response( [ 'status' => 'ignored' ] );
+    }
+
+    $booking_id = (int) $reference_id;
+    $stored_checkout_id = get_post_meta( $booking_id, '_square_checkout_id', true );
+
+    if ( empty( $stored_checkout_id ) ) {
+        return rest_ensure_response( [ 'status' => 'ignored', 'reason' => 'no_checkout_for_booking' ] );
+    }
+
+    if ( $stored_checkout_id !== $checkout_id ) {
+        return new WP_Error( 'checkout_mismatch', 'Checkout ID does not match stored value.', [ 'status' => 400 ] );
+    }
+
+    $result = simple_hotel_crm_square_handle_payment_complete( $booking_id, $checkout_id );
+    if ( is_wp_error( $result ) ) {
+        return $result;
+    }
+
+    return rest_ensure_response( [ 'status' => 'completed', 'booking_id' => $booking_id ] );
 }
 

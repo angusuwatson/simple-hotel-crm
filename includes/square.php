@@ -169,3 +169,20 @@ function simple_hotel_crm_square_get_payment_status_label( $status ) {
     ];
     return isset( $labels[ $status ] ) ? $labels[ $status ] : $status;
 }
+
+function simple_hotel_crm_square_get_webhook_url() {
+    return rest_url( 'simple-hotel-crm/v1/square-webhook' );
+}
+
+function simple_hotel_crm_square_get_webhook_signature_key() {
+    return get_option( 'simple_hotel_crm_square_webhook_signature_key', '' );
+}
+
+function simple_hotel_crm_square_verify_webhook_signature( $body, $signature ) {
+    $signature_key = simple_hotel_crm_square_get_webhook_signature_key();
+    if ( empty( $signature_key ) || empty( $signature ) ) {
+        return false;
+    }
+    $expected = base64_encode( hash_hmac( 'sha256', $body, $signature_key, true ) );
+    return hash_equals( $expected, $signature );
+}

@@ -1987,6 +1987,8 @@ function simple_hotel_crm_render_booking_detail_page() {
             } else {
                 echo '<div class="notice notice-info"><p>' . esc_html( sprintf( __( 'Payment status: %s', 'simple-hotel-crm' ), simple_hotel_crm_square_get_payment_status_label( $status ) ) ) . '</p></div>';
             }
+        } else {
+            echo '<div class="notice notice-warning"><p>' . esc_html__( 'No active Square checkout found for this booking. Create a new payment request below.', 'simple-hotel-crm' ) . '</p></div>';
         }
     }
     if ( isset( $_POST['square_cancel_payment'] ) ) {
@@ -2004,13 +2006,18 @@ function simple_hotel_crm_render_booking_detail_page() {
         }
     }
     if ( isset( $_GET['square_confirm'] ) && '1' === $_GET['square_confirm'] ) {
+        check_admin_referer( 'square_confirm_' . $booking_id );
         $checkout_id = get_post_meta( $booking_id, '_square_checkout_id', true );
-        $result = simple_hotel_crm_square_handle_payment_complete( $booking_id, $checkout_id );
-        if ( is_wp_error( $result ) ) {
-            echo '<div class="notice notice-error"><p>' . esc_html__( 'Invoice creation failed:', 'simple-hotel-crm' ) . ' ' . esc_html( $result->get_error_message() ) . '</p></div>';
+        if ( empty( $checkout_id ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'No Square checkout found for this booking.', 'simple-hotel-crm' ) . '</p></div>';
         } else {
-            echo '<div class="notice notice-success"><p>' . esc_html__( 'Invoice created in Invoice Ninja.', 'simple-hotel-crm' ) . '</p></div>';
-            echo '<script>location.reload();</script>';
+            $result = simple_hotel_crm_square_handle_payment_complete( $booking_id, $checkout_id );
+            if ( is_wp_error( $result ) ) {
+                echo '<div class="notice notice-error"><p>' . esc_html__( 'Invoice creation failed:', 'simple-hotel-crm' ) . ' ' . esc_html( $result->get_error_message() ) . '</p></div>';
+            } else {
+                echo '<div class="notice notice-success"><p>' . esc_html__( 'Invoice created in Invoice Ninja.', 'simple-hotel-crm' ) . '</p></div>';
+                echo '<script>location.reload();</script>';
+            }
         }
     }
 
@@ -2582,7 +2589,7 @@ function simple_hotel_crm_render_guest_detail_page() {
             echo '<p><strong style="color:green;">' . esc_html__( '✓ Paid', 'simple-hotel-crm' ) . '</strong></p>';
         } elseif ( $square_checkout_id && 'completed' === $square_status ) {
             echo '<p><strong style="color:green;">' . esc_html__( '✓ Payment completed', 'simple-hotel-crm' ) . '</strong>';
-            echo ' <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-detail&booking_id=' . $booking_id . '&square_confirm=1' ) ) . '" class="button button-small">' . esc_html__( 'Create IN Invoice', 'simple-hotel-crm' ) . '</a></p>';
+            echo ' <a href="' . esc_url( wp_nonce_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-detail&booking_id=' . $booking_id . '&square_confirm=1' ), 'square_confirm_' . $booking_id ) ) . '" class="button button-small">' . esc_html__( 'Create IN Invoice', 'simple-hotel-crm' ) . '</a></p>';
         } elseif ( $square_checkout_id ) {
             $current_status = simple_hotel_crm_square_get_checkout_status( $square_checkout_id );
             if ( is_string( $current_status ) ) {
@@ -4344,11 +4351,14 @@ function simple_hotel_crm_render_settings_page() {
             check_admin_referer( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
             update_option( 'simple_hotel_crm_square_access_token', sanitize_text_field( wp_unslash( $_POST['simple_hotel_crm_square_access_token'] ?? '' ) ) );
             update_option( 'simple_hotel_crm_square_location_id', sanitize_text_field( wp_unslash( $_POST['simple_hotel_crm_square_location_id'] ?? '' ) ) );
+            update_option( 'simple_hotel_crm_square_webhook_signature_key', sanitize_text_field( wp_unslash( $_POST['simple_hotel_crm_square_webhook_signature_key'] ?? '' ) ) );
             simple_hotel_crm_square_maybe_add_columns();
             echo '<div class="notice notice-success"><p>' . esc_html__( 'Square settings saved.', 'simple-hotel-crm' ) . '</p></div>';
         }
         $access_token = simple_hotel_crm_square_get_access_token();
         $location_id = simple_hotel_crm_square_get_location_id();
+        $signature_key = simple_hotel_crm_square_get_webhook_signature_key();
+        $webhook_url = simple_hotel_crm_square_get_webhook_url();
         echo '<form method="post">';
         wp_nonce_field( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
         echo '<h2>' . esc_html__( 'Square Payments', 'simple-hotel-crm' ) . '</h2>';
@@ -4358,6 +4368,10 @@ function simple_hotel_crm_render_settings_page() {
         echo '<td><input type="password" id="simple_hotel_crm_square_access_token" name="simple_hotel_crm_square_access_token" value="' . esc_attr( $access_token ) . '" class="regular-text" style="font-family:monospace;" /><p class="description">' . esc_html__( 'From Square Developer Dashboard → Applications → Your App → OAuth → Access Token.', 'simple-hotel-crm' ) . '</p></td></tr>';
         echo '<tr><th scope="row"><label for="simple_hotel_crm_square_location_id">' . esc_html__( 'Square Location ID', 'simple-hotel-crm' ) . '</label></th>';
         echo '<td><input type="text" id="simple_hotel_crm_square_location_id" name="simple_hotel_crm_square_location_id" value="' . esc_attr( $location_id ) . '" class="regular-text" style="font-family:monospace;" /><p class="description">' . esc_html__( 'Your Square Location ID. Found in Square Dashboard → Locations.', 'simple-hotel-crm' ) . '</p></td></tr>';
+        echo '<tr><th scope="row"><label for="simple_hotel_crm_square_webhook_signature_key">' . esc_html__( 'Webhook Signature Key', 'simple-hotel-crm' ) . '</label></th>';
+        echo '<td><input type="password" id="simple_hotel_crm_square_webhook_signature_key" name="simple_hotel_crm_square_webhook_signature_key" value="' . esc_attr( $signature_key ) . '" class="regular-text" style="font-family:monospace;" /><p class="description">' . esc_html__( 'From Square Developer Dashboard → Applications → Your App → Webhooks → Webhook Signature Key.', 'simple-hotel-crm' ) . '</p></td></tr>';
+        echo '<tr><th scope="row">' . esc_html__( 'Webhook URL', 'simple-hotel-crm' ) . '</th>';
+        echo '<td><code style="word-break:break-all;">' . esc_url( $webhook_url ) . '</code><p class="description">' . esc_html__( 'Add this URL to Square Developer Dashboard → Webhooks → Subscription URL. Square sends payment status updates here automatically.', 'simple-hotel-crm' ) . '</p></td></tr>';
         echo '</table>';
         submit_button( __( 'Save Square Settings', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_submit' );
         echo '</form>';
