@@ -148,10 +148,7 @@ function simple_hotel_crm_square_get_checkout_status( $checkout_id ) {
 }
 
 function simple_hotel_crm_square_cancel_checkout( $checkout_id ) {
-    $idempotency_key = 'cancel-' . $checkout_id . '-' . time();
-    $body = [ 'idempotency_key' => $idempotency_key ];
-
-    return simple_hotel_crm_square_api_request( 'POST', '/v2/terminals/checkouts/' . $checkout_id . '/cancel', $body );
+    return simple_hotel_crm_square_api_request( 'POST', '/v2/terminals/checkouts/' . $checkout_id . '/cancel' );
 }
 
 function simple_hotel_crm_square_handle_payment_complete( $booking_id, $checkout_id ) {
