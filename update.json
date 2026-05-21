@@ -1,7 +1,7 @@
 {
     "name": "LGF Bookings",
     "slug": "simple-hotel-crm",
-    "version": "1.9.2.12",
+    "version": "1.9.2.13",
     "homepage": "https://github.com/angusuwatson/lgf-bookings-plugin",
     "download_url": "https://github.com/angusuwatson/lgf-bookings-plugin/archive/refs/heads/master.zip",
     "requires": "6.0",
@@ -11,6 +11,6 @@
     "upgrade_notice": "Bug fix: critical error on Square settings save form. General settings handler no longer fires on non-general tabs.",
     "sections": {
         "description": "WordPress-native hotel CRM with calendar, bookings, guests, Invoice Ninja integration, and GitHub-based updating.",
-        "changelog": "<ul><li>1.9.2.12: Fixed JavaScript syntax error in extras functionality — console.log statements with single quotes were conflicting with PHP echo statement quotes, causing parse error on booking detail page.</li><li>1.9.2.11: Fixed critical error on Square settings save — general settings handler was incorrectly triggered on all tabs, and missing argument in update_option() caused crash.</li><li>1.9.2.10: Square Terminal payments — add API credentials in Settings → Square Payments, then 'Pay with Square Terminal' button on booking detail page. Auto-creates IN invoice on payment confirmation. New DB columns: payment_status, payment_method, square_checkout_id.</li></ul>"
+        "changelog": "<ul><li>1.9.2.13: Debug: added wp_die(var_export($_POST)) in form handler to diagnose pending_items not saving.</li><li>1.9.2.12: Fixed JavaScript syntax error in extras functionality — console.log statements with single quotes were conflicting with PHP echo statement quotes, causing parse error on booking detail page.</li><li>1.9.2.11: Fixed critical error on Square settings save — general settings handler was incorrectly triggered on all tabs, and missing argument in update_option() caused crash.</li><li>1.9.2.10: Square Terminal payments — add API credentials in Settings → Square Payments, then 'Pay with Square Terminal' button on booking detail page. Auto-creates IN invoice on payment confirmation. New DB columns: payment_status, payment_method, square_checkout_id.</li></ul>"
     }
 }

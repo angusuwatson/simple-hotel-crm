@@ -2007,6 +2007,7 @@ function simple_hotel_crm_render_booking_detail_page() {
     }
 
     if ( isset( $_POST['simple_hotel_crm_save_booking'] ) && $booking ) {
+        wp_die( '<pre>' . var_export( $_POST, true ) . '</pre>' );
         error_log('SHC DEBUG: Form handler triggered');
     file_put_contents('/tmp/shc_debug.log', 'SHC DEBUG: Form handler triggered' . "\n", FILE_APPEND);
         check_admin_referer( 'simple_hotel_crm_save_booking' );
@@ -2249,10 +2250,10 @@ function simple_hotel_crm_render_booking_detail_page() {
     echo '<div id="pending_items_container" style="margin:8px 0;"></div>';
     echo '<script>
   (function(){
-    console.log('SHC JS: Extras JavaScript loaded');
+    console.log("SHC JS: Extras JavaScript loaded");
     var sel=document.getElementById("new_item_name");
     if (!sel) {
-      console.log('SHC JS: ERROR: new_item_name element not found');
+      console.log("SHC JS: ERROR: new_item_name element not found");
       return;
     }
   var cust=document.getElementById("new_item_name_custom");
@@ -2270,7 +2271,7 @@ function simple_hotel_crm_render_booking_detail_page() {
     });
   }
     if(btn){
-      console.log('SHC JS: Add item button found, attaching click handler');
+      console.log("SHC JS: Add item button found, attaching click handler");
       btn.addEventListener("click",function(){
       var name="";
       if(sel.value==="__custom__"){name=cust.value.trim();}
@@ -3471,6 +3472,7 @@ function simple_hotel_crm_render_import_panel() {
             } elseif ( 'whole_site' === $type ) {
                 $result = simple_hotel_crm_import_whole_site_csv( $rows, $dry_run );
         }
+    }
     }
 
     echo '<p>' . esc_html__( 'Import missing records only. Recommended order: guests, bookings, booking rooms. For Booking.com workflow: sync ICS skeletons first, then use repair modes to enrich existing bookings/room lines from CSV backup. Use "Whole Site Import" to import guests, bookings, and rooms in a single CSV file.', 'simple-hotel-crm' ) . '</p>';
