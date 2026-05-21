@@ -4418,6 +4418,77 @@ function simple_hotel_crm_render_settings_page() {
         echo '</table>';
         submit_button( __( 'Save Square Settings', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_submit' );
         echo '</form>';
+
+        // Handle device code generation
+        if ( isset( $_POST['square_generate_device_code'] ) ) {
+            check_admin_referer( 'square_device_code', 'square_device_code_nonce' );
+            $device_code_result = simple_hotel_crm_square_generate_device_code();
+            if ( is_wp_error( $device_code_result ) ) {
+                echo '<div class="notice notice-error"><p>' . esc_html__( 'Failed to generate device code:', 'simple-hotel-crm' ) . ' ' . esc_html( $device_code_result->get_error_message() ) . '</p></div>';
+            } else {
+                $code = isset( $device_code_result['device_code']['code'] ) ? $device_code_result['device_code']['code'] : '';
+                $device_id = isset( $device_code_result['device_code']['device_id'] ) ? $device_code_result['device_code']['device_id'] : '';
+                $pair_by = isset( $device_code_result['device_code']['pair_by'] ) ? $device_code_result['device_code']['pair_by'] : '';
+                echo '<div class="notice notice-success" style="border-left-color:#e67e22;">';
+                echo '<p><strong>' . esc_html__( 'Device code generated — valid for 5 minutes.', 'simple-hotel-crm' ) . '</strong></p>';
+                echo '<p style="font-size:24px;text-align:center;letter-spacing:8px;font-family:monospace;font-weight:bold;background:#f0f0f0;padding:12px;border-radius:4px;">' . esc_html( $code ) . '</p>';
+                echo '<p>' . esc_html__( 'On your Square Terminal: Swipe from left edge → Settings → Sign Out (if paired). Then choose Device Code and enter the code above.', 'simple-hotel-crm' ) . '</p>';
+                if ( ! empty( $device_id ) ) {
+                    echo '<p>' . esc_html__( 'Device ID:', 'simple-hotel-crm' ) . ' <code>' . esc_html( $device_id ) . '</code> — save this to the Device ID field above after pairing.</p>';
+                }
+                if ( ! empty( $pair_by ) ) {
+                    echo '<p>' . esc_html__( 'Expires:', 'simple-hotel-crm' ) . ' ' . esc_html( $pair_by ) . ' UTC</p>';
+                }
+                echo '</div>';
+
+                // Auto-fill device_id if returned from a re-pair and none stored yet
+                if ( ! empty( $device_id ) && empty( simple_hotel_crm_square_get_device_id() ) ) {
+                    update_option( 'simple_hotel_crm_square_device_id', $device_id );
+                }
+            }
+        }
+
+        // Mode switching section
+        echo '<hr />';
+        echo '<h2>' . esc_html__( 'Terminal Mode', 'simple-hotel-crm' ) . '</h2>';
+        if ( simple_hotel_crm_square_is_configured() ) {
+            echo '<div class="notice notice-success inline" style="display:block;margin-bottom:12px;">';
+            echo '<p><strong>' . esc_html__( 'Mode: Terminal API (Paired)', 'simple-hotel-crm' ) . '</strong> — The plugin can send payment requests to your terminal.</p>';
+            echo '</div>';
+        } else {
+            echo '<div class="notice notice-info inline" style="display:block;margin-bottom:12px;">';
+            echo '<p><strong>' . esc_html__( 'Mode: Standalone', 'simple-hotel-crm' ) . '</strong> — The terminal works independently. Enter credentials + pair to enable plugin payments.</p>';
+            echo '</div>';
+        }
+        echo '<p>' . esc_html__( 'Your Square Terminal works in two modes:', 'simple-hotel-crm' ) . '</p>';
+        echo '<ol style="margin-left:20px;">';
+        echo '<li><strong>' . esc_html__( 'Standalone:', 'simple-hotel-crm' ) . '</strong> ' . esc_html__( 'Staff enters amounts and takes payments directly on the terminal. No plugin integration.', 'simple-hotel-crm' ) . '</li>';
+        echo '<li><strong>' . esc_html__( 'Terminal API (Paired):', 'simple-hotel-crm' ) . '</strong> ' . esc_html__( 'Plugin sends payment requests to the terminal. Staff just taps the card.', 'simple-hotel-crm' ) . '</li>';
+        echo '</ol>';
+
+        echo '<h3>' . esc_html__( 'Switch to Standalone Mode', 'simple-hotel-crm' ) . '</h3>';
+        echo '<p>' . esc_html__( 'On the Square Terminal:', 'simple-hotel-crm' ) . '</p>';
+        echo '<ol style="margin-left:20px;">';
+        echo '<li>' . esc_html__( 'Swipe from the left edge of the screen to open the menu.', 'simple-hotel-crm' ) . '</li>';
+        echo '<li>' . esc_html__( 'Choose Settings.', 'simple-hotel-crm' ) . '</li>';
+        echo '<li>' . esc_html__( 'Choose Sign Out at the bottom.', 'simple-hotel-crm' ) . '</li>';
+        echo '<li>' . esc_html__( 'The terminal returns to normal standalone mode.', 'simple-hotel-crm' ) . '</li>';
+        echo '</ol>';
+        echo '<p><em>' . esc_html__( 'Note: The Device ID in settings above can be left as-is — it will reconnect when you re-pair.', 'simple-hotel-crm' ) . '</em></p>';
+
+        echo '<h3>' . esc_html__( 'Switch Back to Terminal API Mode', 'simple-hotel-crm' ) . '</h3>';
+        echo '<form method="post">';
+        wp_nonce_field( 'square_device_code', 'square_device_code_nonce' );
+        echo '<p>' . esc_html__( 'Click the button below to generate a pairing code, then enter it on the terminal within 5 minutes:', 'simple-hotel-crm' ) . '</p>';
+        echo '<ol style="margin-left:20px;margin-bottom:12px;">';
+        echo '<li>' . esc_html__( 'Click "Generate Device Code" below.', 'simple-hotel-crm' ) . '</li>';
+        echo '<li>' . esc_html__( 'On the terminal, choose "Device Code" on the sign-in screen.', 'simple-hotel-crm' ) . '</li>';
+        echo '<li>' . esc_html__( 'Enter the code shown on screen.', 'simple-hotel-crm' ) . '</li>';
+        echo '<li>' . esc_html__( 'The terminal pairs automatically. Save the new Device ID to the field above.', 'simple-hotel-crm' ) . '</li>';
+        echo '</ol>';
+        submit_button( __( 'Generate Device Code', 'simple-hotel-crm' ), 'secondary', 'square_generate_device_code', false );
+        echo '</form>';
+
         if ( simple_hotel_crm_square_is_configured() ) {
             echo '<div class="notice notice-success inline"><p>' . esc_html__( 'Square is configured and ready.', 'simple-hotel-crm' ) . '</p></div>';
         } else {

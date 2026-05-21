@@ -184,6 +184,30 @@ function simple_hotel_crm_square_get_payment_status_label( $status ) {
     return isset( $labels[ $status ] ) ? $labels[ $status ] : $status;
 }
 
+function simple_hotel_crm_square_generate_device_code() {
+    $location_id = simple_hotel_crm_square_get_location_id();
+    if ( empty( $location_id ) ) {
+        return new WP_Error( 'square_no_location', 'Location ID not configured.' );
+    }
+
+    $idempotency_key = 'lgf-pair-' . time() . '-' . wp_rand( 1000, 9999 );
+    $body = [
+        'idempotency_key' => $idempotency_key,
+        'device_code' => [
+            'name' => 'LGF Bookings Terminal',
+            'product_type' => 'TERMINAL_API',
+            'location_id' => $location_id,
+        ],
+    ];
+
+    $result = simple_hotel_crm_square_api_request( 'POST', '/v2/devices/codes', $body );
+    if ( is_wp_error( $result ) ) {
+        return $result;
+    }
+
+    return $result;
+}
+
 function simple_hotel_crm_square_get_webhook_url() {
     return rest_url( 'simple-hotel-crm/v1/square-webhook' );
 }
