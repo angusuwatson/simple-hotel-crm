@@ -507,6 +507,7 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
 
     $wpdb->query( 'COMMIT' );
     simple_hotel_crm_clear_calendar_cache();
+    simple_hotel_crm_ics_export_on_booking_change( $booking_id );
     return [ 'booking_id' => $booking_id, 'booking_room_id' => $last_booking_room_id ];
 }
 

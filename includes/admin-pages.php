@@ -1213,6 +1213,8 @@ function simple_hotel_crm_transfer_booking_details( $target_booking_id, $source_
 
     $wpdb->query( 'COMMIT' );
     simple_hotel_crm_clear_calendar_cache();
+    simple_hotel_crm_ics_export_on_booking_change( $target_booking_id );
+    simple_hotel_crm_ics_export_on_booking_change( $source_booking_id );
     return true;
 }
 
@@ -1300,6 +1302,7 @@ function simple_hotel_crm_merge_bookings( $primary_booking_id, $merge_booking_id
     simple_hotel_crm_recalculate_booking_header_totals();
     $wpdb->query( 'COMMIT' );
     simple_hotel_crm_clear_calendar_cache();
+    simple_hotel_crm_ics_export_on_booking_change( $primary_booking_id );
     return true;
 }
 
@@ -1489,6 +1492,7 @@ function simple_hotel_crm_delete_booking( $booking_id ) {
     $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
     $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
 
+    $ics_room_ids = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT room_id FROM {$booking_rooms_table} WHERE booking_id = %d AND room_id IS NOT NULL AND room_id > 0", $booking_id ) );
     $room_ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$booking_rooms_table} WHERE booking_id = %d", $booking_id ) );
     $legacy_ids = $wpdb->get_col( $wpdb->prepare( "SELECT legacy_reserved_room_id FROM {$booking_rooms_table} WHERE booking_id = %d", $booking_id ) );
     if ( ! empty( $room_ids ) ) {
@@ -1500,6 +1504,12 @@ function simple_hotel_crm_delete_booking( $booking_id ) {
     $wpdb->delete( $booking_rooms_table, [ 'booking_id' => $booking_id ], [ '%d' ] );
     $deleted = false !== $wpdb->delete( $bookings_table, [ 'id' => $booking_id ], [ '%d' ] );
     simple_hotel_crm_clear_calendar_cache();
+    foreach ( $ics_room_ids as $crm_room_id ) {
+        $token = simple_hotel_crm_ics_export_get_token( (int) $crm_room_id );
+        if ( $token ) {
+            simple_hotel_crm_ics_export_refresh_file( (int) $crm_room_id, $token );
+        }
+    }
     return $deleted;
 }
 
