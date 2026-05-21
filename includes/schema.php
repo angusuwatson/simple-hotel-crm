@@ -409,7 +409,7 @@ function simple_hotel_crm_get_booking_items( $booking_id, $booking_room_id = nul
 function simple_hotel_crm_get_booking_items_by_room( $booking_id ) {
     global $wpdb;
     $table = simple_hotel_crm_booking_items_table();
-    return $wpdb->get_results( $wpdb->prepare( "SELECT bi.*, br.room_sync_id, sr.room_code, sr.room_name FROM {$table} bi LEFT JOIN " . simple_hotel_crm_booking_rooms_table() . " br ON br.id = bi.booking_room_id LEFT JOIN " . simple_hotel_crm_rooms_table() . " sr ON sr.id = br.room_sync_id WHERE bi.booking_id = %d ORDER BY bi.booking_room_id IS NOT NULL ASC, bi.booking_room_id ASC, bi.stay_date ASC, bi.id ASC", $booking_id ), ARRAY_A );
+    return $wpdb->get_results( $wpdb->prepare( "SELECT bi.*, br.room_id, sr.room_code, sr.room_name FROM {$table} bi LEFT JOIN " . simple_hotel_crm_booking_rooms_table() . " br ON br.id = bi.booking_room_id LEFT JOIN " . simple_hotel_crm_rooms_table() . " sr ON sr.id = br.room_id WHERE bi.booking_id = %d ORDER BY bi.booking_room_id IS NOT NULL ASC, bi.booking_room_id ASC, bi.stay_date ASC, bi.id ASC", $booking_id ), ARRAY_A );
 }
 
 function simple_hotel_crm_get_booking_items_total( $booking_id, $booking_room_id = null ) {
