@@ -4413,9 +4413,75 @@ function simple_hotel_crm_render_settings_page() {
             $catalog_items = simple_hotel_crm_get_catalog_items();
         }
 
+        // Handle bulk actions
+        $bulk_result = null;
+        if ( isset( $_POST['simple_hotel_crm_bulk_action_nonce'] ) ) {
+            check_admin_referer( 'simple_hotel_crm_bulk_action', 'simple_hotel_crm_bulk_action_nonce' );
+            $raw = sanitize_text_field( (string) ( $_POST['bulk_ids'] ?? '' ) );
+            $ids = array_filter( array_map( 'absint', explode( ',', $raw ) ), function( $id ) { return $id > 0; } );
+            $action = sanitize_key( (string) ( $_POST['bulk_action'] ?? '' ) );
+            if ( ! empty( $ids ) ) {
+                if ( 'delete' === $action ) {
+                    $table = simple_hotel_crm_catalog_items_table();
+                    $deleted = 0;
+                    foreach ( $ids as $id ) {
+                        $result = $wpdb->delete( $table, [ 'id' => $id ], [ '%d' ] );
+                        if ( false !== $result ) {
+                            $deleted++;
+                        }
+                    }
+                    $bulk_result = sprintf( 'Deleted %d item(s).', $deleted );
+                } elseif ( 'set-category' === $action ) {
+                    $category = sanitize_text_field( (string) ( $_POST['bulk_category'] ?? '' ) );
+                    if ( in_array( $category, [ 'rooms', 'dinner', 'other' ], true ) ) {
+                        $table = simple_hotel_crm_catalog_items_table();
+                        $updated = 0;
+                        foreach ( $ids as $id ) {
+                            simple_hotel_crm_update_catalog_item( $id, [ 'category' => $category ] );
+                            $updated++;
+                        }
+                        $bulk_result = sprintf( 'Set %d item(s) to "%s".', $updated, $category );
+                    } else {
+                        $bulk_result = 'Invalid category.';
+                    }
+                }
+            } else {
+                $bulk_result = 'No items selected.';
+            }
+            // Re-fetch after bulk action
+            $catalog_items = simple_hotel_crm_get_catalog_items();
+        }
+
         // Items table with inline edit
+        $has_category_col = simple_hotel_crm_table_has_column( simple_hotel_crm_catalog_items_table(), 'category' );
         echo '<h3>' . esc_html__( 'Items', 'simple-hotel-crm' ) . ' (' . esc_html( (string) count( $catalog_items ) ) . ')</h3>';
-        echo '<table class="widefat striped" style="max-width:800px;"><thead><tr>';
+
+        // Bulk action form (uses JS to populate hidden fields)
+        echo '<form method="post" id="bulk-action-form" style="margin-bottom:8px;display:flex;gap:6px;align-items:center;">';
+        wp_nonce_field( 'simple_hotel_crm_bulk_action', 'simple_hotel_crm_bulk_action_nonce' );
+        echo '<select name="bulk_action" id="bulk_action_select">';
+        echo '<option value="">' . esc_html__( 'Bulk Actions', 'simple-hotel-crm' ) . '</option>';
+        echo '<option value="delete">' . esc_html__( 'Delete Selected', 'simple-hotel-crm' ) . '</option>';
+        if ( $has_category_col ) {
+            echo '<option value="set-category">' . esc_html__( 'Set Category', 'simple-hotel-crm' ) . '</option>';
+        }
+        echo '</select>';
+        if ( $has_category_col ) {
+            echo '<select name="bulk_category" id="bulk_category_select" style="display:none;">';
+            foreach ( $category_options as $opt ) {
+                echo '<option value="' . esc_attr( $opt ) . '">' . esc_html( ucfirst( $opt ) ) . '</option>';
+            }
+            echo '</select>';
+        }
+        echo '<input type="hidden" name="bulk_ids" id="bulk_ids_field" value="" />';
+        submit_button( __( 'Apply', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_bulk_action', false, [ 'id' => 'bulk-apply-btn' ] );
+        echo '</form>';
+        if ( $bulk_result ) {
+            echo '<div class="notice notice-success"><p>' . esc_html( $bulk_result ) . '</p></div>';
+        }
+
+        echo '<table class="widefat striped" style="max-width:800px;" id="catalog-items-table"><thead><tr>';
+        echo '<th style="width:30px;"><input type="checkbox" id="select-all-items" /></th>';
         echo '<th>' . esc_html__( 'Name', 'simple-hotel-crm' ) . '</th>';
         echo '<th>' . esc_html__( 'Category', 'simple-hotel-crm' ) . '</th>';
         echo '<th>' . esc_html__( 'Price', 'simple-hotel-crm' ) . '</th>';
@@ -4425,6 +4491,7 @@ function simple_hotel_crm_render_settings_page() {
 
         // Add new item row
         echo '<tr class="new-item-row" style="background:#f0f6fc;">';
+        echo '<td></td>';
         echo '<form method="post" style="display:contents;">';
         wp_nonce_field( 'simple_hotel_crm_catalog_item', 'simple_hotel_crm_catalog_item_nonce' );
         echo '<td><input type="text" name="cat_name" placeholder="' . esc_attr__( 'Item name', 'simple-hotel-crm' ) . '" required style="width:100%;" /></td>';
@@ -4441,6 +4508,7 @@ function simple_hotel_crm_render_settings_page() {
 
         foreach ( $catalog_items as $item ) {
             echo '<tr>';
+            echo '<td><input type="checkbox" class="bulk-item-cb" value="' . esc_attr( (string) $item['id'] ) . '" /></td>';
             echo '<form method="post" style="display:contents;">';
             wp_nonce_field( 'simple_hotel_crm_catalog_item', 'simple_hotel_crm_catalog_item_nonce' );
             echo '<input type="hidden" name="catalog_item_id" value="' . esc_attr( (string) $item['id'] ) . '" />';
@@ -4458,11 +4526,34 @@ function simple_hotel_crm_render_settings_page() {
             echo ' ';
             echo get_submit_button( __( 'Delete', 'simple-hotel-crm' ), 'small', 'simple_hotel_crm_delete_catalog_item', false );
             echo '</td>';
-            echo '</form>';
-            echo '</tr>';
-        }
-        echo '</tbody></table>';
-        echo '<hr />';
+        echo '</form>';
+        echo '</tr>';
+    }
+    echo '</tbody></table>';
+    echo '<script>
+document.addEventListener("DOMContentLoaded",function(){
+var selectAll=document.getElementById("select-all-items");
+if(selectAll){selectAll.addEventListener("change",function(){
+var cbs=document.querySelectorAll(".bulk-item-cb");
+cbs.forEach(function(cb){cb.checked=selectAll.checked});
+});}
+var bulkActionSelect=document.getElementById("bulk_action_select");
+var bulkCategorySelect=document.getElementById("bulk_category_select");
+if(bulkActionSelect&&bulkCategorySelect){bulkActionSelect.addEventListener("change",function(){
+bulkCategorySelect.style.display=this.value==="set-category"?"inline-block":"none";
+});}
+var applyBtn=document.getElementById("bulk-apply-btn");
+if(applyBtn){applyBtn.addEventListener("click",function(e){
+var action=bulkActionSelect?bulkActionSelect.value:"";
+if(!action){alert("Please select a bulk action.");e.preventDefault();return;}
+var checked=document.querySelectorAll(".bulk-item-cb:checked");
+if(checked.length===0){alert("Please select at least one item.");e.preventDefault();return;}
+var ids=[];checked.forEach(function(cb){ids.push(cb.value);});
+document.getElementById("bulk_ids_field").value=ids.join(",");
+});}
+});
+</script>';
+    echo '<hr />';
         echo '<p><strong>' . esc_html__( 'Tips', 'simple-hotel-crm' ) . '</strong></p>';
         echo '<ul style="list-style:disc;margin-left:20px;"><li>' . esc_html__( 'Export your Square item library as CSV, then upload it here.', 'simple-hotel-crm' ) . '</li>';
         echo '<li>' . esc_html__( 'Duplicate item names are updated (upsert) — upload the same CSV again to refresh prices.', 'simple-hotel-crm' ) . '</li>';
