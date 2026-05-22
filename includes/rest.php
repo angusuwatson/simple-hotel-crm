@@ -652,6 +652,28 @@ function simple_hotel_crm_rest_ticket_save( WP_REST_Request $request ) {
     simple_hotel_crm_recalculate_booking_header_totals();
     simple_hotel_crm_clear_calendar_cache();
 
+    // Handle native Terminal SDK payment recording
+    $payment = $request->get_param( 'payment' );
+    if ( is_array( $payment ) && ! empty( $payment['status'] ) && 'completed' === $payment['status'] ) {
+        $paid_amount = round( (float) ( $payment['amount'] ?? 0 ), 2 );
+        $payment_ref = sanitize_text_field( (string) ( $payment['ref'] ?? '' ) );
+        $wpdb->update(
+            simple_hotel_crm_bookings_table(),
+            [ 'payment_status' => 'paid', 'payment_method' => 'terminal_sdk' ],
+            [ 'id' => $booking_id ],
+            [ '%s', '%s' ],
+            [ '%d' ]
+        );
+        update_post_meta( $booking_id, '_square_checkout_status', 'completed' );
+        if ( ! empty( $payment_ref ) ) {
+            update_post_meta( $booking_id, '_terminal_sdk_payment_ref', $payment_ref );
+        }
+        if ( $paid_amount > 0 ) {
+            update_post_meta( $booking_id, '_terminal_sdk_paid_amount', $paid_amount );
+        }
+        $invoice = simple_hotel_crm_create_invoice_ninja_invoice( $booking_id );
+    }
+
     return rest_ensure_response( [ 'success' => true, 'items' => $updated_items ] );
 }
 
