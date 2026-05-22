@@ -29,25 +29,6 @@ if ( isset( $_GET['refresh_nonce'] ) && '1' === $_GET['refresh_nonce'] ) {
     echo json_encode( [ 'nonce' => wp_create_nonce( 'wp_rest' ) ] );
     exit;
 }
-}
-if ( ! $wp_load ) {
-    die( 'WordPress not found. Please ensure this file is within a WordPress installation.' );
-}
-require_once $wp_load;
-
-// ---- Require login ----
-if ( ! is_user_logged_in() ) {
-    $login_url = wp_login_url( ( is_ssl() ? 'https://' : 'http://' ) . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'] );
-    wp_redirect( $login_url );
-    exit;
-}
-
-// ---- Nonce refresh endpoint (called by JS when nonce expires) ----
-if ( isset( $_GET['refresh_nonce'] ) && '1' === $_GET['refresh_nonce'] ) {
-    header( 'Content-Type: application/json' );
-    echo json_encode( [ 'nonce' => wp_create_nonce( 'wp_rest' ) ] );
-    exit;
-}
 
 // ---- Embed initial data ----
 $rest_url    = rest_url( 'simple-hotel-crm/v1/' );
