@@ -76,8 +76,11 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .item-card:active .item-price{color:#ccc}
 /* Right panel: ticket */
 .ticket-panel{width:380px;flex-shrink:0;display:flex;flex-direction:column;background:#fff;overflow:hidden;border-left:2px solid #ddd}
-.ticket-header{padding:14px 16px;font-weight:700;font-size:16px;border-bottom:2px solid #e0e0e0;background:#fafafa;flex-shrink:0}
+.ticket-header{display:flex;align-items:center;gap:8px;padding:14px 16px;font-weight:700;font-size:16px;border-bottom:2px solid #e0e0e0;background:#fafafa;flex-shrink:0}
+.ticket-header #ticket-heading{flex:1}
 .ticket-header small{font-weight:400;font-size:13px;color:#666}
+.th-close{background:none;border:none;font-size:24px;color:#999;cursor:pointer;line-height:1;padding:0 4px}
+.th-close:active{color:#333}
 .ticket-items{flex:1;overflow-y:auto;padding:8px 12px;min-height:0}
 .ticket-empty{color:#bbb;text-align:center;padding:40px 0;font-size:15px}
 .ticket-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background .1s}
@@ -153,7 +156,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 
     <!-- Right: ticket panel -->
     <div class="ticket-panel" id="ticket-panel" style="display:none">
-      <div class="ticket-header" id="ticket-heading"><?php esc_html_e( 'Select a booking', 'simple-hotel-crm' ); ?></div>
+      <div class="ticket-header">
+        <span id="ticket-heading"><?php esc_html_e( 'Select a booking', 'simple-hotel-crm' ); ?></span>
+        <button class="th-close" id="ticket-close">×</button>
+      </div>
       <div class="room-selector" id="room-selector" style="display:none;"></div>
       <div id="ticket-error"></div>
       <div id="pay-error"></div>
@@ -629,6 +635,11 @@ document.addEventListener('DOMContentLoaded',function(){
     });
 
     document.getElementById('save-ticket').addEventListener('click',function(){saveTicket().catch(function(){});});
+    document.getElementById('ticket-close').addEventListener('click',function(){
+        state.activeBookingId=0;state.activeRoomId=0;state.activeBooking=null;
+        state.ticketItems=[];state.savedItems=[];
+        render();
+    });
 
     document.getElementById('pay-ticket').addEventListener('click',function(){showPayModal();});
     document.getElementById('pay-items-list').addEventListener('change',function(e){if(e.target.type==='checkbox') updatePayTotal();});
