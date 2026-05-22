@@ -121,25 +121,6 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 /* Fullscreen button */
 .fs-btn{background:none;border:2px solid rgba(255,255,255,.4);border-radius:8px;color:#fff;font-size:22px;cursor:pointer;padding:4px 10px;line-height:1;transition:border-color .15s}
 .fs-btn:active{border-color:#fff}
-/* Responsive: stack panels on smaller screens */
-@media(max-width:1024px){
-  .main{flex-direction:column}
-  .left-panel{border-right:none;max-height:55vh}
-  .ticket-panel{width:100%;max-height:45vh;border-top:2px solid #ddd}
-  .item-grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}
-  html,body{font-size:16px}
-}
-@media(max-width:600px){
-  .header{padding:8px 10px;flex-wrap:wrap;gap:8px}
-  .header h1{font-size:18px}
-  .header input[type=date]{font-size:14px;padding:6px 10px}
-  .item-grid{grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}
-  .item-card{padding:10px 6px}
-  .item-name{font-size:13px}
-  .booking-card{min-width:140px;padding:8px 12px}
-  .booking-name{font-size:14px}
-  .ticket-panel{max-height:50vh}
-}
 /* Animations */
 @keyframes pop{50%{transform:scale(.92)}}
 /* misc */
