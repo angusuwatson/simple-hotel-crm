@@ -546,6 +546,7 @@ function simple_hotel_crm_rest_square_webhook( WP_REST_Request $request ) {
 
 function simple_hotel_crm_rest_ticket_data( WP_REST_Request $request ) {
     global $wpdb;
+    nocache_headers();
     $date = (string) $request->get_param( 'date' );
     $booking_id = absint( $request->get_param( 'booking_id' ) ?: 0 );
 

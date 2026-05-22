@@ -4869,7 +4869,7 @@ function simple_hotel_crm_render_tickets_page() {
         }
 
         function fetchData() {
-            var params = new URLSearchParams({ date: state.date });
+            var params = new URLSearchParams({ date: state.date, _: Date.now() });
             if (state.activeBookingId > 0) params.set('booking_id', state.activeBookingId);
             return apiGet('ticket-data?' + params.toString()).then(function(data) {
                 state.bookings = data.bookings || [];
