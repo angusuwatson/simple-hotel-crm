@@ -118,7 +118,7 @@ function simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount,
                 'device_id' => $device_id,
                 'skip_receipt_screen' => $skip_receipt,
                 'tip_settings' => [
-                    'allow_tipping' => true,
+                    'allow_tipping' => false,
                 ],
             ],
         ],
