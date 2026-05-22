@@ -543,6 +543,56 @@ function simple_hotel_crm_import_catalog_csv( $file_path ) {
     return [ 'imported' => $imported, 'skipped' => $skipped ];
 }
 
+function simple_hotel_crm_add_catalog_item( $name, $price, $category = 'other', $square_id = null ) {
+    global $wpdb;
+    $table = simple_hotel_crm_catalog_items_table();
+    $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE item_name = %s", $name ) );
+    if ( $existing ) {
+        return simple_hotel_crm_update_catalog_item( $existing, [
+            'unit_price' => $price,
+            'category' => $category,
+            'square_id' => $square_id,
+        ] );
+    }
+    return $wpdb->insert(
+        $table,
+        [
+            'item_name' => sanitize_text_field( $name ),
+            'unit_price' => round( max( 0, (float) $price ), 2 ),
+            'square_id' => ! empty( $square_id ) ? sanitize_text_field( $square_id ) : null,
+            'category' => in_array( $category, [ 'rooms', 'dinner', 'other' ], true ) ? $category : 'other',
+        ],
+        [ '%s', '%f', '%s', '%s' ]
+    );
+}
+
+function simple_hotel_crm_update_catalog_item( $item_id, $data ) {
+    global $wpdb;
+    $table = simple_hotel_crm_catalog_items_table();
+    $update = [];
+    $formats = [];
+    if ( isset( $data['item_name'] ) ) {
+        $update['item_name'] = sanitize_text_field( $data['item_name'] );
+        $formats[] = '%s';
+    }
+    if ( isset( $data['unit_price'] ) ) {
+        $update['unit_price'] = round( max( 0, (float) $data['unit_price'] ), 2 );
+        $formats[] = '%f';
+    }
+    if ( isset( $data['category'] ) ) {
+        $update['category'] = in_array( $data['category'], [ 'rooms', 'dinner', 'other' ], true ) ? $data['category'] : 'other';
+        $formats[] = '%s';
+    }
+    if ( isset( $data['square_id'] ) ) {
+        $update['square_id'] = ! empty( $data['square_id'] ) ? sanitize_text_field( $data['square_id'] ) : null;
+        $formats[] = '%s';
+    }
+    if ( empty( $update ) ) {
+        return false;
+    }
+    return $wpdb->update( $table, $update, [ 'id' => absint( $item_id ) ], $formats, [ '%d' ] );
+}
+
 function simple_hotel_crm_delete_catalog_item( $item_id ) {
     global $wpdb;
     return $wpdb->delete( simple_hotel_crm_catalog_items_table(), [ 'id' => absint( $item_id ) ], [ '%d' ] );
