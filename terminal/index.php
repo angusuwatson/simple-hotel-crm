@@ -55,7 +55,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 /* Main layout */
 .main{display:flex;flex:1;overflow:hidden;position:relative}
 /* Left panel: bookings + catalog */
-.left-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;margin-right:380px}
+.left-panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
+.main.panel-visible .left-panel{margin-right:380px}
 .bookings-row{display:flex;gap:10px;padding:12px;overflow-x:auto;flex-shrink:0;background:#fff;border-bottom:2px solid #e0e0e0;min-height:80px}
 .booking-card{flex:0 0 auto;padding:10px 16px;border-radius:10px;border:2px solid #ddd;background:#fff;cursor:pointer;text-align:left;min-width:180px;transition:border-color .15s}
 .booking-card:active,.booking-card-active{border-color:#1a1a2e;background:#f0f0ff}
@@ -152,7 +153,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
     </div>
 
     <!-- Right: ticket panel -->
-    <div class="ticket-panel" id="ticket-panel">
+    <div class="ticket-panel" id="ticket-panel" style="display:none">
       <div class="ticket-header" id="ticket-heading"><?php esc_html_e( 'Select a booking', 'simple-hotel-crm' ); ?></div>
       <div class="room-selector" id="room-selector" style="display:none;"></div>
       <div id="ticket-error"></div>
@@ -295,10 +296,9 @@ function renderBookings(){
     var container=document.getElementById('booking-cards');
     if(state.bookings.length===0){
         container.innerHTML='<div class="text-muted text-sm" style="padding:8px;"><?php echo esc_js( __( 'No bookings on this date.', 'simple-hotel-crm' ) ); ?></div>';
-        hide('ticket-panel');
+        hideTicketPanel();
         return;
     }
-    show('ticket-panel');
     var cards=state.bookings.map(function(b){
         var isActive=parseInt(b.id,10)===state.activeBookingId;
         var rooms=state.roomsByBooking[b.id]||[];
@@ -373,12 +373,14 @@ function renderCatalog(){
 }
 
 /* ---- Ticket ---- */
+function showTicketPanel(){show('ticket-panel');document.querySelector('.main').classList.add('panel-visible')}
+function hideTicketPanel(){hide('ticket-panel');document.querySelector('.main').classList.remove('panel-visible')}
 function renderTicket(){
     if(!state.activeBookingId){
-        hide('ticket-panel');
+        hideTicketPanel();
         return;
     }
-    show('ticket-panel');
+    showTicketPanel();
     var b=state.activeBooking;
     var name=b?((b.first_name||'')+' '+(b.last_name||'')).trim():'#'+state.activeBookingId;
     setText('ticket-heading',name+' — '+(state.bookingRooms.map(function(r){return r.room_code}).join(', ')||'No room'));
