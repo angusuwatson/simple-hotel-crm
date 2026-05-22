@@ -163,6 +163,7 @@ function simple_hotel_crm_square_create_confirmation_action( $booking_id, $bill_
         'idempotency_key' => $idempotency_key,
         'action' => [
             'type' => 'CONFIRMATION',
+            'device_id' => $device_id,
             'confirmation_options' => [
                 'title' => 'Booking #' . $booking_id,
                 'body' => $bill_text,
@@ -171,7 +172,6 @@ function simple_hotel_crm_square_create_confirmation_action( $booking_id, $bill_
             'await_next_action' => true,
             'deadline_duration' => 'PT5M',
         ],
-        'device_id' => $device_id,
     ];
 
     $result = simple_hotel_crm_square_api_request( 'POST', '/v2/terminals/actions', $body );
