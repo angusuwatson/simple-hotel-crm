@@ -4880,6 +4880,8 @@ function simple_hotel_crm_render_tickets_page() {
                     state.ticketItems = [];
                 }
                 render();
+            }).catch(function(err) {
+                showError(err.message || 'Failed to load data.');
             });
         }
 
@@ -5058,6 +5060,7 @@ function simple_hotel_crm_render_tickets_page() {
             var el = document.getElementById('ticket-error');
             if (el) { el.textContent = msg; el.style.display = ''; setTimeout(function() { el.style.display = 'none'; }, 3000); }
         }
+        function hideError() { hide('ticket-error'); }
 
         function showPayError(msg) {
             var el = document.getElementById('pay-error');
