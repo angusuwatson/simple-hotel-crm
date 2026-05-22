@@ -75,10 +75,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .item-price{font-size:14px;color:#666;margin-top:4px}
 .item-card:active .item-price{color:#ccc}
 /* Right panel: ticket */
-.ticket-panel{width:380px;flex-shrink:0;display:flex;flex-direction:column;background:#fff}
+.ticket-panel{width:380px;flex-shrink:0;display:flex;flex-direction:column;background:#fff;overflow:hidden}
 .ticket-header{padding:14px 16px;font-weight:700;font-size:16px;border-bottom:2px solid #e0e0e0;background:#fafafa;flex-shrink:0}
 .ticket-header small{font-weight:400;font-size:13px;color:#666}
-.ticket-items{flex:1;overflow-y:auto;padding:8px 12px}
+.ticket-items{flex:1;overflow-y:auto;padding:8px 12px;min-height:0}
 .ticket-empty{color:#bbb;text-align:center;padding:40px 0;font-size:15px}
 .ticket-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background .1s}
 .ticket-item:active{background:#f0f0f0}
