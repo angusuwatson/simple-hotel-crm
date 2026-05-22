@@ -53,10 +53,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .header input[type=date]{font-size:18px;padding:8px 12px;border-radius:8px;border:none;background:#fff;color:#1a1a1a}
 .header .user-name{margin-left:auto;font-size:14px;color:#aaa}
 /* Main layout */
-.main{display:flex;flex:1;overflow:hidden;position:relative}
+.main{display:flex;flex:1;overflow:hidden}
 /* Left panel: bookings + catalog */
 .left-panel{flex:1;display:flex;flex-direction:column;overflow:hidden}
-.main.panel-visible .left-panel{margin-right:380px}
 .bookings-row{display:flex;gap:10px;padding:12px;overflow-x:auto;flex-shrink:0;background:#fff;border-bottom:2px solid #e0e0e0;min-height:80px}
 .booking-card{flex:0 0 auto;padding:10px 16px;border-radius:10px;border:2px solid #ddd;background:#fff;cursor:pointer;text-align:left;min-width:180px;transition:border-color .15s}
 .booking-card:active,.booking-card-active{border-color:#1a1a2e;background:#f0f0ff}
@@ -76,10 +75,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .item-price{font-size:14px;color:#666;margin-top:4px}
 .item-card:active .item-price{color:#ccc}
 /* Right panel: ticket */
-.ticket-panel{position:absolute;top:0;right:0;bottom:0;width:380px;display:flex;flex-direction:column;background:#fff;overflow:hidden;border-left:2px solid #ddd}
+.ticket-panel{width:380px;flex-shrink:0;display:flex;flex-direction:column;background:#fff;overflow:hidden;border-left:2px solid #ddd}
 .ticket-header{padding:14px 16px;font-weight:700;font-size:16px;border-bottom:2px solid #e0e0e0;background:#fafafa;flex-shrink:0}
 .ticket-header small{font-weight:400;font-size:13px;color:#666}
-.ticket-items{flex:1;overflow-y:auto;padding:8px 12px 64px;min-height:0}
+.ticket-items{flex:1;overflow-y:auto;padding:8px 12px;min-height:0}
 .ticket-empty{color:#bbb;text-align:center;padding:40px 0;font-size:15px}
 .ticket-item{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:8px;cursor:pointer;transition:background .1s}
 .ticket-item:active{background:#f0f0f0}
@@ -87,7 +86,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .ticket-item .ti-qty{font-size:14px;color:#666;min-width:32px;text-align:center}
 .ticket-item .ti-total{font-size:14px;font-weight:600;min-width:60px;text-align:right}
 .ticket-item .ti-remove{background:none;border:none;font-size:20px;color:#c00;cursor:pointer;padding:0 4px;line-height:1}
-.ticket-footer{position:absolute;bottom:0;left:0;right:0;padding:12px 16px;border-top:2px solid #e0e0e0;background:#fafafa}
+.ticket-footer{flex-shrink:0;padding:12px 16px;border-top:2px solid #e0e0e0;background:#fafafa}
 .ticket-total{font-size:20px;font-weight:700;margin-bottom:10px}
 .ticket-actions{display:flex;gap:8px}
 .ticket-actions button{flex:1;padding:14px;border-radius:10px;border:none;font-size:16px;font-weight:700;cursor:pointer;transition:background .15s}
@@ -296,7 +295,7 @@ function renderBookings(){
     var container=document.getElementById('booking-cards');
     if(state.bookings.length===0){
         container.innerHTML='<div class="text-muted text-sm" style="padding:8px;"><?php echo esc_js( __( 'No bookings on this date.', 'simple-hotel-crm' ) ); ?></div>';
-        hideTicketPanel();
+        hide('ticket-panel');
         return;
     }
     var cards=state.bookings.map(function(b){
@@ -373,14 +372,12 @@ function renderCatalog(){
 }
 
 /* ---- Ticket ---- */
-function showTicketPanel(){show('ticket-panel');document.querySelector('.main').classList.add('panel-visible')}
-function hideTicketPanel(){hide('ticket-panel');document.querySelector('.main').classList.remove('panel-visible')}
 function renderTicket(){
     if(!state.activeBookingId){
-        hideTicketPanel();
+        hide('ticket-panel');
         return;
     }
-    showTicketPanel();
+    show('ticket-panel');
     var b=state.activeBooking;
     var name=b?((b.first_name||'')+' '+(b.last_name||'')).trim():'#'+state.activeBookingId;
     setText('ticket-heading',name+' — '+(state.bookingRooms.map(function(r){return r.room_code}).join(', ')||'No room'));
