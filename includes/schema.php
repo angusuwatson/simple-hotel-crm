@@ -458,6 +458,12 @@ function simple_hotel_crm_migrate_catalog_items() {
                 error_log( 'simple-hotel-crm: Failed to add category column: ' . $wpdb->last_error );
             }
         }
+        if ( ! simple_hotel_crm_table_has_column( $table, 'favorite' ) ) {
+            $result = $wpdb->query( "ALTER TABLE {$table} ADD COLUMN favorite tinyint(1) NOT NULL DEFAULT 0" );
+            if ( false === $result ) {
+                error_log( 'simple-hotel-crm: Failed to add favorite column: ' . $wpdb->last_error );
+            }
+        }
         return;
     }
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -468,6 +474,7 @@ function simple_hotel_crm_migrate_catalog_items() {
         unit_price decimal(10,2) NOT NULL DEFAULT 0.00,
         square_id varchar(191) NULL,
         category varchar(50) NOT NULL DEFAULT 'other',
+        favorite tinyint(1) NOT NULL DEFAULT 0,
         created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         UNIQUE KEY item_name (item_name)
@@ -475,24 +482,39 @@ function simple_hotel_crm_migrate_catalog_items() {
     dbDelta( $sql );
 }
 
-function simple_hotel_crm_ensure_catalog_category_column() {
+function simple_hotel_crm_ensure_catalog_columns() {
     global $wpdb;
     $table = simple_hotel_crm_catalog_items_table();
+    $errors = [];
     if ( ! simple_hotel_crm_table_has_column( $table, 'category' ) ) {
         $result = $wpdb->query( "ALTER TABLE {$table} ADD COLUMN category varchar(50) NOT NULL DEFAULT 'other'" );
         if ( false === $result ) {
-            return 'Failed to add category column: ' . $wpdb->last_error;
+            $errors[] = 'Failed to add category column: ' . $wpdb->last_error;
         }
     }
-    return true;
+    if ( ! simple_hotel_crm_table_has_column( $table, 'favorite' ) ) {
+        $result = $wpdb->query( "ALTER TABLE {$table} ADD COLUMN favorite tinyint(1) NOT NULL DEFAULT 0" );
+        if ( false === $result ) {
+            $errors[] = 'Failed to add favorite column: ' . $wpdb->last_error;
+        }
+    }
+    return empty( $errors ) ? true : implode( '; ', $errors );
+}
+
+function simple_hotel_crm_toggle_favorite( $item_id ) {
+    global $wpdb;
+    $table = simple_hotel_crm_catalog_items_table();
+    $current = $wpdb->get_var( $wpdb->prepare( "SELECT favorite FROM {$table} WHERE id = %d", $item_id ) );
+    if ( null === $current ) {
+        return false;
+    }
+    $new = $current ? 0 : 1;
+    return $wpdb->update( $table, [ 'favorite' => $new ], [ 'id' => $item_id ], [ '%d' ], [ '%d' ] );
 }
 
 function simple_hotel_crm_repair_catalog_table() {
-    $err = simple_hotel_crm_ensure_catalog_category_column();
-    if ( true !== $err ) {
-        return $err;
-    }
-    return true;
+    $err = simple_hotel_crm_ensure_catalog_columns();
+    return $err;
 }
 
 function simple_hotel_crm_get_catalog_items() {
@@ -511,7 +533,7 @@ function simple_hotel_crm_import_catalog_csv( $file_path ) {
     // Ensure category column exists before importing
     $has_category = simple_hotel_crm_table_has_column( $table, 'category' );
     if ( ! $has_category ) {
-        $result = simple_hotel_crm_ensure_catalog_category_column();
+        $result = simple_hotel_crm_ensure_catalog_columns();
         if ( true === $result ) {
             $has_category = true;
         } else {
@@ -615,7 +637,7 @@ function simple_hotel_crm_import_catalog_csv( $file_path ) {
     return [ 'imported' => $imported, 'skipped' => $skipped, 'errors' => $errors ];
 }
 
-function simple_hotel_crm_add_catalog_item( $name, $price, $category = 'other', $square_id = null ) {
+function simple_hotel_crm_add_catalog_item( $name, $price, $category = 'other', $square_id = null, $favorite = 0 ) {
     global $wpdb;
     $table = simple_hotel_crm_catalog_items_table();
     $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE item_name = %s", $name ) );
@@ -635,6 +657,10 @@ function simple_hotel_crm_add_catalog_item( $name, $price, $category = 'other', 
     if ( simple_hotel_crm_table_has_column( $table, 'category' ) ) {
         $data['category'] = in_array( $category, [ 'rooms', 'dinner', 'other' ], true ) ? $category : 'other';
         $formats[] = '%s';
+    }
+    if ( simple_hotel_crm_table_has_column( $table, 'favorite' ) ) {
+        $data['favorite'] = $favorite ? 1 : 0;
+        $formats[] = '%d';
     }
     return $wpdb->insert( $table, $data, $formats );
 }

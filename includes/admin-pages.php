@@ -4358,6 +4358,14 @@ function simple_hotel_crm_render_settings_page() {
                 echo '<div class="notice notice-success"><p>' . esc_html__( 'Item updated.', 'simple-hotel-crm' ) . '</p></div>';
             }
         }
+        // Handle toggle favorite
+        if ( isset( $_POST['simple_hotel_crm_toggle_favorite_item'] ) ) {
+            check_admin_referer( 'simple_hotel_crm_catalog_item', 'simple_hotel_crm_catalog_item_nonce' );
+            $item_id = absint( $_POST['catalog_item_id'] ?? 0 );
+            if ( $item_id > 0 ) {
+                simple_hotel_crm_toggle_favorite( $item_id );
+            }
+        }
         // Handle delete
         if ( isset( $_POST['simple_hotel_crm_delete_catalog_item'] ) ) {
             check_admin_referer( 'simple_hotel_crm_catalog_item', 'simple_hotel_crm_catalog_item_nonce' );
@@ -4482,33 +4490,45 @@ function simple_hotel_crm_render_settings_page() {
 
         echo '<table class="widefat striped" style="max-width:800px;" id="catalog-items-table"><thead><tr>';
         echo '<th style="width:30px;"><input type="checkbox" id="select-all-items" /></th>';
+        echo '<th style="width:30px;">★</th>';
         echo '<th>' . esc_html__( 'Name', 'simple-hotel-crm' ) . '</th>';
         echo '<th>' . esc_html__( 'Category', 'simple-hotel-crm' ) . '</th>';
         echo '<th>' . esc_html__( 'Price', 'simple-hotel-crm' ) . '</th>';
         echo '<th>' . esc_html__( 'Square ID', 'simple-hotel-crm' ) . '</th>';
         echo '<th></th>';
-        echo '</tr></thead><tbody>';
+        echo '</tr></thead>';
 
-        // Add new item row
-        echo '<tr class="new-item-row" style="background:#f0f6fc;">';
-        echo '<td></td>';
-        echo '<form method="post" style="display:contents;">';
-        wp_nonce_field( 'simple_hotel_crm_catalog_item', 'simple_hotel_crm_catalog_item_nonce' );
-        echo '<td><input type="text" name="cat_name" placeholder="' . esc_attr__( 'Item name', 'simple-hotel-crm' ) . '" required style="width:100%;" /></td>';
-        echo '<td><select name="cat_category" style="width:100%;">';
-        foreach ( $category_options as $opt ) {
-            echo '<option value="' . esc_attr( $opt ) . '"' . ( 'other' === $opt ? ' selected' : '' ) . '>' . esc_html( ucfirst( $opt ) ) . '</option>';
-        }
-        echo '</select></td>';
-        echo '<td><input type="number" step="0.01" min="0" name="cat_price" placeholder="0.00" required style="width:90px;" /></td>';
-        echo '<td><input type="text" name="cat_square_id" placeholder="' . esc_attr__( '(optional)', 'simple-hotel-crm' ) . '" style="width:100%;" /></td>';
-        echo '<td>' . get_submit_button( __( 'Add', 'simple-hotel-crm' ), 'primary small', 'simple_hotel_crm_add_catalog_item', false ) . '</td>';
-        echo '</form>';
-        echo '</tr>';
-
+        // Group items: favorites first, then by category
+        $favorites = [];
+        $grouped = [ 'rooms' => [], 'dinner' => [], 'other' => [] ];
         foreach ( $catalog_items as $item ) {
-            echo '<tr>';
+            $is_fav = ! empty( $item['favorite'] );
+            $cat = (string) ( $item['category'] ?? 'other' );
+            if ( ! isset( $grouped[ $cat ] ) ) {
+                $cat = 'other';
+            }
+            if ( $is_fav ) {
+                $favorites[] = $item;
+            }
+            $grouped[ $cat ][] = $item;
+        }
+
+        $section_titles = [
+            'favorites' => __( 'Favourites', 'simple-hotel-crm' ),
+            'rooms' => __( 'Rooms', 'simple-hotel-crm' ),
+            'dinner' => __( 'Dinner', 'simple-hotel-crm' ),
+            'other' => __( 'Other', 'simple-hotel-crm' ),
+        ];
+        $section_order = [ 'favorites' => $favorites, 'rooms' => $grouped['rooms'], 'dinner' => $grouped['dinner'], 'other' => $grouped['other'] ];
+
+        $render_item_row = function( $item ) use ( $category_options ) {
+            $fav = ! empty( $item['favorite'] );
             echo '<td><input type="checkbox" class="bulk-item-cb" value="' . esc_attr( (string) $item['id'] ) . '" /></td>';
+            echo '<td style="text-align:center;"><form method="post" style="display:inline;">';
+            wp_nonce_field( 'simple_hotel_crm_catalog_item', 'simple_hotel_crm_catalog_item_nonce' );
+            echo '<input type="hidden" name="catalog_item_id" value="' . esc_attr( (string) $item['id'] ) . '" />';
+            echo '<button type="submit" name="simple_hotel_crm_toggle_favorite_item" class="star-btn" style="background:none;border:none;cursor:pointer;font-size:18px;line-height:1;color:' . ( $fav ? '#f5b342' : '#ccc' ) . ';" title="' . ( $fav ? esc_attr__( 'Remove from favourites', 'simple-hotel-crm' ) : esc_attr__( 'Add to favourites', 'simple-hotel-crm' ) ) . '">' . ( $fav ? '★' : '☆' ) . '</button>';
+            echo '</form></td>';
             echo '<form method="post" style="display:contents;">';
             wp_nonce_field( 'simple_hotel_crm_catalog_item', 'simple_hotel_crm_catalog_item_nonce' );
             echo '<input type="hidden" name="catalog_item_id" value="' . esc_attr( (string) $item['id'] ) . '" />';
@@ -4526,31 +4546,87 @@ function simple_hotel_crm_render_settings_page() {
             echo ' ';
             echo get_submit_button( __( 'Delete', 'simple-hotel-crm' ), 'small', 'simple_hotel_crm_delete_catalog_item', false );
             echo '</td>';
+            echo '</form>';
+        };
+
+        // Add-new row (outside category groups, always visible)
+        echo '<tbody><tr class="new-item-row" style="background:#f0f6fc;">';
+        echo '<td></td><td></td>';
+        echo '<form method="post" style="display:contents;">';
+        wp_nonce_field( 'simple_hotel_crm_catalog_item', 'simple_hotel_crm_catalog_item_nonce' );
+        echo '<td><input type="text" name="cat_name" placeholder="' . esc_attr__( 'Item name', 'simple-hotel-crm' ) . '" required style="width:100%;" /></td>';
+        echo '<td><select name="cat_category" style="width:100%;">';
+        foreach ( $category_options as $opt ) {
+            echo '<option value="' . esc_attr( $opt ) . '"' . ( 'other' === $opt ? ' selected' : '' ) . '>' . esc_html( ucfirst( $opt ) ) . '</option>';
+        }
+        echo '</select></td>';
+        echo '<td><input type="number" step="0.01" min="0" name="cat_price" placeholder="0.00" required style="width:90px;" /></td>';
+        echo '<td><input type="text" name="cat_square_id" placeholder="' . esc_attr__( '(optional)', 'simple-hotel-crm' ) . '" style="width:100%;" /></td>';
+        echo '<td>' . get_submit_button( __( 'Add', 'simple-hotel-crm' ), 'primary small', 'simple_hotel_crm_add_catalog_item', false ) . '</td>';
         echo '</form>';
-        echo '</tr>';
-    }
-    echo '</tbody></table>';
-    echo '<script>
+        echo '</tr></tbody>';
+
+        $first = true;
+        foreach ( $section_order as $key => $items ) {
+            if ( empty( $items ) ) {
+                continue;
+            }
+            $is_fav = 'favorites' === $key;
+            $expanded = $is_fav ? 'true' : 'false';
+            echo '<tbody class="cat-group" data-category="' . esc_attr( $key ) . '">';
+            echo '<tr class="cat-header" style="cursor:pointer;background:#e8e8e8;user-select:none;">';
+            echo '<td colspan="7" style="padding:6px 10px;font-weight:700;">';
+            echo '<span class="collapse-icon" style="display:inline-block;width:16px;">' . ( $is_fav ? '▼' : '▶' ) . '</span> ';
+            echo esc_html( $section_titles[ $key ] ) . ' <span style="font-weight:400;color:#666;">(' . count( $items ) . ')</span>';
+            echo '</td></tr>';
+            // Items hidden by default unless favorites
+            $display_style = $is_fav ? '' : ' style="display:none;"';
+            foreach ( $items as $item ) {
+                echo '<tr class="cat-item"' . $display_style . '>';
+                ( $render_item_row )( $item );
+                echo '</tr>';
+            }
+            echo '</tbody>';
+            $first = false;
+        }
+
+        echo '</table>';
+
+        echo '<style>
+@keyframes click-pop { 50% { transform:scale(0.92); } }
+#catalog-items-table input[type=submit]:active { animation:click-pop 0.15s ease; }
+.star-btn:active { animation:click-pop 0.15s ease; }
+.cat-header:hover { background:#ddd !important; }
+</style>';
+        echo '<script>
 document.addEventListener("DOMContentLoaded",function(){
+// Select all
 var selectAll=document.getElementById("select-all-items");
 if(selectAll){selectAll.addEventListener("change",function(){
-var cbs=document.querySelectorAll(".bulk-item-cb");
-cbs.forEach(function(cb){cb.checked=selectAll.checked});
+document.querySelectorAll(".bulk-item-cb").forEach(function(cb){cb.checked=selectAll.checked});
 });}
-var bulkActionSelect=document.getElementById("bulk_action_select");
-var bulkCategorySelect=document.getElementById("bulk_category_select");
-if(bulkActionSelect&&bulkCategorySelect){bulkActionSelect.addEventListener("change",function(){
-bulkCategorySelect.style.display=this.value==="set-category"?"inline-block":"none";
-});}
-var applyBtn=document.getElementById("bulk-apply-btn");
-if(applyBtn){applyBtn.addEventListener("click",function(e){
-var action=bulkActionSelect?bulkActionSelect.value:"";
-if(!action){alert("Please select a bulk action.");e.preventDefault();return;}
-var checked=document.querySelectorAll(".bulk-item-cb:checked");
-if(checked.length===0){alert("Please select at least one item.");e.preventDefault();return;}
-var ids=[];checked.forEach(function(cb){ids.push(cb.value);});
+// Bulk action UI
+var ba=document.getElementById("bulk_action_select");
+var bc=document.getElementById("bulk_category_select");
+if(ba&&bc){ba.addEventListener("change",function(){bc.style.display=this.value==="set-category"?"inline-block":"none";});}
+var ab=document.getElementById("bulk-apply-btn");
+if(ab){ab.addEventListener("click",function(e){
+var a=ba?ba.value:"";if(!a){alert("Please select a bulk action.");e.preventDefault();return;}
+var c=document.querySelectorAll(".bulk-item-cb:checked");if(c.length===0){alert("Please select at least one item.");e.preventDefault();return;}
+var ids=[];c.forEach(function(cb){ids.push(cb.value);});
 document.getElementById("bulk_ids_field").value=ids.join(",");
 });}
+// Collapsible categories
+document.querySelectorAll(".cat-header").forEach(function(hdr){
+hdr.addEventListener("click",function(){
+var tbody=hdr.closest("tbody");
+var icon=tbody.querySelector(".collapse-icon");
+var items=tbody.querySelectorAll(".cat-item");
+var expanded=items.length>0&&items[0].style.display!=="none";
+items.forEach(function(r){r.style.display=expanded?"none":"";});
+if(icon){icon.textContent=expanded?"\\u25B6":"\\u25BC";}
+});
+});
 });
 </script>';
     echo '<hr />';
