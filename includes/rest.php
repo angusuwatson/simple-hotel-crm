@@ -649,6 +649,8 @@ function simple_hotel_crm_rest_ticket_save( WP_REST_Request $request ) {
     }
 
     $updated_items = simple_hotel_crm_get_booking_items_by_room( $booking_id );
+    simple_hotel_crm_recalculate_booking_header_totals();
+    simple_hotel_crm_clear_calendar_cache();
 
     return rest_ensure_response( [ 'success' => true, 'items' => $updated_items ] );
 }

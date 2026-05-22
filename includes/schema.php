@@ -452,6 +452,9 @@ function simple_hotel_crm_migrate_catalog_items() {
     global $wpdb;
     $table = simple_hotel_crm_catalog_items_table();
     if ( simple_hotel_crm_table_has_column( $table, 'id' ) ) {
+        if ( ! simple_hotel_crm_table_has_column( $table, 'category' ) ) {
+            $wpdb->query( "ALTER TABLE {$table} ADD COLUMN category varchar(50) NOT NULL DEFAULT 'other'" );
+        }
         return;
     }
     require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -461,6 +464,7 @@ function simple_hotel_crm_migrate_catalog_items() {
         item_name varchar(255) NOT NULL,
         unit_price decimal(10,2) NOT NULL DEFAULT 0.00,
         square_id varchar(191) NULL,
+        category varchar(50) NOT NULL DEFAULT 'other',
         created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY  (id),
         UNIQUE KEY item_name (item_name)
@@ -470,7 +474,7 @@ function simple_hotel_crm_migrate_catalog_items() {
 
 function simple_hotel_crm_get_catalog_items() {
     global $wpdb;
-    return $wpdb->get_results( "SELECT * FROM " . simple_hotel_crm_catalog_items_table() . " ORDER BY item_name ASC", ARRAY_A );
+    return $wpdb->get_results( "SELECT * FROM " . simple_hotel_crm_catalog_items_table() . " ORDER BY FIELD(category, 'rooms', 'dinner', 'other'), item_name ASC", ARRAY_A );
 }
 
 function simple_hotel_crm_import_catalog_csv( $file_path ) {
@@ -489,6 +493,7 @@ function simple_hotel_crm_import_catalog_csv( $file_path ) {
     $name_col = null;
     $price_col = null;
     $square_col = null;
+    $category_col = null;
     foreach ( $header as $i => $col ) {
         $col = trim( $col );
         if ( in_array( $col, [ 'name', 'item name', 'item_name' ], true ) ) {
@@ -497,6 +502,8 @@ function simple_hotel_crm_import_catalog_csv( $file_path ) {
             $price_col = $i;
         } elseif ( in_array( $col, [ 'id', 'sku', 'square_id', 'item id' ], true ) ) {
             $square_col = $i;
+        } elseif ( in_array( $col, [ 'category', 'cat' ], true ) ) {
+            $category_col = $i;
         }
     }
     if ( null === $name_col || null === $price_col ) {
@@ -509,6 +516,7 @@ function simple_hotel_crm_import_catalog_csv( $file_path ) {
         $name = isset( $row[ $name_col ] ) ? sanitize_text_field( trim( (string) $row[ $name_col ] ) ) : '';
         $price = isset( $row[ $price_col ] ) ? (float) str_replace( [ ',', '€', '$' ], [ '.', '', '' ], trim( (string) $row[ $price_col ] ) ) : 0;
         $square_id = null !== $square_col && isset( $row[ $square_col ] ) ? sanitize_text_field( trim( (string) $row[ $square_col ] ) ) : null;
+        $category = null !== $category_col && isset( $row[ $category_col ] ) ? sanitize_text_field( trim( (string) $row[ $category_col ] ) ) : 'other';
         if ( '' === $name || $price <= 0 ) {
             $skipped++;
             continue;
@@ -517,16 +525,16 @@ function simple_hotel_crm_import_catalog_csv( $file_path ) {
         if ( $existing ) {
             $wpdb->update(
                 $table,
-                [ 'unit_price' => $price, 'square_id' => $square_id ],
+                [ 'unit_price' => $price, 'square_id' => $square_id, 'category' => $category ],
                 [ 'id' => $existing ],
-                [ '%f', '%s' ],
+                [ '%f', '%s', '%s' ],
                 [ '%d' ]
             );
         } else {
             $wpdb->insert(
                 $table,
-                [ 'item_name' => $name, 'unit_price' => $price, 'square_id' => $square_id ],
-                [ '%s', '%f', '%s' ]
+                [ 'item_name' => $name, 'unit_price' => $price, 'square_id' => $square_id, 'category' => $category ],
+                [ '%s', '%f', '%s', '%s' ]
             );
         }
         $imported++;

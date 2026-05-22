@@ -4320,7 +4320,7 @@ function simple_hotel_crm_render_settings_page() {
         $catalog_items = simple_hotel_crm_get_catalog_items();
         echo '<h2>' . esc_html__( 'Item Catalog', 'simple-hotel-crm' ) . '</h2>';
         echo '<p>' . esc_html__( 'Import your Square items via CSV to use as a product catalog. Items appear as a dropdown in the Extras & Charges section on the booking detail page.', 'simple-hotel-crm' ) . '</p>';
-        echo '<p>' . esc_html__( 'CSV format: columns "name" and "price" are required. Optional "square_id" column for future Square sync.', 'simple-hotel-crm' ) . '</p>';
+        echo '<p>' . esc_html__( 'CSV format: columns "name" and "price" are required. Optional "square_id" and "category" (values: rooms, dinner, other) columns.', 'simple-hotel-crm' ) . '</p>';
         // Import form
         echo '<form method="post" enctype="multipart/form-data" style="margin:12px 0;padding:12px;background:#fff;border:1px solid #ccd0d4;">';
         wp_nonce_field( 'simple_hotel_crm_import_catalog', 'simple_hotel_crm_import_catalog_nonce' );
@@ -4338,10 +4338,11 @@ function simple_hotel_crm_render_settings_page() {
         if ( empty( $catalog_items ) ) {
             echo '<p><em>' . esc_html__( 'No items in catalog yet. Upload a CSV to get started.', 'simple-hotel-crm' ) . '</em></p>';
         } else {
-            echo '<table class="widefat striped" style="max-width:500px;"><thead><tr><th>' . esc_html__( 'Item', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Price', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Square ID', 'simple-hotel-crm' ) . '</th><th></th></tr></thead><tbody>';
+            echo '<table class="widefat striped" style="max-width:650px;"><thead><tr><th>' . esc_html__( 'Item', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Category', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Price', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Square ID', 'simple-hotel-crm' ) . '</th><th></th></tr></thead><tbody>';
             foreach ( $catalog_items as $item ) {
                 echo '<tr>';
                 echo '<td>' . esc_html( (string) $item['item_name'] ) . '</td>';
+                echo '<td>' . esc_html( (string) ( $item['category'] ?? 'other' ) ) . '</td>';
                 echo '<td>' . esc_html( number_format( (float) $item['unit_price'], 2, '.', '' ) ) . '</td>';
                 echo '<td><code>' . esc_html( (string) ( $item['square_id'] ?? '' ) ) . '</code></td>';
                 echo '<td><form method="post" style="display:inline;" onsubmit="return confirm(\'' . esc_js( __( 'Delete this item?', 'simple-hotel-crm' ) ) . '\');">';
@@ -4739,7 +4740,8 @@ function simple_hotel_crm_render_tickets_page() {
         #booking-cards { display:flex; gap:6px; flex-wrap:wrap; }
         #ticket-main { }
         #ticket-catalog { margin-bottom:16px; }
-        #item-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:6px; }
+        .catalog-category-header { font-size:14px; font-weight:600; margin:12px 0 6px 0; padding:4px 8px; background:#f0f0f1; border-radius:3px; text-transform:capitalize; }
+        .catalog-category-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:6px; margin-bottom:8px; }
         .booking-card, .booking-card-active { padding:10px 12px; border:1px solid #ccc; border-radius:4px; cursor:pointer; text-align:left; background:#fff; transition:all .15s; min-width:180px; flex:1 0 auto; }
         .booking-card:hover { background:#f0f0f1; border-color:#8c8f94; }
         .booking-card-active { background:#2271b1; color:#fff; border-color:#2271b1; }
@@ -4938,14 +4940,27 @@ function simple_hotel_crm_render_tickets_page() {
                 grid.innerHTML = '<em><?php echo esc_js( __( 'No catalog items. Import CSV in Settings.', 'simple-hotel-crm' ) ); ?></em>';
                 return;
             }
-            var cards = state.catalog.map(function(item) {
-                return el('div', { className: 'item-card', onClick: function() { addItem(item); } }, [
-                    el('div', { className: 'item-name' }, [item.item_name]),
-                    el('div', { className: 'item-price' }, [parseFloat(item.unit_price).toFixed(2) + '\u20ac']),
-                ]);
+            var categories = {};
+            state.catalog.forEach(function(item) {
+                var cat = item.category || 'other';
+                if (!categories[cat]) categories[cat] = [];
+                categories[cat].push(item);
             });
+            var catOrder = ['rooms', 'dinner', 'other'];
             grid.innerHTML = '';
-            cards.forEach(function(card) { grid.appendChild(card); });
+            catOrder.forEach(function(cat) {
+                var items = categories[cat];
+                if (!items || items.length === 0) return;
+                grid.appendChild(el('h3', { className: 'catalog-category-header' }, [cat]));
+                var catGrid = el('div', { className: 'catalog-category-grid' });
+                items.forEach(function(item) {
+                    catGrid.appendChild(el('div', { className: 'item-card', onClick: function() { addItem(item); } }, [
+                        el('div', { className: 'item-name' }, [item.item_name]),
+                        el('div', { className: 'item-price' }, [parseFloat(item.unit_price).toFixed(2) + '\u20ac']),
+                    ]));
+                });
+                grid.appendChild(catGrid);
+            });
         }
 
         function renderTicket() {
@@ -5109,15 +5124,21 @@ function simple_hotel_crm_render_tickets_page() {
                 var roomGroups = {};
                 state.roomNights.forEach(function(n) {
                     var key = n.booking_room_id;
-                    if (!roomGroups[key]) roomGroups[key] = { roomName: n.room_name || n.room_code, total: 0, nights: 0 };
-                    roomGroups[key].total += parseFloat(n.room_rate_amount);
+                    if (!roomGroups[key]) roomGroups[key] = { roomName: n.room_name || n.room_code, roomTotal: 0, taxTotal: 0, nights: 0 };
+                    roomGroups[key].roomTotal += parseFloat(n.room_rate_amount);
+                    roomGroups[key].taxTotal += parseFloat(n.tourist_tax_amount);
                     roomGroups[key].nights += 1;
                 });
 
                 var charges = [];
                 Object.keys(roomGroups).forEach(function(key) {
                     var rg = roomGroups[key];
-                    charges.push({ id: 'room-' + key, label: rg.roomName + ' (' + rg.nights + ' nuits)', amount: rg.total, type: 'room' });
+                    if (rg.roomTotal > 0) {
+                        charges.push({ id: 'room-' + key, label: rg.roomName + ' (' + rg.nights + ' nuits)', amount: rg.roomTotal, type: 'room' });
+                    }
+                    if (rg.taxTotal > 0) {
+                        charges.push({ id: 'tax-' + key, label: rg.roomName + ' \u2014 Taxe de s\u00e9jour', amount: rg.taxTotal, type: 'tax' });
+                    }
                 });
 
                 var savedItems = state.savedItems || [];
@@ -5133,9 +5154,8 @@ function simple_hotel_crm_render_tickets_page() {
                 }
 
                 var rows = charges.map(function(c, idx) {
-                    var checked = c.type === 'item';
                     return el('div', { className: 'pay-item' }, [
-                        el('input', { type: 'checkbox', id: 'pay-chk-' + idx, checked: checked, value: c.amount, 'data-label': c.label }),
+                        el('input', { type: 'checkbox', id: 'pay-chk-' + idx, checked: true, value: c.amount, 'data-label': c.label }),
                         el('label', { htmlFor: 'pay-chk-' + idx }, [c.label]),
                         el('span', { className: 'pay-amount' }, [c.amount.toFixed(2) + '\u20ac']),
                     ]);
