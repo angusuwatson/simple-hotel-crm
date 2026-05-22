@@ -169,12 +169,9 @@ function simple_hotel_crm_square_create_confirmation_action( $booking_id, $bill_
                 'agree_button_text' => 'OK',
             ],
             'await_next_action' => true,
-            'device_options' => [
-                'device_id' => $device_id,
-                'skip_receipt_screen' => true,
-            ],
             'deadline_duration' => 'PT5M',
         ],
+        'device_id' => $device_id,
     ];
 
     $result = simple_hotel_crm_square_api_request( 'POST', '/v2/terminals/actions', $body );
