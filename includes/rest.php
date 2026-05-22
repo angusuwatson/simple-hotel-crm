@@ -142,7 +142,7 @@ add_action( 'rest_api_init', function() {
         'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
     ] );
 
-    register_rest_route( 'simple-hotel-crm/v1', '/ticket-checkout-status/(?P<action_id>[a-zA-Z0-9\-_:]+)', [
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-checkout-status/(?P<action_id>[^/]+)', [
         'methods'  => 'GET',
         'callback' => 'simple_hotel_crm_rest_ticket_checkout_status',
         'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },

@@ -455,6 +455,10 @@ function showError(msg){
     if(el){el.textContent=msg;el.style.display='';setTimeout(function(){el.style.display='none';},4000);}
 }
 function hidePayError(){document.getElementById('pay-error').style.display='none';document.getElementById('pay-success').style.display='none';}
+function showPayError(msg){
+    var el=document.getElementById('pay-error');
+    if(el){el.textContent=msg;el.style.display='';setTimeout(function(){el.style.display='none';},5000);}
+}
 
 function saveTicket(){
     hide('ticket-error');
