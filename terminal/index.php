@@ -608,8 +608,15 @@ function closePayModal(){
 
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
 
+/* ---- Fix viewport height (100vh includes browser chrome on tablets) ---- */
+function fixViewportHeight(){
+    document.getElementById('app').style.height=window.innerHeight+'px';
+}
+window.addEventListener('resize',fixViewportHeight);
+
 /* ---- Init ---- */
 document.addEventListener('DOMContentLoaded',function(){
+    fixViewportHeight();
     var dateInput=document.getElementById('ticket-date');
     if(!dateInput) return;
     state.date=dateInput.value;
@@ -644,6 +651,7 @@ document.addEventListener('DOMContentLoaded',function(){
         });
         function fsChange(){
             fsBtn.textContent=(document.fullscreenElement||document.webkitFullscreenElement)?'✕':'⛶';
+            fixViewportHeight();
         }
         document.addEventListener('fullscreenchange',fsChange);
         document.addEventListener('webkitfullscreenchange',fsChange);
