@@ -41,7 +41,7 @@ $catalog     = $catalog_raw ?: [];
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>LGF Orders</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -118,6 +118,28 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 /* Room selector */
 .room-selector{padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:14px;border-bottom:1px solid #e0e0e0;background:#fafafa}
 .room-selector select{padding:6px 10px;border-radius:6px;border:1px solid #ccc;font-size:14px}
+/* Fullscreen button */
+.fs-btn{background:none;border:2px solid rgba(255,255,255,.4);border-radius:8px;color:#fff;font-size:22px;cursor:pointer;padding:4px 10px;line-height:1;transition:border-color .15s}
+.fs-btn:active{border-color:#fff}
+/* Responsive: stack panels on smaller screens */
+@media(max-width:1024px){
+  .main{flex-direction:column}
+  .left-panel{border-right:none;max-height:55vh}
+  .ticket-panel{width:100%;max-height:45vh;border-top:2px solid #ddd}
+  .item-grid{grid-template-columns:repeat(auto-fill,minmax(110px,1fr))}
+  html,body{font-size:16px}
+}
+@media(max-width:600px){
+  .header{padding:8px 10px;flex-wrap:wrap;gap:8px}
+  .header h1{font-size:18px}
+  .header input[type=date]{font-size:14px;padding:6px 10px}
+  .item-grid{grid-template-columns:repeat(auto-fill,minmax(90px,1fr))}
+  .item-card{padding:10px 6px}
+  .item-name{font-size:13px}
+  .booking-card{min-width:140px;padding:8px 12px}
+  .booking-name{font-size:14px}
+  .ticket-panel{max-height:50vh}
+}
 /* Animations */
 @keyframes pop{50%{transform:scale(.92)}}
 /* misc */
@@ -130,9 +152,10 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 <body>
 
 <div id="app">
-  <div class="header">
+    <div class="header">
     <h1>LGF Orders</h1>
     <input type="date" id="ticket-date" value="<?php echo esc_attr( $today ); ?>">
+    <button id="fs-toggle" class="fs-btn" title="Fullscreen">⛶</button>
     <span class="user-name"><?php echo esc_html( wp_get_current_user()->display_name ); ?></span>
   </div>
 
@@ -621,6 +644,26 @@ document.addEventListener('DOMContentLoaded',function(){
     document.getElementById('pay-items-list').addEventListener('change',function(e){if(e.target.type==='checkbox') updatePayTotal();});
     document.getElementById('pay-confirm').addEventListener('click',function(){sendToTerminal();});
     document.getElementById('pay-cancel').addEventListener('click',function(){closePayModal();});
+
+    // Fullscreen toggle
+    var fsBtn=document.getElementById('fs-toggle');
+    if(fsBtn){
+        fsBtn.addEventListener('click',function(){
+            var d=document.documentElement;
+            if(!document.fullscreenElement&&!document.webkitFullscreenElement){
+                if(d.requestFullscreen) d.requestFullscreen();
+                else if(d.webkitRequestFullscreen) d.webkitRequestFullscreen();
+            }else{
+                if(document.exitFullscreen) document.exitFullscreen();
+                else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+            }
+        });
+        function fsChange(){
+            fsBtn.textContent=(document.fullscreenElement||document.webkitFullscreenElement)?'✕':'⛶';
+        }
+        document.addEventListener('fullscreenchange',fsChange);
+        document.addEventListener('webkitfullscreenchange',fsChange);
+    }
 
     fetchData();
 });
