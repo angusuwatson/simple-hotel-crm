@@ -53,9 +53,9 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .header input[type=date]{font-size:18px;padding:8px 12px;border-radius:8px;border:none;background:#fff;color:#1a1a1a}
 .header .user-name{margin-left:auto;font-size:14px;color:#aaa}
 /* Main layout */
-.main{display:flex;flex:1;overflow:hidden;min-height:0}
+.main{display:flex;flex:1;overflow:hidden;position:relative}
 /* Left panel: bookings + catalog */
-.left-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;border-right:2px solid #ddd}
+.left-panel{flex:1;display:flex;flex-direction:column;overflow:hidden;margin-right:380px}
 .bookings-row{display:flex;gap:10px;padding:12px;overflow-x:auto;flex-shrink:0;background:#fff;border-bottom:2px solid #e0e0e0;min-height:80px}
 .booking-card{flex:0 0 auto;padding:10px 16px;border-radius:10px;border:2px solid #ddd;background:#fff;cursor:pointer;text-align:left;min-width:180px;transition:border-color .15s}
 .booking-card:active,.booking-card-active{border-color:#1a1a2e;background:#f0f0ff}
@@ -75,7 +75,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .item-price{font-size:14px;color:#666;margin-top:4px}
 .item-card:active .item-price{color:#ccc}
 /* Right panel: ticket */
-.ticket-panel{width:380px;flex-shrink:0;display:flex;flex-direction:column;background:#fff;overflow:hidden;min-height:0;position:relative}
+.ticket-panel{position:absolute;top:0;right:0;bottom:0;width:380px;display:flex;flex-direction:column;background:#fff;overflow:hidden;border-left:2px solid #ddd}
 .ticket-header{padding:14px 16px;font-weight:700;font-size:16px;border-bottom:2px solid #e0e0e0;background:#fafafa;flex-shrink:0}
 .ticket-header small{font-weight:400;font-size:13px;color:#666}
 .ticket-items{flex:1;overflow-y:auto;padding:8px 12px 64px;min-height:0}
