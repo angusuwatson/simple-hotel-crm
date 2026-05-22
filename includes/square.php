@@ -57,7 +57,7 @@ function simple_hotel_crm_square_api_request( $method, $path, $body = null ) {
         'headers' => [
             'Authorization' => 'Bearer ' . $token,
             'Content-Type' => 'application/json',
-            'Square-Version' => '2026-05-19',
+            'Square-Version' => '2026-05-20',
         ],
         'timeout' => 30,
     ];
@@ -149,6 +149,54 @@ function simple_hotel_crm_square_get_checkout_status( $checkout_id ) {
     }
 
     return isset( $result['checkout']['status'] ) ? $result['checkout']['status'] : 'unknown';
+}
+
+function simple_hotel_crm_square_create_confirmation_action( $booking_id, $bill_text ) {
+    $device_id = simple_hotel_crm_square_get_device_id();
+    if ( empty( $device_id ) ) {
+        return new WP_Error( 'square_no_device', 'Square Device ID not configured.' );
+    }
+
+    $idempotency_key = 'confirm-booking-' . $booking_id . '-' . time();
+
+    $body = [
+        'idempotency_key' => $idempotency_key,
+        'action' => [
+            'type' => 'CONFIRMATION',
+            'confirmation_options' => [
+                'title' => 'Booking #' . $booking_id,
+                'body' => $bill_text,
+                'agree_button_text' => 'OK',
+            ],
+            'await_next_action' => true,
+            'device_options' => [
+                'device_id' => $device_id,
+                'skip_receipt_screen' => true,
+            ],
+            'deadline_duration' => 'PT5M',
+        ],
+    ];
+
+    $result = simple_hotel_crm_square_api_request( 'POST', '/v2/terminals/actions', $body );
+
+    if ( is_wp_error( $result ) ) {
+        return $result;
+    }
+
+    $action_id = isset( $result['action']['id'] ) ? $result['action']['id'] : '';
+    if ( empty( $action_id ) ) {
+        return new WP_Error( 'square_no_action_id', 'No action ID returned from Square.' );
+    }
+
+    return $result;
+}
+
+function simple_hotel_crm_square_get_action_status( $action_id ) {
+    $result = simple_hotel_crm_square_api_request( 'GET', '/v2/terminals/actions/' . $action_id );
+    if ( is_wp_error( $result ) ) {
+        return $result;
+    }
+    return isset( $result['action']['status'] ) ? $result['action']['status'] : 'UNKNOWN';
 }
 
 function simple_hotel_crm_square_cancel_checkout( $checkout_id ) {
