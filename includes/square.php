@@ -169,8 +169,7 @@ function simple_hotel_crm_square_create_confirmation_action( $booking_id, $bill_
                 'body' => $bill_text,
                 'agree_button_text' => 'OK',
             ],
-            'await_next_action' => true,
-            'deadline_duration' => 'PT5M',
+
         ],
     ];
 
