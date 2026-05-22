@@ -4815,7 +4815,10 @@ function simple_hotel_crm_render_tickets_page() {
                 if (typeof children === 'string') { elem.textContent = children; }
                 else if (Array.isArray(children)) {
                     for (var i = 0; i < children.length; i++) {
-                        if (children[i]) elem.appendChild(children[i]);
+                        var c = children[i];
+                        if (c == null) continue;
+                        if (typeof c === 'string') { elem.appendChild(document.createTextNode(c)); }
+                        else { elem.appendChild(c); }
                     }
                 } else if (children instanceof Node) { elem.appendChild(children); }
             }
