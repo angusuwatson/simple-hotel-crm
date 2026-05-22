@@ -2,7 +2,7 @@
 /**
  * Plugin Name: LGF Bookings
  * Description: A simple WordPress-native hotel CRM with calendar and booking management tools
- * Version: 1.9.2.40
+ * Version: 1.9.2.41
  * Update URI: https://github.com/angusuwatson/lgf-bookings-plugin
  * Author: Angus Watson
  * Text Domain: simple-hotel-crm
@@ -10,7 +10,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SIMPLE_HOTEL_CRM_VERSION', '1.9.2.40' );
+define( 'SIMPLE_HOTEL_CRM_VERSION', '1.9.2.41' );
 define( 'SIMPLE_HOTEL_CRM_DB_VERSION', '20' );
 define( 'SIMPLE_HOTEL_CRM_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
@@ -62,21 +62,33 @@ function simple_hotel_crm_maybe_upgrade() {
     if ( SIMPLE_HOTEL_CRM_VERSION !== $installed_plugin_version ) {
         simple_hotel_crm_clear_calendar_cache();
         update_option( 'simple_hotel_crm_plugin_version', SIMPLE_HOTEL_CRM_VERSION );
-        delete_option( 'simple_hotel_crm_needs_rewrite_flush' );
     }
 }
+
+require_once plugin_dir_path( __FILE__ ) . 'includes/schema.php';
+
+require_once plugin_dir_path( __FILE__ ) . 'includes/helpers.php';
+
+require_once plugin_dir_path( __FILE__ ) . 'includes/calendar-data.php';
+
+require_once plugin_dir_path( __FILE__ ) . 'includes/admin-pages.php';
+
+require_once plugin_dir_path( __FILE__ ) . 'includes/crm-bookings.php';
+
+require_once plugin_dir_path( __FILE__ ) . 'includes/rest.php';
+
+require_once plugin_dir_path( __FILE__ ) . 'includes/invoicing.php';
+
+require_once plugin_dir_path( __FILE__ ) . 'includes/ics-export.php';
+
+require_once plugin_dir_path( __FILE__ ) . 'includes/square.php';
+
+require_once plugin_dir_path( __FILE__ ) . 'includes/updater.php';
 
 // ---- Terminal Web App rewrite ----
 add_action( 'init', function() {
     add_rewrite_rule( '^terminal/?$', 'index.php?simple_hotel_crm_terminal=1', 'top' );
     add_rewrite_tag( '%simple_hotel_crm_terminal%', '1' );
-} );
-
-add_action( 'template_redirect', function() {
-    if ( get_query_var( 'simple_hotel_crm_terminal' ) ) {
-        require_once plugin_dir_path( __FILE__ ) . 'terminal/index.php';
-        exit;
-    }
 } );
 
 add_action( 'template_redirect', function() {
