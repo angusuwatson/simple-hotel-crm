@@ -95,6 +95,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .btn-save:active{background:#333366}
 .btn-pay{background:#2e7d32;color:#fff}
 .btn-pay:active{background:#1b5e20}
+.btn-print{background:#5c6bc0;color:#fff}
+.btn-print:active{background:#3949ab}
 /* Error / indicator */
 #ticket-error,#pay-error{background:#ffebee;color:#c62828;padding:10px 16px;border-radius:8px;margin:8px 12px;display:none;font-size:14px}
 #pay-success{background:#e8f5e9;color:#2e7d32;padding:10px 16px;border-radius:8px;margin:8px 12px;display:none;font-size:14px}
@@ -128,6 +130,20 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
 .text-sm{font-size:13px}
 .w-full{width:100%}
 .no-select{user-select:none}
+/* Print receipt */
+#print-receipt{display:none}
+@media print{
+  body *{visibility:hidden}
+  #print-receipt,#print-receipt *{visibility:visible}
+  #print-receipt{position:absolute;left:0;top:0;width:100%;padding:20px;font-size:14px;color:#000;background:#fff;display:block!important}
+  #print-receipt h2{font-size:18px;margin-bottom:12px}
+  #print-receipt table{width:100%;border-collapse:collapse;margin:8px 0}
+  #print-receipt th,#print-receipt td{text-align:left;padding:6px 4px;border-bottom:1px solid #ddd}
+  #print-receipt th{font-weight:700;border-bottom:2px solid #333}
+  #print-receipt .print-total{font-size:16px;font-weight:700;margin-top:8px;text-align:right}
+  #print-receipt .print-meta{color:#666;font-size:12px;margin-bottom:4px}
+  #print-receipt .print-footer{margin-top:16px;font-size:11px;color:#999;text-align:center}
+}
 </style>
 </head>
 <body>
@@ -161,6 +177,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
         <div class="ticket-total" id="ticket-total"></div>
         <div class="ticket-actions">
           <button class="btn-save" id="save-ticket"><?php esc_html_e( 'Save', 'simple-hotel-crm' ); ?></button>
+          <button class="btn-print" id="print-ticket"><?php esc_html_e( '🖨 Print', 'simple-hotel-crm' ); ?></button>
           <button class="btn-pay" id="pay-ticket"><?php esc_html_e( 'Pay', 'simple-hotel-crm' ); ?></button>
           <span id="ticket-save-indicator"><?php esc_html_e( 'Saving…', 'simple-hotel-crm' ); ?></span>
         </div>
@@ -184,6 +201,8 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
     </div>
   </div>
 </div>
+
+<div id="print-receipt"></div>
 
 <script>
 (function(){
@@ -607,6 +626,28 @@ function closePayModal(){
     hide('pay-success');
 }
 
+function printTicket(){
+    if(!state.activeBookingId||state.ticketItems.length===0){showError('<?php echo esc_js( __( 'Nothing to print.', 'simple-hotel-crm' ) ); ?>');return;}
+    var b=state.activeBooking;
+    var name=b?((b.first_name||'')+' '+(b.last_name||'')).trim():'#'+state.activeBookingId;
+    var rooms=state.bookingRooms.map(function(r){return r.room_code}).join(', ');
+    var date=state.date;
+    var rows=state.ticketItems.map(function(item,idx){
+        var lineTotal=(item.qty*item.price).toFixed(2);
+        return '<tr><td>'+item.name+'</td><td style="text-align:center">×'+item.qty+'</td><td style="text-align:right">'+lineTotal+'€</td></tr>';
+    }).join('');
+    var total=state.ticketItems.reduce(function(s,item){return s+item.qty*item.price;},0).toFixed(2)+'€';
+    document.getElementById('print-receipt').innerHTML=
+        '<h2>LGF Orders — Ticket</h2>'+
+        '<div class="print-meta">'+escHtml(name)+' · '+(rooms||'No room')+' · '+date+'</div>'+
+        '<table><thead><tr><th>Item</th><th style="text-align:center">Qty</th><th style="text-align:right">Total</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+        '<div class="print-total">Total: '+total+'</div>'+
+        '<div class="print-footer">Lagrange Fleurie · '+new Date().toLocaleString()+'</div>';
+    setTimeout(function(){window.print();},100);
+}
+
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+
 /* ---- Init ---- */
 document.addEventListener('DOMContentLoaded',function(){
     var dateInput=document.getElementById('ticket-date');
@@ -621,6 +662,7 @@ document.addEventListener('DOMContentLoaded',function(){
     });
 
     document.getElementById('save-ticket').addEventListener('click',function(){saveTicket().catch(function(){});});
+    document.getElementById('print-ticket').addEventListener('click',function(){printTicket();});
     document.getElementById('pay-ticket').addEventListener('click',function(){showPayModal();});
     document.getElementById('pay-items-list').addEventListener('change',function(e){if(e.target.type==='checkbox') updatePayTotal();});
     document.getElementById('pay-confirm').addEventListener('click',function(){sendToTerminal();});
