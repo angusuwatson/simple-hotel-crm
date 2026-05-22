@@ -4733,13 +4733,14 @@ function simple_hotel_crm_render_tickets_page() {
     </div>
 
     <style>
-        #ticket-layout { display:flex; gap:16px; align-items:flex-start; }
-        #ticket-bookings { flex:0 0 320px; max-height:80vh; overflow-y:auto; position:sticky; top:40px; }
+        #ticket-layout { }
+        #ticket-bookings { margin-bottom:16px; }
         #ticket-bookings h2 { margin-top:0; }
-        #ticket-main { flex:1; min-width:0; }
+        #booking-cards { display:flex; gap:6px; flex-wrap:wrap; }
+        #ticket-main { }
         #ticket-catalog { margin-bottom:16px; }
         #item-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(120px,1fr)); gap:6px; }
-        .booking-card, .booking-card-active { display:block; width:100%; padding:10px 12px; margin-bottom:6px; border:1px solid #ccc; border-radius:4px; cursor:pointer; text-align:left; background:#fff; transition:all .15s; }
+        .booking-card, .booking-card-active { padding:10px 12px; border:1px solid #ccc; border-radius:4px; cursor:pointer; text-align:left; background:#fff; transition:all .15s; min-width:180px; flex:1 0 auto; }
         .booking-card:hover { background:#f0f0f1; border-color:#8c8f94; }
         .booking-card-active { background:#2271b1; color:#fff; border-color:#2271b1; }
         .booking-card-active:hover { background:#135e96; }
