@@ -4371,6 +4371,15 @@ function simple_hotel_crm_render_settings_page() {
             echo '<div class="notice notice-error"><p>' . esc_html( $import_result->get_error_message() ) . '</p></div>';
         } elseif ( is_array( $import_result ) ) {
             echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Imported: %1$d items, Skipped: %2$d', 'simple-hotel-crm' ), $import_result['imported'], $import_result['skipped'] ) ) . '</p></div>';
+            if ( ! empty( $import_result['errors'] ) ) {
+                echo '<div class="notice notice-error"><p><strong>' . esc_html__( 'Errors:', 'simple-hotel-crm' ) . '</strong></p><ul>';
+                foreach ( $import_result['errors'] as $err ) {
+                    echo '<li>' . esc_html( $err ) . '</li>';
+                }
+                echo '</ul></div>';
+            }
+            // Re-fetch after import
+            $catalog_items = simple_hotel_crm_get_catalog_items();
         }
 
         // Items table with inline edit

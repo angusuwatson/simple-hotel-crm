@@ -474,7 +474,7 @@ function simple_hotel_crm_migrate_catalog_items() {
 
 function simple_hotel_crm_get_catalog_items() {
     global $wpdb;
-    return $wpdb->get_results( "SELECT * FROM " . simple_hotel_crm_catalog_items_table() . " ORDER BY FIELD(category, 'rooms', 'dinner', 'other'), item_name ASC", ARRAY_A );
+    return $wpdb->get_results( "SELECT * FROM " . simple_hotel_crm_catalog_items_table() . " ORDER BY CASE category WHEN 'rooms' THEN 0 WHEN 'dinner' THEN 1 ELSE 2 END, item_name ASC", ARRAY_A );
 }
 
 function simple_hotel_crm_import_catalog_csv( $file_path ) {
@@ -494,6 +494,7 @@ function simple_hotel_crm_import_catalog_csv( $file_path ) {
     $price_col = null;
     $square_col = null;
     $category_col = null;
+    $variation_col = null;
     foreach ( $header as $i => $col ) {
         $col = trim( $col );
         if ( in_array( $col, [ 'name', 'item name', 'item_name' ], true ) ) {
@@ -504,6 +505,8 @@ function simple_hotel_crm_import_catalog_csv( $file_path ) {
             $square_col = $i;
         } elseif ( in_array( $col, [ 'category', 'cat' ], true ) ) {
             $category_col = $i;
+        } elseif ( in_array( $col, [ 'variation name', 'variation_name', 'variant name', 'variant_name' ], true ) ) {
+            $variation_col = $i;
         }
     }
     if ( null === $name_col || null === $price_col ) {
@@ -512,9 +515,18 @@ function simple_hotel_crm_import_catalog_csv( $file_path ) {
     }
     $imported = 0;
     $skipped = 0;
+    $errors = [];
     while ( ( $row = fgetcsv( $handle ) ) !== false ) {
         $name = isset( $row[ $name_col ] ) ? sanitize_text_field( trim( (string) $row[ $name_col ] ) ) : '';
-        $price = isset( $row[ $price_col ] ) ? (float) str_replace( [ ',', '€', '$' ], [ '.', '', '' ], trim( (string) $row[ $price_col ] ) ) : 0;
+        // If variation name column present, append to item name for uniqueness
+        if ( null !== $variation_col && isset( $row[ $variation_col ] ) ) {
+            $variation = sanitize_text_field( trim( (string) $row[ $variation_col ] ) );
+            if ( '' !== $variation && $variation !== $name ) {
+                $name .= ' (' . $variation . ')';
+            }
+        }
+        $price_raw = isset( $row[ $price_col ] ) ? trim( (string) $row[ $price_col ] ) : '0';
+        $price = (float) str_replace( [ ',', '€', '$' ], [ '.', '', '' ], $price_raw );
         $square_id = null !== $square_col && isset( $row[ $square_col ] ) ? sanitize_text_field( trim( (string) $row[ $square_col ] ) ) : null;
         $category = null !== $category_col && isset( $row[ $category_col ] ) ? sanitize_text_field( trim( (string) $row[ $category_col ] ) ) : 'other';
         if ( '' === $name || $price <= 0 ) {
@@ -523,24 +535,32 @@ function simple_hotel_crm_import_catalog_csv( $file_path ) {
         }
         $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE item_name = %s", $name ) );
         if ( $existing ) {
-            $wpdb->update(
+            $result = $wpdb->update(
                 $table,
                 [ 'unit_price' => $price, 'square_id' => $square_id, 'category' => $category ],
                 [ 'id' => $existing ],
                 [ '%f', '%s', '%s' ],
                 [ '%d' ]
             );
+            if ( false === $result ) {
+                $errors[] = sprintf( 'Update failed for "%s": %s', $name, $wpdb->last_error );
+                continue;
+            }
         } else {
-            $wpdb->insert(
+            $result = $wpdb->insert(
                 $table,
                 [ 'item_name' => $name, 'unit_price' => $price, 'square_id' => $square_id, 'category' => $category ],
                 [ '%s', '%f', '%s', '%s' ]
             );
+            if ( false === $result ) {
+                $errors[] = sprintf( 'Insert failed for "%s": %s', $name, $wpdb->last_error );
+                continue;
+            }
         }
         $imported++;
     }
     fclose( $handle );
-    return [ 'imported' => $imported, 'skipped' => $skipped ];
+    return [ 'imported' => $imported, 'skipped' => $skipped, 'errors' => $errors ];
 }
 
 function simple_hotel_crm_add_catalog_item( $name, $price, $category = 'other', $square_id = null ) {
