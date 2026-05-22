@@ -4781,6 +4781,7 @@ function simple_hotel_crm_render_tickets_page() {
     <script>
     (function() {
         var restUrl = <?php echo wp_json_encode( $rest_url ); ?>;
+        var wpNonce = <?php echo wp_json_encode( wp_create_nonce( 'wp_rest' ) ); ?>;
         var state = {
             date: '',
             bookings: [],
@@ -4834,7 +4835,10 @@ function simple_hotel_crm_render_tickets_page() {
         function setHTML(id, html) { var e = document.getElementById(id); if (e) e.innerHTML = html; }
 
         function apiGet(path) {
-            return fetch(restUrl + path).then(function(r) {
+            return fetch(restUrl + path, {
+                headers: { 'X-WP-Nonce': wpNonce },
+                credentials: 'same-origin',
+            }).then(function(r) {
                 if (!r.ok) return r.json().then(function(e) { throw new Error(e.message || 'API error'); });
                 return r.json();
             });
@@ -4843,7 +4847,8 @@ function simple_hotel_crm_render_tickets_page() {
         function apiPost(path, body) {
             return fetch(restUrl + path, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': wpNonce },
+                credentials: 'same-origin',
                 body: JSON.stringify(body),
             }).then(function(r) {
                 if (!r.ok) return r.json().then(function(e) { throw new Error(e.code ? e.message : 'API error'); });
