@@ -177,6 +177,7 @@ html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Ro
     <h2><?php esc_html_e( 'Confirm Payment', 'simple-hotel-crm' ); ?></h2>
     <div id="pay-items-list"></div>
     <div class="pay-total" id="pay-total"></div>
+    <div id="pay-modal-error" style="background:#ffebee;color:#c62828;padding:10px 16px;border-radius:8px;margin:8px 0;display:none;font-size:14px"></div>
     <div style="margin:8px 0;">
       <label><input type="checkbox" id="pay-skip-receipt"> <?php esc_html_e( 'Skip receipt screen', 'simple-hotel-crm' ); ?></label>
     </div>
@@ -454,9 +455,13 @@ function showError(msg){
     var el=document.getElementById('ticket-error');
     if(el){el.textContent=msg;el.style.display='';setTimeout(function(){el.style.display='none';},4000);}
 }
-function hidePayError(){document.getElementById('pay-error').style.display='none';document.getElementById('pay-success').style.display='none';}
+function hidePayError(){
+    var e1=document.getElementById('pay-error');if(e1)e1.style.display='none';
+    var e2=document.getElementById('pay-modal-error');if(e2)e2.style.display='none';
+    var s=document.getElementById('pay-success');if(s)s.style.display='none';
+}
 function showPayError(msg){
-    var el=document.getElementById('pay-error');
+    var el=document.getElementById('pay-modal-error')||document.getElementById('pay-error');
     if(el){el.textContent=msg;el.style.display='';setTimeout(function(){el.style.display='none';},5000);}
 }
 
