@@ -4298,6 +4298,30 @@ function simple_hotel_crm_render_settings_page() {
     } elseif ( 'ics-export' === $tab ) {
         simple_hotel_crm_render_ics_export_panel();
     } elseif ( 'item-catalog' === $tab ) {
+        // Handle sample CSV download
+        if ( isset( $_GET['download_sample_csv'] ) ) {
+            check_admin_referer( 'download_sample_csv' );
+            header( 'Content-Type: text/csv; charset=utf-8' );
+            header( 'Content-Disposition: attachment; filename="sample-catalog-import.csv"' );
+            echo "Item Name,Price,SKU,Category,Variation Name\n";
+            echo "Coffee,3.50,COF001,dinner,\n";
+            echo "Croissant,4.00,CRO001,dinner,\n";
+            echo "Chambre Coquelicot,95.00,COQ001,rooms,\n";
+            echo "Chambre Bleuet,85.00,COQ001,rooms,\n";
+            echo "Beer,5.00,BEER001,dinner,Pint\n";
+            echo "Beer,8.00,BEER002,dinner,Bottle\n";
+            exit;
+        }
+        // Handle repair
+        if ( isset( $_POST['repair_catalog_table'] ) ) {
+            check_admin_referer( 'repair_catalog_table' );
+            $result = simple_hotel_crm_repair_catalog_table();
+            if ( true === $result ) {
+                echo '<div class="notice notice-success"><p>' . esc_html__( 'Catalog table is up to date.', 'simple-hotel-crm' ) . '</p></div>';
+            } else {
+                echo '<div class="notice notice-error"><p>' . esc_html( $result ) . '</p></div>';
+            }
+        }
         // Handle add
         if ( isset( $_POST['simple_hotel_crm_add_catalog_item'] ) ) {
             check_admin_referer( 'simple_hotel_crm_catalog_item', 'simple_hotel_crm_catalog_item_nonce' );
@@ -4364,8 +4388,15 @@ function simple_hotel_crm_render_settings_page() {
         echo '<table class="form-table"><tr><th scope="row"><label for="catalog_csv">' . esc_html__( 'Upload CSV', 'simple-hotel-crm' ) . '</label></th>';
         echo '<td><input type="file" id="catalog_csv" name="catalog_csv" accept=".csv" /> ';
         submit_button( __( 'Import CSV', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_import_catalog', false );
-        echo '<p class="description">' . esc_html__( 'CSV columns: name, price (required); square_id, category (optional).', 'simple-hotel-crm' ) . '</p>';
+        echo ' <a href="' . esc_url( wp_nonce_url( add_query_arg( 'download_sample_csv', '1' ), 'download_sample_csv' ) ) . '" class="button" style="margin-left:6px;">' . esc_html__( 'Download Sample CSV', 'simple-hotel-crm' ) . '</a>';
+        echo '<p class="description">' . esc_html__( 'CSV columns: name, price (required); square_id, category (optional). For Square exports, "Variation Name" is auto-appended.', 'simple-hotel-crm' ) . '</p>';
         echo '</td></tr></table>';
+        echo '</form>';
+        // Repair button
+        echo '<form method="post" style="margin:-6px 0 12px;">';
+        wp_nonce_field( 'repair_catalog_table', 'repair_catalog_table_nonce' );
+        submit_button( __( 'Repair Catalog Table', 'simple-hotel-crm' ), 'secondary', 'repair_catalog_table', false );
+        echo ' <span class="description">' . esc_html__( 'Run this if the "category" column is missing from the database table.', 'simple-hotel-crm' ) . '</span>';
         echo '</form>';
         if ( is_wp_error( $import_result ) ) {
             echo '<div class="notice notice-error"><p>' . esc_html( $import_result->get_error_message() ) . '</p></div>';

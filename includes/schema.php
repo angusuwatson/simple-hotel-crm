@@ -453,7 +453,10 @@ function simple_hotel_crm_migrate_catalog_items() {
     $table = simple_hotel_crm_catalog_items_table();
     if ( simple_hotel_crm_table_has_column( $table, 'id' ) ) {
         if ( ! simple_hotel_crm_table_has_column( $table, 'category' ) ) {
-            $wpdb->query( "ALTER TABLE {$table} ADD COLUMN category varchar(50) NOT NULL DEFAULT 'other'" );
+            $result = $wpdb->query( "ALTER TABLE {$table} ADD COLUMN category varchar(50) NOT NULL DEFAULT 'other'" );
+            if ( false === $result ) {
+                error_log( 'simple-hotel-crm: Failed to add category column: ' . $wpdb->last_error );
+            }
         }
         return;
     }
@@ -472,14 +475,51 @@ function simple_hotel_crm_migrate_catalog_items() {
     dbDelta( $sql );
 }
 
+function simple_hotel_crm_ensure_catalog_category_column() {
+    global $wpdb;
+    $table = simple_hotel_crm_catalog_items_table();
+    if ( ! simple_hotel_crm_table_has_column( $table, 'category' ) ) {
+        $result = $wpdb->query( "ALTER TABLE {$table} ADD COLUMN category varchar(50) NOT NULL DEFAULT 'other'" );
+        if ( false === $result ) {
+            return 'Failed to add category column: ' . $wpdb->last_error;
+        }
+    }
+    return true;
+}
+
+function simple_hotel_crm_repair_catalog_table() {
+    $err = simple_hotel_crm_ensure_catalog_category_column();
+    if ( true !== $err ) {
+        return $err;
+    }
+    return true;
+}
+
 function simple_hotel_crm_get_catalog_items() {
     global $wpdb;
-    return $wpdb->get_results( "SELECT * FROM " . simple_hotel_crm_catalog_items_table() . " ORDER BY CASE category WHEN 'rooms' THEN 0 WHEN 'dinner' THEN 1 ELSE 2 END, item_name ASC", ARRAY_A );
+    $table = simple_hotel_crm_catalog_items_table();
+    if ( simple_hotel_crm_table_has_column( $table, 'category' ) ) {
+        return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY CASE category WHEN 'rooms' THEN 0 WHEN 'dinner' THEN 1 ELSE 2 END, item_name ASC", ARRAY_A );
+    }
+    return $wpdb->get_results( "SELECT * FROM {$table} ORDER BY item_name ASC", ARRAY_A );
 }
 
 function simple_hotel_crm_import_catalog_csv( $file_path ) {
     global $wpdb;
     $table = simple_hotel_crm_catalog_items_table();
+
+    // Ensure category column exists before importing
+    $has_category = simple_hotel_crm_table_has_column( $table, 'category' );
+    if ( ! $has_category ) {
+        $result = simple_hotel_crm_ensure_catalog_category_column();
+        if ( true === $result ) {
+            $has_category = true;
+        } else {
+            // Log the error but continue without category column
+            error_log( 'simple-hotel-crm: ' . $result );
+        }
+    }
+
     $handle = fopen( $file_path, 'r' );
     if ( ! $handle ) {
         return new WP_Error( 'csv_open_failed', 'Could not open CSV file.' );
@@ -535,11 +575,17 @@ function simple_hotel_crm_import_catalog_csv( $file_path ) {
         }
         $existing = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$table} WHERE item_name = %s", $name ) );
         if ( $existing ) {
+            $data = [ 'unit_price' => $price, 'square_id' => $square_id ];
+            $formats = [ '%f', '%s' ];
+            if ( $has_category ) {
+                $data['category'] = $category;
+                $formats[] = '%s';
+            }
             $result = $wpdb->update(
                 $table,
-                [ 'unit_price' => $price, 'square_id' => $square_id, 'category' => $category ],
+                $data,
                 [ 'id' => $existing ],
-                [ '%f', '%s', '%s' ],
+                $formats,
                 [ '%d' ]
             );
             if ( false === $result ) {
@@ -547,10 +593,16 @@ function simple_hotel_crm_import_catalog_csv( $file_path ) {
                 continue;
             }
         } else {
+            $data = [ 'item_name' => $name, 'unit_price' => $price, 'square_id' => $square_id ];
+            $formats = [ '%s', '%f', '%s' ];
+            if ( $has_category ) {
+                $data['category'] = $category;
+                $formats[] = '%s';
+            }
             $result = $wpdb->insert(
                 $table,
-                [ 'item_name' => $name, 'unit_price' => $price, 'square_id' => $square_id, 'category' => $category ],
-                [ '%s', '%f', '%s', '%s' ]
+                $data,
+                $formats
             );
             if ( false === $result ) {
                 $errors[] = sprintf( 'Insert failed for "%s": %s', $name, $wpdb->last_error );
@@ -574,16 +626,17 @@ function simple_hotel_crm_add_catalog_item( $name, $price, $category = 'other', 
             'square_id' => $square_id,
         ] );
     }
-    return $wpdb->insert(
-        $table,
-        [
-            'item_name' => sanitize_text_field( $name ),
-            'unit_price' => round( max( 0, (float) $price ), 2 ),
-            'square_id' => ! empty( $square_id ) ? sanitize_text_field( $square_id ) : null,
-            'category' => in_array( $category, [ 'rooms', 'dinner', 'other' ], true ) ? $category : 'other',
-        ],
-        [ '%s', '%f', '%s', '%s' ]
-    );
+    $data = [
+        'item_name' => sanitize_text_field( $name ),
+        'unit_price' => round( max( 0, (float) $price ), 2 ),
+        'square_id' => ! empty( $square_id ) ? sanitize_text_field( $square_id ) : null,
+    ];
+    $formats = [ '%s', '%f', '%s' ];
+    if ( simple_hotel_crm_table_has_column( $table, 'category' ) ) {
+        $data['category'] = in_array( $category, [ 'rooms', 'dinner', 'other' ], true ) ? $category : 'other';
+        $formats[] = '%s';
+    }
+    return $wpdb->insert( $table, $data, $formats );
 }
 
 function simple_hotel_crm_update_catalog_item( $item_id, $data ) {
@@ -591,6 +644,7 @@ function simple_hotel_crm_update_catalog_item( $item_id, $data ) {
     $table = simple_hotel_crm_catalog_items_table();
     $update = [];
     $formats = [];
+    $has_category = simple_hotel_crm_table_has_column( $table, 'category' );
     if ( isset( $data['item_name'] ) ) {
         $update['item_name'] = sanitize_text_field( $data['item_name'] );
         $formats[] = '%s';
@@ -599,7 +653,7 @@ function simple_hotel_crm_update_catalog_item( $item_id, $data ) {
         $update['unit_price'] = round( max( 0, (float) $data['unit_price'] ), 2 );
         $formats[] = '%f';
     }
-    if ( isset( $data['category'] ) ) {
+    if ( $has_category && isset( $data['category'] ) ) {
         $update['category'] = in_array( $data['category'], [ 'rooms', 'dinner', 'other' ], true ) ? $data['category'] : 'other';
         $formats[] = '%s';
     }
