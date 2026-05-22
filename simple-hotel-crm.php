@@ -2,7 +2,7 @@
 /**
  * Plugin Name: LGF Bookings
  * Description: A simple WordPress-native hotel CRM with calendar and booking management tools
- * Version: 1.9.2.37
+ * Version: 1.9.2.38
  * Update URI: https://github.com/angusuwatson/lgf-bookings-plugin
  * Author: Angus Watson
  * Text Domain: simple-hotel-crm
@@ -10,7 +10,7 @@
 
 defined( 'ABSPATH' ) || exit;
 
-define( 'SIMPLE_HOTEL_CRM_VERSION', '1.9.2.37' );
+define( 'SIMPLE_HOTEL_CRM_VERSION', '1.9.2.38' );
 define( 'SIMPLE_HOTEL_CRM_DB_VERSION', '20' );
 define( 'SIMPLE_HOTEL_CRM_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
@@ -38,6 +38,7 @@ function simple_hotel_crm_activate() {
     if ( ! wp_next_scheduled( 'simple_hotel_crm_ics_cron' ) ) {
         wp_schedule_event( time(), 'shc_15min', 'simple_hotel_crm_ics_cron' );
     }
+    update_option( 'simple_hotel_crm_needs_rewrite_flush', 1 );
 }
 
 function simple_hotel_crm_deactivate() {
@@ -61,25 +62,32 @@ function simple_hotel_crm_maybe_upgrade() {
     if ( SIMPLE_HOTEL_CRM_VERSION !== $installed_plugin_version ) {
         simple_hotel_crm_clear_calendar_cache();
         update_option( 'simple_hotel_crm_plugin_version', SIMPLE_HOTEL_CRM_VERSION );
+        update_option( 'simple_hotel_crm_needs_rewrite_flush', 1 );
     }
 }
 
-require_once plugin_dir_path( __FILE__ ) . 'includes/schema.php';
+// ---- Terminal Web App rewrite ----
+add_action( 'init', function() {
+    add_rewrite_rule( '^terminal/?$', 'index.php?simple_hotel_crm_terminal=1', 'top' );
+    add_rewrite_tag( '%simple_hotel_crm_terminal%', '1' );
+    
+    // Flush rewrite rules once on version upgrade (after rules are registered)
+    if ( get_option( 'simple_hotel_crm_needs_rewrite_flush' ) ) {
+        flush_rewrite_rules();
+        delete_option( 'simple_hotel_crm_needs_rewrite_flush' );
+    }
+} );
 
-require_once plugin_dir_path( __FILE__ ) . 'includes/helpers.php';
+add_action( 'template_redirect', function() {
+    if ( get_query_var( 'simple_hotel_crm_terminal' ) ) {
+        require_once plugin_dir_path( __FILE__ ) . 'terminal/index.php';
+        exit;
+    }
+} );
 
-require_once plugin_dir_path( __FILE__ ) . 'includes/calendar-data.php';
-
-require_once plugin_dir_path( __FILE__ ) . 'includes/admin-pages.php';
-
-require_once plugin_dir_path( __FILE__ ) . 'includes/crm-bookings.php';
-
-require_once plugin_dir_path( __FILE__ ) . 'includes/rest.php';
-
-require_once plugin_dir_path( __FILE__ ) . 'includes/invoicing.php';
-
-require_once plugin_dir_path( __FILE__ ) . 'includes/ics-export.php';
-
-require_once plugin_dir_path( __FILE__ ) . 'includes/square.php';
-
-require_once plugin_dir_path( __FILE__ ) . 'includes/updater.php';
+add_action( 'template_redirect', function() {
+    if ( get_query_var( 'simple_hotel_crm_terminal' ) ) {
+        require_once plugin_dir_path( __FILE__ ) . 'terminal/index.php';
+        exit;
+    }
+} );

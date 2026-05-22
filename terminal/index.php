@@ -3,25 +3,32 @@
  * LGF Bookings — Square Terminal Web App
  *
  * Full-screen ticket/bar ordering UI for Square Terminal.
- * 
- * URL (after deployment):
- *   https://lagrangefleurie.fr/wp-content/plugins/lgf-bookings-plugin/terminal/
+ * Loaded by WordPress via template_redirect when ?simple_hotel_crm_terminal=1
+ *
+ * URL (after flush):
+ *   https://lagrangefleurie.fr/terminal/
  *
  * 1. Log in with your WordPress credentials (once; session cookie persists).
  * 2. Point Square Dashboard → Terminal → Web Apps to the URL above.
  * 3. Terminal opens the app in full-screen webview.
  */
 
-// ---- Bootstrap WordPress ----
-$wp_load = '';
-$dir = __DIR__;
-for ( $i = 0; $i < 6; $i++ ) {
-    $dir = dirname( $dir );
-    $candidate = $dir . '/wp-load.php';
-    if ( file_exists( $candidate ) ) {
-        $wp_load = $candidate;
-        break;
-    }
+if ( ! defined( 'ABSPATH' ) ) {
+    exit;
+}
+
+// ---- Require login ----
+if ( ! is_user_logged_in() ) {
+    wp_redirect( wp_login_url( ( is_ssl() ? 'https://' : 'http://' ) . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'] ) );
+    exit;
+}
+
+// ---- Nonce refresh endpoint ----
+if ( isset( $_GET['refresh_nonce'] ) && '1' === $_GET['refresh_nonce'] ) {
+    header( 'Content-Type: application/json' );
+    echo json_encode( [ 'nonce' => wp_create_nonce( 'wp_rest' ) ] );
+    exit;
+}
 }
 if ( ! $wp_load ) {
     die( 'WordPress not found. Please ensure this file is within a WordPress installation.' );

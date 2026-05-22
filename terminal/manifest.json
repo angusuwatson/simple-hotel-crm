@@ -1,7 +1,7 @@
 {
   "name": "LGF Orders",
   "short_name": "LGF Orders",
-  "start_url": "index.php",
+  "start_url": "/terminal/",
   "display": "standalone",
   "square": {
     "version": "1.0.0",
