@@ -565,14 +565,14 @@ function sendToTerminal(){
         amount:total,
         skip_receipt:skipReceipt,
     }).then(function(data){
-        if(!data.checkout_id){
+        if(!data.action_id){
             btn.textContent='<?php echo esc_js( __( 'Check terminal…', 'simple-hotel-crm' ) ); ?>';
             btn.disabled=false;
             setTimeout(function(){closePayModal();fetchData();},5000);
             return;
         }
         btn.textContent='<?php echo esc_js( __( 'Waiting for terminal…', 'simple-hotel-crm' ) ); ?>';
-        return pollCheckoutStatus(data.checkout_id);
+        return pollCheckoutStatus(data.action_id);
     }).then(function(data){
         if(!data) return;
         setHTML('pay-success','<?php echo esc_js( __( 'Payment sent to terminal!', 'simple-hotel-crm' ) ); ?> '+total.toFixed(2)+'€');
@@ -586,13 +586,13 @@ function sendToTerminal(){
     });
 }
 
-function pollCheckoutStatus(checkoutId){
+function pollCheckoutStatus(statusId){
     return new Promise(function(resolve,reject){
-        if(!checkoutId){reject(new Error('No checkout ID returned from server.'));return;}
+        if(!statusId){reject(new Error('No ID returned from server.'));return;}
         var maxAttempts=150;
         var attempts=0;
         function poll(){
-            apiGet('ticket-checkout-status/'+encodeURIComponent(checkoutId)).then(function(data){
+            apiGet('ticket-checkout-status/'+encodeURIComponent(statusId)).then(function(data){
                 if(data.status==='completed'){
                     resolve(data);
                 }else if(data.status==='canceled'||data.status==='failed'){
