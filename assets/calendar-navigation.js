@@ -388,5 +388,28 @@
             }
             restoreScrollPosition();
         })();
+
+        // Fullscreen toggle
+        $(document).on('click', '#calendar-fs-toggle', function() {
+            var d = document.documentElement;
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                if (d.requestFullscreen) d.requestFullscreen();
+                else if (d.webkitRequestFullscreen) d.webkitRequestFullscreen();
+                document.body.classList.add('shc-fullscreen');
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                document.body.classList.remove('shc-fullscreen');
+            }
+        });
+        function calendarFsChange() {
+            var btn = document.getElementById('calendar-fs-toggle');
+            if (btn) {
+                btn.textContent = (document.fullscreenElement || document.webkitFullscreenElement) ? '✕' : '⛶';
+            }
+            document.body.classList.toggle('shc-fullscreen', !!(document.fullscreenElement || document.webkitFullscreenElement));
+        }
+        document.addEventListener('fullscreenchange', calendarFsChange);
+        document.addEventListener('webkitfullscreenchange', calendarFsChange);
     });
 })(jQuery);

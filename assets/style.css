@@ -66,6 +66,51 @@
     height: 18px;
 }
 
+.simple-hotel-crm-fs-btn {
+    position: fixed;
+    right: 24px;
+    top: 50%;
+    z-index: 1000;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: #2271b1;
+    color: #fff;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    transform: translateY(-50%);
+}
+
+.simple-hotel-crm-fs-btn:hover {
+    background: #135e96;
+    color: #fff;
+}
+
+body.shc-fullscreen #adminmenumain,
+body.shc-fullscreen #wpadminbar,
+body.shc-fullscreen #adminmenuwrap,
+body.shc-fullscreen #adminmenuback,
+body.shc-fullscreen #adminmenu,
+body.shc-fullscreen .wp-menu-toggle {
+    display: none !important;
+}
+
+body.shc-fullscreen #wpcontent,
+body.shc-fullscreen #wpbody-content {
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
 .simple-hotel-crm-floating-sync:hover {
     background: #245a31;
     color: #fff;
