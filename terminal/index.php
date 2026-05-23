@@ -250,8 +250,10 @@ function apiGet(path){
         headers:{'X-WP-Nonce':wpNonce},
         credentials:'same-origin',
     }).then(function(r){
-        if(!r.ok) return r.json().then(function(e){throw new Error(e.message||'API error')});
-        return r.json();
+        return r.text().then(function(text){
+            if(!r.ok) throw new Error(r.status+' '+r.statusText);
+            try{return JSON.parse(text)}catch(e){throw new Error('Invalid server response');}
+        });
     });
 }
 function apiPost(path,body){
@@ -261,8 +263,10 @@ function apiPost(path,body){
         credentials:'same-origin',
         body:JSON.stringify(body),
     }).then(function(r){
-        if(!r.ok) return r.json().then(function(e){throw new Error(e.code?e.message:'API error')});
-        return r.json();
+        return r.text().then(function(text){
+            if(!r.ok) throw new Error(r.status+' '+r.statusText);
+            try{return JSON.parse(text)}catch(e){throw new Error('Invalid server response');}
+        });
     });
 }
 
@@ -584,6 +588,7 @@ function sendToTerminal(){
 
 function pollCheckoutStatus(checkoutId){
     return new Promise(function(resolve,reject){
+        if(!checkoutId){reject(new Error('No checkout ID returned from server.'));return;}
         var maxAttempts=150;
         var attempts=0;
         function poll(){
