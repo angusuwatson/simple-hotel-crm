@@ -561,9 +561,16 @@ function sendToTerminal(){
         amount:total,
         skip_receipt:skipReceipt,
     }).then(function(data){
+        if(!data.checkout_id){
+            btn.textContent='<?php echo esc_js( __( 'Check terminal…', 'simple-hotel-crm' ) ); ?>';
+            btn.disabled=false;
+            setTimeout(function(){closePayModal();fetchData();},5000);
+            return;
+        }
         btn.textContent='<?php echo esc_js( __( 'Waiting for terminal…', 'simple-hotel-crm' ) ); ?>';
         return pollCheckoutStatus(data.checkout_id);
     }).then(function(data){
+        if(!data) return;
         setHTML('pay-success','<?php echo esc_js( __( 'Payment sent to terminal!', 'simple-hotel-crm' ) ); ?> '+total.toFixed(2)+'€');
         show('pay-success');
         btn.textContent='✓ '+(total.toFixed(2))+'€';
