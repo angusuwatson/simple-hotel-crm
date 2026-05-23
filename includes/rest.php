@@ -142,10 +142,10 @@ add_action( 'rest_api_init', function() {
         'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
     ] );
 
-    register_rest_route( 'simple-hotel-crm/v1', '/ticket-checkout-status/(?P<action_id>[^/]+)', [
-        'methods'  => 'GET',
-        'callback' => 'simple_hotel_crm_rest_ticket_checkout_status',
-        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-checkout-status/(?P<checkout_id>[^/]+)', [
+        'methods'             => 'GET',
+        'callback'            => 'simple_hotel_crm_rest_ticket_checkout_status',
+        'permission_callback' => 'simple_hotel_crm_rest_auth',
     ] );
 } );
 
@@ -833,70 +833,30 @@ function simple_hotel_crm_rest_ticket_show_bill( WP_REST_Request $request ) {
     $action_id = $result['action']['id'];
     update_post_meta( $booking_id, '_pending_checkout_action_id', $action_id );
 
+    $checkout_result = simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount, $skip_receipt, 'Booking #' . $booking_id );
+
     return rest_ensure_response( [
-        'success'    => true,
-        'action_id'  => $action_id,
-        'booking_id' => $booking_id,
-        'amount'     => $amount,
+        'success'     => true,
+        'action_id'   => $action_id,
+        'checkout_id' => ! is_wp_error( $checkout_result ) && isset( $checkout_result['checkout']['id'] ) ? $checkout_result['checkout']['id'] : '',
+        'booking_id'  => $booking_id,
+        'amount'      => $amount,
     ] );
 }
 
 function simple_hotel_crm_rest_ticket_checkout_status( WP_REST_Request $request ) {
-    $action_id = $request->get_param( 'action_id' );
-    if ( empty( $action_id ) ) {
-        return new WP_Error( 'invalid_action_id', 'Invalid action ID.', [ 'status' => 400 ] );
+    $checkout_id = $request->get_param( 'checkout_id' );
+
+    if ( empty( $checkout_id ) ) {
+        return new WP_Error( 'invalid_checkout_id', 'Invalid checkout ID.', [ 'status' => 400 ] );
     }
 
-    $result = simple_hotel_crm_square_get_action_status( $action_id );
-    if ( is_wp_error( $result ) ) {
-        return $result;
+    $status = simple_hotel_crm_square_get_checkout_status( $checkout_id );
+
+    if ( is_wp_error( $status ) ) {
+        return rest_ensure_response( [ 'status' => 'unknown' ] );
     }
 
-    if ( 'COMPLETED' !== $result ) {
-        return rest_ensure_response( [ 'status' => strtolower( $result ) ] );
-    }
-
-    global $wpdb;
-    $booking_id = (int) $wpdb->get_var( $wpdb->prepare( "
-        SELECT post_id FROM {$wpdb->postmeta}
-        WHERE meta_key = '_pending_checkout_action_id'
-        AND meta_value = %s
-        LIMIT 1
-    ", $action_id ) );
-
-    if ( ! $booking_id ) {
-        return new WP_Error( 'booking_not_found', 'Could not find booking for this action.', [ 'status' => 404 ] );
-    }
-
-    $checkout_id = get_post_meta( $booking_id, '_square_checkout_id', true );
-    if ( ! empty( $checkout_id ) ) {
-        $checkout_status = simple_hotel_crm_square_get_checkout_status( $checkout_id );
-        if ( is_wp_error( $checkout_status ) ) {
-            return rest_ensure_response( [ 'status' => 'unknown', 'checkout_id' => $checkout_id ] );
-        }
-        $lower = strtolower( $checkout_status );
-        if ( $lower === 'completed' || $lower === 'canceled' || $lower === 'failed' ) {
-            delete_post_meta( $booking_id, '_pending_checkout_amount' );
-            delete_post_meta( $booking_id, '_pending_checkout_skip_receipt' );
-            delete_post_meta( $booking_id, '_pending_checkout_action_id' );
-        }
-        return rest_ensure_response( [ 'status' => $lower, 'checkout_id' => $checkout_id ] );
-    }
-
-    $amount = (float) get_post_meta( $booking_id, '_pending_checkout_amount', true );
-    $skip_receipt = '1' === get_post_meta( $booking_id, '_pending_checkout_skip_receipt', true );
-
-    if ( $amount <= 0 ) {
-        return new WP_Error( 'invalid_amount', 'No pending amount found.', [ 'status' => 400 ] );
-    }
-
-    $checkout_result = simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount, $skip_receipt, 'Booking #' . $booking_id );
-    if ( is_wp_error( $checkout_result ) ) {
-        return $checkout_result;
-    }
-
-    $checkout_id = isset( $checkout_result['checkout']['id'] ) ? $checkout_result['checkout']['id'] : '';
-
-    return rest_ensure_response( [ 'status' => 'in_progress', 'checkout_id' => $checkout_id ] );
+    return rest_ensure_response( [ 'status' => strtolower( $status ), 'checkout_id' => $checkout_id ] );
 }
 

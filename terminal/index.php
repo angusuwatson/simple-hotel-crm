@@ -562,7 +562,7 @@ function sendToTerminal(){
         skip_receipt:skipReceipt,
     }).then(function(data){
         btn.textContent='<?php echo esc_js( __( 'Waiting for terminal…', 'simple-hotel-crm' ) ); ?>';
-        return pollCheckoutStatus(data.action_id);
+        return pollCheckoutStatus(data.checkout_id);
     }).then(function(data){
         setHTML('pay-success','<?php echo esc_js( __( 'Payment sent to terminal!', 'simple-hotel-crm' ) ); ?> '+total.toFixed(2)+'€');
         show('pay-success');
@@ -575,12 +575,12 @@ function sendToTerminal(){
     });
 }
 
-function pollCheckoutStatus(actionId){
+function pollCheckoutStatus(checkoutId){
     return new Promise(function(resolve,reject){
         var maxAttempts=150;
         var attempts=0;
         function poll(){
-            apiGet('ticket-checkout-status/'+encodeURIComponent(actionId)).then(function(data){
+            apiGet('ticket-checkout-status/'+encodeURIComponent(checkoutId)).then(function(data){
                 if(data.status==='completed'){
                     resolve(data);
                 }else if(data.status==='canceled'||data.status==='failed'){

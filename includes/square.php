@@ -164,6 +164,7 @@ function simple_hotel_crm_square_create_confirmation_action( $booking_id, $bill_
         'action' => [
             'type' => 'CONFIRMATION',
             'device_id' => $device_id,
+            'await_next_action' => true,
             'confirmation_options' => [
                 'title' => 'Booking #' . $booking_id,
                 'body' => $bill_text,
