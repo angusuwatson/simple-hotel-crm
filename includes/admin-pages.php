@@ -4168,6 +4168,26 @@ function simple_hotel_crm_render_settings_page() {
         echo '<div class="notice notice-success"><p>' . esc_html__( 'Settings saved.', 'simple-hotel-crm' ) . '</p></div>';
     }
 
+    if ( 'booking-com' === $tab && isset( $_POST['simple_hotel_crm_submit'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_settings', 'simple_hotel_crm_settings_nonce' );
+
+        $booking_com_commission_percent = isset( $_POST['simple_hotel_crm_booking_com_commission_percent'] ) ? max( 0, min( 100, (float) str_replace( ',', '.', wp_unslash( $_POST['simple_hotel_crm_booking_com_commission_percent'] ) ) ) ) : 15;
+        $submitted_ics_urls = isset( $_POST['simple_hotel_crm_booking_com_ics_urls'] ) && is_array( $_POST['simple_hotel_crm_booking_com_ics_urls'] ) ? wp_unslash( $_POST['simple_hotel_crm_booking_com_ics_urls'] ) : [];
+        $booking_com_ics_urls = [];
+        foreach ( $submitted_ics_urls as $room_id => $room_url ) {
+            $room_id = absint( $room_id );
+            $room_url = esc_url_raw( trim( (string) $room_url ) );
+            if ( $room_id > 0 && '' !== $room_url ) {
+                $booking_com_ics_urls[ $room_id ] = $room_url;
+            }
+        }
+
+        update_option( 'simple_hotel_crm_booking_com_commission_percent', $booking_com_commission_percent );
+        update_option( 'simple_hotel_crm_booking_com_ics_room_urls', $booking_com_ics_urls );
+        simple_hotel_crm_clear_calendar_cache();
+        echo '<div class="notice notice-success"><p>' . esc_html__( 'Booking.com settings saved.', 'simple-hotel-crm' ) . '</p></div>';
+    }
+
     $repair_results = null;
     $ics_import_results = null;
     if ( isset( $_POST['simple_hotel_crm_run_booking_com_ics_import'] ) ) {
