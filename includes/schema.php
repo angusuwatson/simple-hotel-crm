@@ -1262,7 +1262,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         return;
     }
 
-    $booking_groups = $wpdb->get_results( "SELECT external_booking_id, MIN(source_booking_id) AS source_booking_id, MIN(guest_name) AS guest_name, MIN(phone) AS phone, MIN(source_channel) AS source_channel, MIN(status_code) AS status_code, MIN(check_in) AS check_in_date, MIN(check_out) AS check_out_date, MIN(source_created_at) AS source_created_at, MIN(import_notes) AS import_notes, MIN(invoice_ninja_client_id) AS invoice_ninja_client_id, MIN(invoice_ninja_invoice_id) AS invoice_ninja_invoice_id FROM {$sync_bookings_table} GROUP BY external_booking_id ORDER BY external_booking_id ASC", ARRAY_A );
+    $booking_groups = $wpdb->get_results( "SELECT external_booking_id, MIN(source_booking_id) AS source_booking_id, MIN(guest_name) AS guest_name, MIN(phone) AS phone, MIN(source_channel) AS source_channel, MIN(status_code) AS status_code, MIN(check_in) AS check_in_date, MIN(check_out) AS check_out_date, MIN(source_created_at) AS source_created_at, MIN(import_notes) AS import_notes, MIN(invoice_ninja_client_id) AS invoice_ninja_client_id, MIN(invoice_ninja_invoice_id) AS invoice_ninja_invoice_id FROM {$sync_bookings_table} WHERE source_channel = 'booking_com' GROUP BY external_booking_id ORDER BY external_booking_id ASC", ARRAY_A );
 
     foreach ( $booking_groups as $booking_group ) {
         $wpdb->query( 'START TRANSACTION' );
@@ -1356,17 +1356,30 @@ function simple_hotel_crm_import_sync_data_to_crm() {
             ),
             ARRAY_A
         );
-        if ( 'booking_com' !== (string) ( $booking_group['source_channel'] ?? '' ) ) {
-            $wpdb->query( 'COMMIT' );
-            continue;
-        }
         if ( $booking ) {
-            $real_source_booking_id = (string) ( $booking_group['source_booking_id'] ?: '' );
-            if ( '' !== $real_source_booking_id && (string) $booking['source_booking_id'] !== $real_source_booking_id ) {
-                $wpdb->update( $crm_bookings_table, [ 'source_booking_id' => $real_source_booking_id ], [ 'id' => (int) $booking['id'] ], [ '%s' ], [ '%d' ] );
+            $is_ics_skeleton = false !== strpos( (string) ( $booking['internal_notes'] ?? '' ), '[ICS_SKELETON]' );
+            if ( ! $is_ics_skeleton ) {
+                $real_source_booking_id = (string) ( $booking_group['source_booking_id'] ?: '' );
+                if ( '' !== $real_source_booking_id && (string) $booking['source_booking_id'] !== $real_source_booking_id ) {
+                    $wpdb->update( $crm_bookings_table, [ 'source_booking_id' => $real_source_booking_id ], [ 'id' => (int) $booking['id'] ], [ '%s' ], [ '%d' ] );
+                }
+                $wpdb->query( 'COMMIT' );
+                continue;
             }
-            $wpdb->query( 'COMMIT' );
-            continue;
+            // Skeleton booking found — update dates, then rebuild rooms from fresh sync data
+            $wpdb->update(
+                $crm_bookings_table,
+                [
+                    'check_in_date' => (string) $booking_group['check_in_date'],
+                    'check_out_date' => (string) $booking_group['check_out_date'],
+                    'status_code' => (string) $booking_group['status_code'],
+                    'source_booking_id' => (string) ( $booking_group['source_booking_id'] ?: $booking_group['external_booking_id'] ),
+                ],
+                [ 'id' => (int) $booking['id'] ],
+                [ '%s', '%s', '%s', '%s' ],
+                [ '%d' ]
+            );
+            $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$crm_bookings_table} WHERE id = %d", (int) $booking['id'] ), ARRAY_A );
         }
 
         if ( ! $booking ) {
@@ -1389,6 +1402,20 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                 if ( $fallback ) {
                     $booking = $fallback;
                     $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE id = %d", (int) $booking['guest_id'] ), ARRAY_A );
+                    if ( false !== strpos( (string) ( $booking['internal_notes'] ?? '' ), '[ICS_SKELETON]' ) ) {
+                        $wpdb->update(
+                            $crm_bookings_table,
+                            [
+                                'check_in_date' => (string) $booking_group['check_in_date'],
+                                'check_out_date' => (string) $booking_group['check_out_date'],
+                                'status_code' => (string) $booking_group['status_code'],
+                            ],
+                            [ 'id' => (int) $booking['id'] ],
+                            [ '%s', '%s', '%s' ],
+                            [ '%d' ]
+                        );
+                        $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$crm_bookings_table} WHERE id = %d", (int) $booking['id'] ), ARRAY_A );
+                    }
                     $real_source_booking_id = (string) ( $booking_group['source_booking_id'] ?: '' );
                     if ( '' !== $real_source_booking_id ) {
                         $wpdb->update( $crm_bookings_table, [ 'source_booking_id' => $real_source_booking_id ], [ 'id' => (int) $booking['id'] ], [ '%s' ], [ '%d' ] );
@@ -1441,6 +1468,23 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         if ( ! $booking ) {
             $wpdb->query( 'ROLLBACK' );
             continue;
+        }
+
+        // For ICS skeleton bookings, delete existing rooms and nights and rebuild from fresh sync data
+        $is_ics_skeleton = false !== strpos( (string) ( $booking['internal_notes'] ?? '' ), '[ICS_SKELETON]' );
+        if ( $is_ics_skeleton ) {
+            $existing_room_ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$crm_booking_rooms_table} WHERE booking_id = %d", (int) $booking['id'] ) );
+            if ( ! empty( $existing_room_ids ) ) {
+                $room_placeholders = implode( ',', array_fill( 0, count( $existing_room_ids ), '%d' ) );
+                $wpdb->query( $wpdb->prepare(
+                    "DELETE FROM {$crm_booking_nights_table} WHERE booking_room_id IN ({$room_placeholders})",
+                    $existing_room_ids
+                ) );
+                $wpdb->query( $wpdb->prepare(
+                    "DELETE FROM {$crm_booking_rooms_table} WHERE id IN ({$room_placeholders})",
+                    $existing_room_ids
+                ) );
+            }
         }
 
         foreach ( $room_groups as $room_group ) {
@@ -1507,6 +1551,34 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                         'total_amount' => (float) $night_row['total_amount'],
                     ],
                     [ '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%f', '%f', '%f' ]
+                );
+            }
+        }
+
+        // Recalculate booking-level totals from booking_rooms for ICS skeleton bookings
+        if ( $is_ics_skeleton ) {
+            $totals = $wpdb->get_row( $wpdb->prepare(
+                "SELECT COALESCE(SUM(adults), 0) AS adults, COALESCE(SUM(children), 0) AS children, COALESCE(SUM(babies), 0) AS babies,
+                 COALESCE(SUM(room_rate_amount), 0) AS room_rate_amount, COALESCE(SUM(extras_amount), 0) AS extras_amount,
+                 COALESCE(SUM(tourist_tax_amount), 0) AS tourist_tax_amount, COALESCE(SUM(total_amount), 0) AS total_amount
+                 FROM {$crm_booking_rooms_table} WHERE booking_id = %d",
+                (int) $booking['id']
+            ), ARRAY_A );
+            if ( $totals ) {
+                $wpdb->update(
+                    $crm_bookings_table,
+                    [
+                        'adults' => (int) $totals['adults'],
+                        'children' => (int) $totals['children'],
+                        'babies' => (int) $totals['babies'],
+                        'room_rate_amount' => (float) $totals['room_rate_amount'],
+                        'extras_amount' => (float) $totals['extras_amount'],
+                        'tourist_tax_amount' => (float) $totals['tourist_tax_amount'],
+                        'total_amount' => (float) $totals['total_amount'],
+                    ],
+                    [ 'id' => (int) $booking['id'] ],
+                    [ '%d', '%d', '%d', '%f', '%f', '%f', '%f' ],
+                    [ '%d' ]
                 );
             }
         }
