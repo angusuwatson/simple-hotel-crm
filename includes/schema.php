@@ -167,6 +167,11 @@ function simple_hotel_crm_install_tables() {
         city varchar(100) NULL,
         postcode varchar(40) NULL,
         country varchar(100) NULL,
+        date_of_birth date NULL,
+        nationality varchar(100) NULL,
+        id_document_type varchar(20) NULL,
+        id_document_number varchar(100) NULL,
+        id_photo_url varchar(255) NULL,
         notes longtext NULL,
         invoice_ninja_client_id varchar(191) NULL,
         is_deleted tinyint(1) NOT NULL DEFAULT 0,
@@ -313,6 +318,7 @@ function simple_hotel_crm_install_tables() {
     simple_hotel_crm_migrate_booking_items();
     simple_hotel_crm_migrate_booking_items_rooms();
     simple_hotel_crm_migrate_catalog_items();
+    simple_hotel_crm_migrate_room_status_column();
 
     update_option( 'simple_hotel_crm_db_version', SIMPLE_HOTEL_CRM_DB_VERSION );
 }
@@ -1393,22 +1399,6 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         }
 
         if ( ! $booking ) {
-            $fallback = $wpdb->get_row( $wpdb->prepare(
-                "SELECT * FROM {$crm_bookings_table} WHERE source_channel = 'booking_com' AND is_deleted = 0 AND (internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR internal_notes IS NULL) AND check_in_date < %s AND check_out_date > %s AND status_code != 'cancelled' ORDER BY id DESC LIMIT 1",
-                (string) $booking_group['check_out_date'],
-                (string) $booking_group['check_in_date']
-            ), ARRAY_A );
-            if ( $fallback ) {
-                $real_source_booking_id = (string) ( $booking_group['source_booking_id'] ?: '' );
-                if ( '' !== $real_source_booking_id ) {
-                    $wpdb->update( $crm_bookings_table, [ 'source_booking_id' => $real_source_booking_id ], [ 'id' => (int) $fallback['id'] ], [ '%s' ], [ '%d' ] );
-                }
-                $wpdb->query( 'COMMIT' );
-                continue;
-            }
-        }
-
-        if ( ! $booking ) {
             $booking_adults = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'adults' ) ) );
             $booking_children = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'children' ) ) );
             $booking_babies = array_sum( array_map( 'intval', wp_list_pluck( $room_groups, 'babies' ) ) );
@@ -1527,5 +1517,13 @@ function simple_hotel_crm_import_sync_data_to_crm() {
 
 function simple_hotel_crm_maybe_migrate_sync_data_to_crm() {
     simple_hotel_crm_import_sync_data_to_crm();
+}
+
+function simple_hotel_crm_migrate_room_status_column() {
+    global $wpdb;
+    $rooms_table = simple_hotel_crm_rooms_table();
+    if ( ! simple_hotel_crm_table_has_column( $rooms_table, 'room_status' ) ) {
+        $wpdb->query( "ALTER TABLE {$rooms_table} ADD COLUMN room_status varchar(20) NOT NULL DEFAULT 'clean' AFTER color" );
+    }
 }
 
