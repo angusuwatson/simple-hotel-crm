@@ -1560,16 +1560,25 @@ function simple_hotel_crm_render_booking_duplicates_page() {
             <th>' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</th>
             <th>ID</th>
             <th>' . esc_html__( 'Guest', 'simple-hotel-crm' ) . '</th>
-            <th>' . esc_html__( 'Room Count', 'simple-hotel-crm' ) . '</th>
+            <th>' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</th>
             <th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th>
             <th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th>
             <th>' . esc_html__( 'Total', 'simple-hotel-crm' ) . '</th>
             <th>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</th>
         </tr></thead><tbody>';
 
+        $rooms_table = simple_hotel_crm_rooms_table();
         $all_bks = array_merge( [ $keeper ], $group['duplicates'] );
         foreach ( $all_bks as $index => $bk ) {
             $rc = $group['room_counts'][ $bk['id'] ] ?? 0;
+            $bk_rooms = $wpdb->get_results( $wpdb->prepare(
+                "SELECT r.room_code, r.room_name FROM {$booking_rooms_table} br JOIN {$rooms_table} r ON r.id = br.room_id WHERE br.booking_id = %d ORDER BY br.id ASC",
+                $bk['id']
+            ), ARRAY_A );
+            $room_labels = array_map( function( $r ) {
+                return $r['room_code'] ?: $r['room_name'];
+            }, $bk_rooms );
+            $room_display = ! empty( $room_labels ) ? implode( ', ', $room_labels ) : '—';
             $bk_guest = $wpdb->get_row( $wpdb->prepare( "SELECT first_name, last_name FROM {$guests_table} WHERE id = %d LIMIT 1", (int) $bk['guest_id'] ), ARRAY_A );
             $bk_name = $bk_guest ? trim( (string) $bk_guest['first_name'] . ' ' . (string) $bk_guest['last_name'] ) : '—';
             $is_keeper = $bk['id'] === $keeper['id'];
@@ -1583,7 +1592,7 @@ function simple_hotel_crm_render_booking_duplicates_page() {
             }
             echo '</td>';
             echo '<td>' . esc_html( $bk_name ) . '</td>';
-            echo '<td>' . esc_html( (string) $rc ) . '</td>';
+            echo '<td>' . esc_html( $room_display ) . '</td>';
             echo '<td>' . esc_html( (string) $bk['check_in_date'] ) . '</td>';
             echo '<td>' . esc_html( (string) $bk['check_out_date'] ) . '</td>';
             echo '<td>€' . esc_html( number_format( (float) $bk['total_amount'], 2 ) ) . '</td>';
