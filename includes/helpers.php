@@ -1,8 +1,29 @@
 <?php
 if ( ! defined( 'ABSPATH' ) ) { exit; }
 
-function simple_hotel_crm_user_can_access() {
-    return is_user_logged_in() && current_user_can( 'manage_options' );
+function simple_hotel_crm_user_can_access( $request = null ) {
+    if ( is_user_logged_in() && current_user_can( 'manage_options' ) ) {
+        return true;
+    }
+    $stored_key = get_option( 'simple_hotel_crm_dashboard_api_key', '' );
+    if ( empty( $stored_key ) ) {
+        return false;
+    }
+    if ( $request instanceof WP_REST_Request ) {
+        $request_key = (string) $request->get_param( 'api_key' );
+        if ( ! empty( $request_key ) && hash_equals( $stored_key, $request_key ) ) {
+            return true;
+        }
+    }
+    $header_key = $_SERVER['HTTP_X_API_KEY'] ?? '';
+    if ( ! empty( $header_key ) && hash_equals( $stored_key, $header_key ) ) {
+        return true;
+    }
+    $request_key = $_GET['api_key'] ?? '';
+    if ( ! empty( $request_key ) && hash_equals( $stored_key, $request_key ) ) {
+        return true;
+    }
+    return false;
 }
 
 function simple_hotel_crm_enqueue_shared_assets( $context = 'frontend' ) {
@@ -632,5 +653,139 @@ function simple_hotel_crm_format_channel_code( $source_channel, $created_date = 
     }
 
     return trim( $prefix . ( $created_date ? ' ' . $created_date : '' ) );
+}
+
+function simple_hotel_crm_debug_ics_feeds() {
+    global $wpdb;
+
+    $result = [
+        'timestamp'    => current_time( 'mysql' ),
+        'rooms'        => [],
+        'crm_bookings' => [],
+        'errors'       => [],
+    ];
+
+    $room_urls = simple_hotel_crm_get_booking_com_ics_room_urls();
+    if ( empty( $room_urls ) ) {
+        $result['errors'][] = __( 'No Booking.com ICS URLs configured.', 'simple-hotel-crm' );
+        return $result;
+    }
+
+    $rooms_table = simple_hotel_crm_rooms_table();
+
+    foreach ( $room_urls as $room_id => $url ) {
+        $room_id = absint( $room_id );
+        $url     = esc_url_raw( trim( (string) $url ) );
+        if ( $room_id <= 0 || '' === $url ) {
+            continue;
+        }
+
+        $room = $wpdb->get_row( $wpdb->prepare( "SELECT id, sync_room_id, external_room_id, room_code, room_name FROM {$rooms_table} WHERE id = %d LIMIT 1", $room_id ), ARRAY_A );
+        if ( ! $room ) {
+            $result['errors'][] = sprintf( __( 'Room %d: CRM room not found.', 'simple-hotel-crm' ), $room_id );
+            continue;
+        }
+
+        $room_entry = [
+            'room_id'        => (int) $room['id'],
+            'room_name'      => $room['room_name'],
+            'room_code'      => $room['room_code'],
+            'sync_room_id'   => (int) $room['sync_room_id'],
+            'external_room_id' => (int) $room['external_room_id'],
+            'ics_url'        => $url,
+            'events'         => [],
+            'fetch_error'    => null,
+        ];
+
+        $response = wp_remote_get( $url, [ 'timeout' => 20 ] );
+        if ( is_wp_error( $response ) ) {
+            $room_entry['fetch_error'] = $response->get_error_message();
+            $result['rooms'][]         = $room_entry;
+            continue;
+        }
+        if ( 200 !== wp_remote_retrieve_response_code( $response ) ) {
+            $room_entry['fetch_error'] = 'HTTP ' . (int) wp_remote_retrieve_response_code( $response );
+            $result['rooms'][]         = $room_entry;
+            continue;
+        }
+
+        $events = simple_hotel_crm_parse_ics_content( wp_remote_retrieve_body( $response ) );
+
+        foreach ( $events as $event ) {
+            $check_in      = simple_hotel_crm_parse_ics_date_value( $event['DTSTART'] ?? '' );
+            $check_out     = simple_hotel_crm_parse_ics_date_value( $event['DTEND'] ?? '' );
+            $uid           = trim( (string) ( $event['UID'] ?? '' ) );
+            $summary_text  = trim( (string) ( $event['SUMMARY'] ?? '' ) );
+            $description   = trim( (string) ( $event['DESCRIPTION'] ?? '' ) );
+            $source_booking_id = '' !== $uid ? $uid : md5( $room_id . '|' . $check_in . '|' . $check_out . '|' . $summary_text );
+            $external_booking_id      = abs( crc32( $source_booking_id ) );
+            $external_booking_room_id = abs( crc32( $room_id . '|' . $source_booking_id ) );
+
+            $nights = 0;
+            if ( '' !== $check_in && '' !== $check_out ) {
+                $nights = max( 1, (int) round( ( strtotime( $check_out ) - strtotime( $check_in ) ) / DAY_IN_SECONDS ) );
+            }
+
+            $room_entry['events'][] = [
+                'uid_raw'                => $uid,
+                'summary'                => $summary_text,
+                'description'            => $description,
+                'check_in'               => $check_in,
+                'check_out'              => $check_out,
+                'nights'                 => $nights,
+                'source_booking_id'      => $source_booking_id,
+                'external_booking_id'    => $external_booking_id,
+                'external_booking_room_id' => $external_booking_room_id,
+            ];
+        }
+
+        $result['rooms'][] = $room_entry;
+    }
+
+    // Show sync table stats
+    $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
+    $result['sync_stats'] = [
+        'total_rows'      => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$sync_bookings_table} WHERE source_channel = 'booking_com'" ),
+        'distinct_groups' => (int) $wpdb->get_var( "SELECT COUNT(DISTINCT CONCAT(external_booking_id, '-', room_sync_id, '-', external_room_id)) FROM {$sync_bookings_table} WHERE source_channel = 'booking_com'" ),
+        'distinct_rooms'  => (int) $wpdb->get_var( "SELECT COUNT(DISTINCT room_sync_id) FROM {$sync_bookings_table} WHERE source_channel = 'booking_com'" ),
+        'room_sync_ids'   => $wpdb->get_col( "SELECT DISTINCT room_sync_id FROM {$sync_bookings_table} WHERE source_channel = 'booking_com' ORDER BY room_sync_id ASC" ),
+    ];
+
+    $bookings_table     = simple_hotel_crm_bookings_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+
+    $bookings = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT b.id, b.source_booking_id, b.external_booking_id, b.source_channel,
+                    b.check_in_date, b.check_out_date, b.status_code, b.internal_notes,
+                    b.adults, b.total_amount, b.guest_id
+             FROM {$bookings_table} b
+             WHERE b.source_channel = %s
+             ORDER BY b.id ASC",
+            'booking_com'
+        ),
+        ARRAY_A
+    );
+
+    foreach ( $bookings as $bk ) {
+        $room_ids = $wpdb->get_col( $wpdb->prepare( "SELECT DISTINCT room_id FROM {$booking_rooms_table} WHERE booking_id = %d", $bk['id'] ) );
+
+        $result['crm_bookings'][] = [
+            'id'                => (int) $bk['id'],
+            'source_booking_id' => $bk['source_booking_id'],
+            'external_booking_id' => $bk['external_booking_id'],
+            'check_in_date'     => $bk['check_in_date'],
+            'check_out_date'    => $bk['check_out_date'],
+            'status_code'       => $bk['status_code'],
+            'room_ids'          => array_map( 'intval', $room_ids ),
+            'adults'            => (int) $bk['adults'],
+            'total_amount'      => (float) $bk['total_amount'],
+            'guest_id'          => (int) $bk['guest_id'],
+            'is_ics_skeleton'   => simple_hotel_crm_booking_is_ics_skeleton( $bk ),
+            'internal_notes'    => $bk['internal_notes'],
+        ];
+    }
+
+    return $result;
 }
 

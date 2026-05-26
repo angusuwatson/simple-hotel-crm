@@ -85,6 +85,8 @@ require_once plugin_dir_path( __FILE__ ) . 'includes/square.php';
 
 require_once plugin_dir_path( __FILE__ ) . 'includes/updater.php';
 
+require_once plugin_dir_path( __FILE__ ) . 'includes/cli-commands.php';
+
 // ---- Terminal Web App rewrite ----
 add_action( 'init', function() {
     add_rewrite_rule( '^terminal/?$', 'index.php?simple_hotel_crm_terminal=1', 'top' );

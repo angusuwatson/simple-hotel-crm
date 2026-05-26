@@ -114,6 +114,7 @@ function simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount,
             ],
             'reference_id' => (string) $booking_id,
             'note' => $note,
+            'location_id' => $location_id,
             'device_options' => [
                 'device_id' => $device_id,
                 'skip_receipt_screen' => $skip_receipt,
@@ -127,16 +128,19 @@ function simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount,
     $result = simple_hotel_crm_square_api_request( 'POST', '/v2/terminals/checkouts', $body );
 
     if ( is_wp_error( $result ) ) {
+        error_log( 'LGF: create_terminal_checkout FAILED: ' . $result->get_error_message() );
         return $result;
     }
 
     $checkout_id = isset( $result['checkout']['id'] ) ? $result['checkout']['id'] : '';
     if ( empty( $checkout_id ) ) {
+        error_log( 'LGF: create_terminal_checkout no checkout ID in response' );
         return new WP_Error( 'square_no_checkout_id', 'No checkout ID returned from Square.' );
     }
 
     update_post_meta( $booking_id, '_square_checkout_id', $checkout_id );
     update_post_meta( $booking_id, '_square_checkout_status', 'pending' );
+    error_log( 'LGF: create_terminal_checkout OK id=' . $checkout_id . ' booking=' . $booking_id );
 
     return $result;
 }

@@ -565,14 +565,14 @@ function sendToTerminal(){
         amount:total,
         skip_receipt:skipReceipt,
     }).then(function(data){
-        if(!data.action_id){
+        if(!data.checkout_id){
             btn.textContent='<?php echo esc_js( __( 'Check terminal…', 'simple-hotel-crm' ) ); ?>';
             btn.disabled=false;
             setTimeout(function(){closePayModal();fetchData();},5000);
             return;
         }
         btn.textContent='<?php echo esc_js( __( 'Waiting for terminal…', 'simple-hotel-crm' ) ); ?>';
-        return pollCheckoutStatus(data.action_id);
+        return pollCheckoutStatus(data.checkout_id);
     }).then(function(data){
         if(!data) return;
         setHTML('pay-success','<?php echo esc_js( __( 'Payment sent to terminal!', 'simple-hotel-crm' ) ); ?> '+total.toFixed(2)+'€');
@@ -618,6 +618,7 @@ function closePayModal(){
     var btn=document.getElementById('pay-confirm');
     btn.disabled=false;
     btn.textContent='<?php echo esc_js( __( 'Pay with Terminal', 'simple-hotel-crm' ) ); ?>';
+    document.getElementById('pay-ticket').style.display='';
     hidePayError();
     hide('pay-success');
 }

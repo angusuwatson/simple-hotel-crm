@@ -9,19 +9,19 @@ add_action( 'rest_api_init', function() {
             'month' => [ 'validate_callback' => function( $param ) { return is_numeric( $param ) && $param >= 1 && $param <= 12; }, 'required' => true ],
             'year'  => [ 'validate_callback' => function( $param ) { return is_numeric( $param ) && $param >= 2000 && $param <= 2100; }, 'required' => true ],
         ],
-        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
     ] );
 
     register_rest_route( 'simple-hotel-crm/v1', '/daily-note', [
         'methods'  => 'POST',
         'callback' => 'simple_hotel_crm_rest_save_daily_note',
-        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
     ] );
 
     register_rest_route( 'simple-hotel-crm/v1', '/create-invoice', [
         'methods'  => 'POST',
         'callback' => 'simple_hotel_crm_rest_create_invoice',
-        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
         'args'     => [
             'booking_id' => [
                 'validate_callback' => function( $param ) {
@@ -41,7 +41,7 @@ add_action( 'rest_api_init', function() {
     register_rest_route( 'simple-hotel-crm/v1', '/quick-booking', [
         'methods'  => 'GET',
         'callback' => 'simple_hotel_crm_rest_get_quick_booking',
-        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
         'args'     => [
             'booking_id' => [
                 'validate_callback' => function( $param ) {
@@ -55,7 +55,7 @@ add_action( 'rest_api_init', function() {
     register_rest_route( 'simple-hotel-crm/v1', '/quick-booking', [
         'methods'  => 'POST',
         'callback' => 'simple_hotel_crm_rest_save_quick_booking',
-        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
         'args'     => [
             'booking_id' => [
                 'validate_callback' => function( $param ) {
@@ -69,13 +69,19 @@ add_action( 'rest_api_init', function() {
     register_rest_route( 'simple-hotel-crm/v1', '/room-day-note', [
         'methods'  => 'POST',
         'callback' => 'simple_hotel_crm_rest_save_room_day_note',
-        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
     ] );
 
     register_rest_route( 'simple-hotel-crm/v1', '/room-day-extras', [
         'methods'  => 'POST',
         'callback' => 'simple_hotel_crm_rest_save_room_day_extras',
-        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
+    ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/debug-ics', [
+        'methods'             => 'GET',
+        'callback'            => 'simple_hotel_crm_rest_debug_ics',
+        'permission_callback' => function( $r ) { return simple_hotel_crm_user_can_access( $r ); },
     ] );
 
     register_rest_route( 'simple-hotel-crm/v1', '/square-webhook', [
@@ -108,7 +114,7 @@ add_action( 'rest_api_init', function() {
     register_rest_route( 'simple-hotel-crm/v1', '/ticket-data', [
         'methods'  => 'GET',
         'callback' => 'simple_hotel_crm_rest_ticket_data',
-        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
         'args'     => [
             'date' => [
                 'required' => true,
@@ -127,25 +133,107 @@ add_action( 'rest_api_init', function() {
     register_rest_route( 'simple-hotel-crm/v1', '/ticket-save', [
         'methods'  => 'POST',
         'callback' => 'simple_hotel_crm_rest_ticket_save',
-        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
     ] );
 
     register_rest_route( 'simple-hotel-crm/v1', '/ticket-checkout', [
         'methods'  => 'POST',
         'callback' => 'simple_hotel_crm_rest_ticket_checkout',
-        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
     ] );
 
     register_rest_route( 'simple-hotel-crm/v1', '/ticket-show-bill', [
         'methods'  => 'POST',
         'callback' => 'simple_hotel_crm_rest_ticket_show_bill',
-        'permission_callback' => function() { return simple_hotel_crm_user_can_access(); },
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
     ] );
 
     register_rest_route( 'simple-hotel-crm/v1', '/ticket-checkout-status/(?P<action_id>[^/]+)', [
         'methods'             => 'GET',
         'callback'            => 'simple_hotel_crm_rest_ticket_checkout_status',
-        'permission_callback' => 'simple_hotel_crm_rest_auth',
+        'permission_callback' => '__return_true',
+    ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-checkin', [
+        'methods'  => 'POST',
+        'callback' => 'simple_hotel_crm_rest_ticket_checkin',
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
+    ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-departure', [
+        'methods'  => 'POST',
+        'callback' => 'simple_hotel_crm_rest_ticket_departure',
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
+    ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-calendar', [
+        'methods'  => 'GET',
+        'callback' => 'simple_hotel_crm_rest_ticket_calendar',
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
+    ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-create-booking', [
+        'methods'  => 'POST',
+        'callback' => 'simple_hotel_crm_rest_ticket_create_booking',
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
+    ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-guest-search', [
+        'methods'  => 'GET',
+        'callback' => 'simple_hotel_crm_rest_ticket_guest_search',
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
+    ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-room-status', [
+        'methods'  => 'GET',
+        'callback' => 'simple_hotel_crm_rest_ticket_get_room_statuses',
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
+    ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-room-status', [
+        'methods'  => 'POST',
+        'callback' => 'simple_hotel_crm_rest_ticket_set_room_status',
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
+    ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-update-booking', [
+        'methods'  => 'POST',
+        'callback' => 'simple_hotel_crm_rest_ticket_update_booking',
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
+    ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-daily-note', [
+        'methods'  => 'GET',
+        'callback' => 'simple_hotel_crm_rest_ticket_daily_note',
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
+    ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-maintenance-notes', [
+        'methods'  => 'GET',
+        'callback' => 'simple_hotel_crm_rest_ticket_get_maintenance_notes',
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
+    ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-maintenance-notes', [
+        'methods'  => 'POST',
+        'callback' => 'simple_hotel_crm_rest_ticket_set_maintenance_notes',
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
+    ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-auth', [
+        'methods'  => 'POST',
+        'callback' => 'simple_hotel_crm_rest_ticket_auth',
+        'permission_callback' => '__return_true',
+        'args'     => [
+            'username' => [
+                'required' => true,
+                'type'     => 'string',
+            ],
+            'password' => [
+                'required' => true,
+                'type'     => 'string',
+            ],
+        ],
     ] );
 } );
 
@@ -572,14 +660,18 @@ function simple_hotel_crm_rest_ticket_data( WP_REST_Request $request ) {
 
     $bookings = $wpdb->get_results( $wpdb->prepare( "
         SELECT b.id, b.status_code, b.total_amount, b.check_in_date, b.check_out_date, b.payment_status,
-               g.first_name, g.last_name, g.id AS guest_id
+               b.source_channel, b.adults, b.children, b.babies,
+               g.first_name, g.last_name, g.id AS guest_id,
+               g.phone, g.email,
+               g.address_line_1, g.address_line_2, g.city, g.postcode, g.country,
+               g.date_of_birth, g.nationality, g.id_document_type, g.id_document_number, g.id_photo_url
         FROM {$bookings_table} b
         JOIN {$guests_table} g ON g.id = b.guest_id
         WHERE b.is_deleted = 0
           AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')
           AND b.status_code IN ('confirmed', 'checked_in')
           AND b.check_in_date <= %s
-          AND b.check_out_date > %s
+          AND b.check_out_date >= %s
         ORDER BY g.last_name ASC, b.check_in_date ASC
     ", $date, $date ), ARRAY_A );
 
@@ -616,13 +708,51 @@ function simple_hotel_crm_rest_ticket_data( WP_REST_Request $request ) {
         ", $booking_id ), ARRAY_A );
     }
 
+    $daily_notes_table = simple_hotel_crm_daily_notes_table();
+    $month_start = date( 'Y-m-01', strtotime( $date ) );
+    $month_end = date( 'Y-m-t', strtotime( $date ) );
+    $daily_notes = $wpdb->get_results( $wpdb->prepare( "
+        SELECT note_date, note_text
+        FROM {$daily_notes_table}
+        WHERE note_date >= %s AND note_date <= %s
+        ORDER BY note_date ASC
+    ", $month_start, $month_end ), ARRAY_A );
+
+    $week_start = date( 'Y-m-d', strtotime( $date . ' -1 day' ) );
+    $week_end = date( 'Y-m-d', strtotime( $date . ' +7 days' ) );
+
+    $rooms = $wpdb->get_results( "
+        SELECT id, room_name, room_code
+        FROM {$rooms_table}
+        WHERE is_deleted = 0
+        ORDER BY sort_order ASC
+    ", ARRAY_A );
+    $occupancy = $wpdb->get_results( $wpdb->prepare( "
+        SELECT brn.stay_date, brn.adults, brn.children, brn.babies, brn.guest_count,
+               r.room_code, r.id AS room_id,
+               b.id AS booking_id, b.status_code, g.first_name, g.last_name
+        FROM {$booking_nights_table} brn
+        JOIN {$booking_rooms_table} br ON br.id = brn.booking_room_id
+        JOIN {$bookings_table} b ON b.id = br.booking_id
+        JOIN {$rooms_table} r ON r.id = br.room_id
+        JOIN {$guests_table} g ON g.id = b.guest_id
+        WHERE b.is_deleted = 0
+          AND b.status_code IN ('confirmed', 'checked_in')
+          AND brn.stay_date >= %s
+          AND brn.stay_date < %s
+        ORDER BY brn.stay_date ASC, r.sort_order ASC
+    ", $week_start, $week_end ), ARRAY_A );
+
     return rest_ensure_response( [
-        'catalog'         => $catalog,
-        'bookings'        => $bookings,
+        'catalog'          => $catalog,
+        'bookings'         => $bookings,
         'rooms_by_booking' => $rooms_by_booking,
-        'items'           => $items,
-        'booking_rooms'   => $booking_rooms,
-        'room_nights'     => $room_nights,
+        'items'            => $items,
+        'booking_rooms'    => $booking_rooms,
+        'room_nights'      => $room_nights,
+        'daily_notes'      => $daily_notes,
+        'occupancy'        => $occupancy,
+        'rooms'            => $rooms,
     ] );
 }
 
@@ -721,8 +851,6 @@ function simple_hotel_crm_rest_ticket_checkout( WP_REST_Request $request ) {
 }
 
 function simple_hotel_crm_rest_ticket_show_bill( WP_REST_Request $request ) {
-    global $wpdb;
-
     $booking_id = absint( $request->get_param( 'booking_id' ) );
     $amount = round( (float) ( $request->get_param( 'amount' ) ?: 0 ), 2 );
     $skip_receipt = ! empty( $request->get_param( 'skip_receipt' ) );
@@ -737,164 +865,574 @@ function simple_hotel_crm_rest_ticket_show_bill( WP_REST_Request $request ) {
         return new WP_Error( 'square_not_configured', 'Square Terminal is not configured.', [ 'status' => 400 ] );
     }
 
+    $note = 'Booking #' . $booking_id;
+    $result = simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount, $skip_receipt, $note );
+    if ( is_wp_error( $result ) ) {
+        error_log( 'LGF: ticket-show-bill failed: ' . $result->get_error_message() );
+        return new WP_Error( 'square_error', $result->get_error_message(), [ 'status' => 400 ] );
+    }
+
+    $checkout_id = isset( $result['checkout']['id'] ) ? $result['checkout']['id'] : '';
+    error_log( 'LGF: ticket-show-bill created checkout ' . $checkout_id . ' for booking ' . $booking_id . ' amount=' . $amount );
+
+    return rest_ensure_response( [
+        'success'     => true,
+        'checkout_id' => $checkout_id,
+        'booking_id'  => $booking_id,
+        'amount'      => $amount,
+    ] );
+}
+
+function simple_hotel_crm_rest_ticket_checkout_status( WP_REST_Request $request ) {
+    $checkout_id = $request->get_param( 'action_id' );
+    if ( empty( $checkout_id ) ) {
+        return new WP_Error( 'invalid_checkout_id', 'Invalid checkout ID.', [ 'status' => 400 ] );
+    }
+
+    $checkout_status = simple_hotel_crm_square_get_checkout_status( $checkout_id );
+    if ( is_wp_error( $checkout_status ) ) {
+        return rest_ensure_response( [ 'status' => 'unknown' ] );
+    }
+
+    $lower = strtolower( $checkout_status );
+    if ( $lower === 'completed' || $lower === 'canceled' || $lower === 'failed' ) {
+        global $wpdb;
+        $booking_id = (int) $wpdb->get_var( $wpdb->prepare( "
+            SELECT post_id FROM {$wpdb->postmeta}
+            WHERE meta_key = '_square_checkout_id'
+            AND meta_value = %s
+            LIMIT 1
+        ", $checkout_id ) );
+        if ( $booking_id ) {
+            delete_post_meta( $booking_id, '_pending_checkout_amount' );
+            delete_post_meta( $booking_id, '_pending_checkout_skip_receipt' );
+            delete_post_meta( $booking_id, '_pending_checkout_action_id' );
+        }
+    }
+
+    return rest_ensure_response( [ 'status' => $lower, 'checkout_id' => $checkout_id ] );
+}
+
+function simple_hotel_crm_rest_ticket_checkin( WP_REST_Request $request ) {
+    global $wpdb;
+
+    $booking_id = absint( $request->get_param( 'booking_id' ) );
+    if ( $booking_id <= 0 ) {
+        return new WP_Error( 'invalid_booking', 'Invalid booking.', [ 'status' => 400 ] );
+    }
+
     $bookings_table = simple_hotel_crm_bookings_table();
     $guests_table = simple_hotel_crm_guests_table();
-    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
-    $rooms_table = simple_hotel_crm_rooms_table();
-    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
 
     $booking = $wpdb->get_row( $wpdb->prepare( "
-        SELECT b.*, g.first_name, g.last_name
+        SELECT b.*, g.first_name, g.last_name, g.phone, g.email,
+               g.address_line_1, g.address_line_2, g.city, g.postcode, g.country,
+               g.date_of_birth, g.nationality, g.id_document_type, g.id_document_number, g.id_photo_url
         FROM {$bookings_table} b
         JOIN {$guests_table} g ON g.id = b.guest_id
         WHERE b.id = %d AND b.is_deleted = 0
         LIMIT 1
-    ", $booking_id ), ARRAY_A );
+    ", $booking_id ) );
 
     if ( ! $booking ) {
         return new WP_Error( 'booking_not_found', 'Booking not found.', [ 'status' => 404 ] );
     }
 
-    $room_nights = $wpdb->get_results( $wpdb->prepare( "
-        SELECT brn.booking_room_id, brn.stay_date, brn.room_rate_amount, brn.extras_amount, brn.tourist_tax_amount,
-               r.room_name, r.room_code
-        FROM {$booking_nights_table} brn
-        JOIN {$booking_rooms_table} br ON br.id = brn.booking_room_id
-        JOIN {$rooms_table} r ON r.id = br.room_id
-        WHERE br.booking_id = %d
-        ORDER BY brn.stay_date ASC, r.sort_order ASC
-    ", $booking_id ), ARRAY_A );
-
-    $items = simple_hotel_crm_get_booking_items_by_room( $booking_id );
-
-    $guest_name = trim( ( $booking['first_name'] ?? '' ) . ' ' . ( $booking['last_name'] ?? '' ) );
-    $bill_lines = [];
-    $bill_lines[] = 'Guest: ' . ( $guest_name ?: '#' . $booking_id );
-    $bill_lines[] = '';
-
-    $room_groups = [];
-    foreach ( $room_nights as $night ) {
-        $key = $night['booking_room_id'];
-        if ( ! isset( $room_groups[ $key ] ) ) {
-            $room_groups[ $key ] = [
-                'name' => $night['room_name'] ?: $night['room_code'],
-                'nights' => 0,
-                'room_total' => 0,
-                'tax_total' => 0,
-                'extras_total' => 0,
-            ];
-        }
-        $room_groups[ $key ]['nights']++;
-        $room_groups[ $key ]['room_total'] += (float) $night['room_rate_amount'];
-        $room_groups[ $key ]['tax_total'] += (float) $night['tourist_tax_amount'];
-        $room_groups[ $key ]['extras_total'] += (float) $night['extras_amount'];
+    if ( 'confirmed' !== $booking->status_code ) {
+        return new WP_Error( 'invalid_status', 'Only confirmed bookings can be checked in.', [ 'status' => 400 ] );
     }
 
-    foreach ( $room_groups as $rg ) {
-        $bill_lines[] = $rg['name'] . ' (' . $rg['nights'] . 'n): ' . number_format( $rg['room_total'], 2 ) . "\xe2\x82\xac";
-        if ( $rg['extras_total'] > 0 ) {
-            $bill_lines[] = '  Extras: ' . number_format( $rg['extras_total'], 2 ) . "\xe2\x82\xac";
-        }
-        if ( $rg['tax_total'] > 0 ) {
-            $bill_lines[] = '  Tax: ' . number_format( $rg['tax_total'], 2 ) . "\xe2\x82\xac";
-        }
+    $today = current_time( 'Y-m-d' );
+    if ( $booking->check_in_date !== $today ) {
+        return new WP_Error( 'not_today', 'Only today\'s arrivals can be checked in.', [ 'status' => 400 ] );
     }
 
-    if ( ! empty( $items ) ) {
-        $bill_lines[] = '';
-        foreach ( $items as $item ) {
-            $qty = max( 1, (int) ( $item['quantity'] ?? 1 ) );
-            $price = (float) ( $item['unit_price'] ?? 0 );
-            $bill_lines[] = $item['item_name'] . ' x' . $qty . ': ' . number_format( $qty * $price, 2 ) . "\xe2\x82\xac";
-        }
-    }
+    $guest = (array) $request->get_param( 'guest' );
 
-    $bill_lines[] = '';
-    $bill_lines[] = 'TOTAL: ' . number_format( $amount, 2 ) . "\xe2\x82\xac";
+    $guest_update = [];
 
-    $bill_text = implode( "\n", $bill_lines );
-
-    $pending_data = [
-        'amount' => $amount,
-        'skip_receipt' => $skip_receipt,
-        'note' => 'Booking #' . $booking_id,
+    $guest_fields = [
+        'first_name', 'last_name', 'phone', 'email',
+        'address_line_1', 'address_line_2', 'city', 'postcode', 'country',
+        'date_of_birth', 'nationality', 'id_document_type', 'id_document_number',
     ];
-    update_post_meta( $booking_id, '_pending_checkout_amount', $amount );
-    update_post_meta( $booking_id, '_pending_checkout_skip_receipt', $skip_receipt ? '1' : '' );
-    update_post_meta( $booking_id, '_pending_checkout_action_id', '' );
 
-    $result = simple_hotel_crm_square_create_confirmation_action( $booking_id, $bill_text );
-    if ( is_wp_error( $result ) ) {
-        delete_post_meta( $booking_id, '_pending_checkout_amount' );
-        delete_post_meta( $booking_id, '_pending_checkout_skip_receipt' );
-        return new WP_Error( 'square_error', $result->get_error_message(), [ 'status' => 400 ] );
+    foreach ( $guest_fields as $field ) {
+        if ( isset( $guest[ $field ] ) ) {
+            $guest_update[ $field ] = sanitize_text_field( (string) $guest[ $field ] );
+        }
     }
 
-    $action_id = $result['action']['id'];
-    update_post_meta( $booking_id, '_pending_checkout_action_id', $action_id );
+    $id_photo_base64 = isset( $guest['id_photo_base64'] ) ? trim( (string) $guest['id_photo_base64'] ) : '';
+    if ( ! empty( $id_photo_base64 ) ) {
+        $upload_dir = wp_upload_dir();
+        $photo_dir = $upload_dir['basedir'] . '/lgf-id-photos';
+        if ( ! file_exists( $photo_dir ) ) {
+            wp_mkdir_p( $photo_dir );
+        }
+
+        if ( preg_match( '/^data:image\/(jpeg|png|gif|webp);base64,(.+)$/i', $id_photo_base64, $m ) ) {
+            $ext = $m[1] === 'jpeg' ? 'jpg' : $m[1];
+            $data = base64_decode( $m[2] );
+            if ( $data && strlen( $data ) < 5 * 1024 * 1024 ) {
+                $filename = 'guest-' . $booking->guest_id . '-' . time() . '.' . $ext;
+                $filepath = $photo_dir . '/' . $filename;
+                if ( file_put_contents( $filepath, $data ) ) {
+                    $guest_update['id_photo_url'] = $upload_dir['baseurl'] . '/lgf-id-photos/' . $filename;
+                }
+            }
+        }
+    }
+
+    if ( ! empty( $guest_update ) ) {
+        $guest_update['updated_at'] = current_time( 'mysql' );
+        $wpdb->update( $guests_table, $guest_update, [ 'id' => (int) $booking->guest_id ] );
+    }
+
+    $wpdb->update( $bookings_table, [ 'status_code' => 'checked_in' ], [ 'id' => $booking_id ] );
+
+    error_log( 'LGF: Booking #' . $booking_id . ' checked in by API (guest_id=' . $booking->guest_id . ')' );
 
     return rest_ensure_response( [
         'success'    => true,
-        'action_id'  => $action_id,
         'booking_id' => $booking_id,
-        'amount'     => $amount,
+        'guest_id'   => (int) $booking->guest_id,
+        'status'     => 'checked_in',
     ] );
 }
 
-function simple_hotel_crm_rest_ticket_checkout_status( WP_REST_Request $request ) {
-    $action_id = $request->get_param( 'action_id' );
-    if ( empty( $action_id ) ) {
-        return new WP_Error( 'invalid_action_id', 'Invalid action ID.', [ 'status' => 400 ] );
-    }
-
-    $action_status = simple_hotel_crm_square_get_action_status( $action_id );
-    if ( is_wp_error( $action_status ) ) {
-        return rest_ensure_response( [ 'status' => 'unknown' ] );
-    }
-
-    if ( 'COMPLETED' !== $action_status ) {
-        return rest_ensure_response( [ 'status' => strtolower( $action_status ) ] );
-    }
-
+function simple_hotel_crm_rest_ticket_departure( WP_REST_Request $request ) {
     global $wpdb;
-    $booking_id = (int) $wpdb->get_var( $wpdb->prepare( "
-        SELECT post_id FROM {$wpdb->postmeta}
-        WHERE meta_key = '_pending_checkout_action_id'
-        AND meta_value = %s
-        LIMIT 1
-    ", $action_id ) );
 
-    if ( ! $booking_id ) {
-        return new WP_Error( 'booking_not_found', 'Could not find booking for this action.', [ 'status' => 404 ] );
+    $booking_id = absint( $request->get_param( 'booking_id' ) );
+    if ( $booking_id <= 0 ) {
+        return new WP_Error( 'invalid_booking', 'Invalid booking.', [ 'status' => 400 ] );
     }
 
-    $checkout_id = get_post_meta( $booking_id, '_square_checkout_id', true );
-    if ( ! empty( $checkout_id ) ) {
-        $checkout_status = simple_hotel_crm_square_get_checkout_status( $checkout_id );
-        if ( is_wp_error( $checkout_status ) ) {
-            return rest_ensure_response( [ 'status' => 'unknown', 'checkout_id' => $checkout_id ] );
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bookings_table} WHERE id = %d AND is_deleted = 0 LIMIT 1", $booking_id ) );
+    if ( ! $booking ) {
+        return new WP_Error( 'booking_not_found', 'Booking not found.', [ 'status' => 404 ] );
+    }
+
+    if ( 'checked_in' !== $booking->status_code ) {
+        return new WP_Error( 'invalid_status', 'Only checked-in bookings can depart.', [ 'status' => 400 ] );
+    }
+
+    $today = current_time( 'Y-m-d' );
+    if ( $booking->check_out_date !== $today ) {
+        return new WP_Error( 'not_today', 'Only today\'s departures can be checked out.', [ 'status' => 400 ] );
+    }
+
+    $wpdb->update( $bookings_table, [ 'status_code' => 'checked_out' ], [ 'id' => $booking_id ] );
+
+    error_log( 'LGF: Booking #' . $booking_id . ' checked out by API' );
+
+    return rest_ensure_response( [
+        'success'    => true,
+        'booking_id' => $booking_id,
+        'status'     => 'checked_out',
+    ] );
+}
+
+function simple_hotel_crm_rest_ticket_calendar( WP_REST_Request $request ) {
+    global $wpdb;
+
+    $start_date = (string) $request->get_param( 'date' );
+    if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $start_date ) ) {
+        $start_date = current_time( 'Y-m-d' );
+    }
+    $days = max( 7, min( 31, absint( $request->get_param( 'days' ) ?: 12 ) ) );
+    $end_date = gmdate( 'Y-m-d', strtotime( $start_date . ' +' . $days . ' days' ) );
+
+    $rooms_table = simple_hotel_crm_rooms_table();
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $guests_table = simple_hotel_crm_guests_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+
+    $rooms = $wpdb->get_results( "SELECT id, room_code, room_name, sort_order, color, active FROM {$rooms_table} WHERE active = 1 ORDER BY sort_order ASC", ARRAY_A );
+
+    $occupancy = $wpdb->get_results( $wpdb->prepare( "
+        SELECT brn.stay_date, br.room_id, r.room_code, r.room_name,
+               b.id AS booking_id, b.status_code, b.check_in_date, b.check_out_date,
+               g.first_name, g.last_name
+        FROM {$booking_nights_table} brn
+        JOIN {$booking_rooms_table} br ON br.id = brn.booking_room_id
+        JOIN {$bookings_table} b ON b.id = br.booking_id
+        JOIN {$guests_table} g ON g.id = b.guest_id
+        JOIN {$rooms_table} r ON r.id = br.room_id
+        WHERE b.is_deleted = 0
+          AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')
+          AND b.status_code IN ('confirmed', 'checked_in')
+          AND brn.stay_date >= %s
+          AND brn.stay_date < %s
+        ORDER BY brn.stay_date ASC, r.sort_order ASC
+    ", $start_date, $end_date ), ARRAY_A );
+
+    $daily_notes_table = simple_hotel_crm_daily_notes_table();
+    $daily_notes = $wpdb->get_results( $wpdb->prepare( "
+        SELECT note_date, note_text FROM {$daily_notes_table}
+        WHERE note_date >= %s AND note_date < %s
+        ORDER BY note_date ASC
+    ", $start_date, $end_date ), ARRAY_A );
+
+    return rest_ensure_response( [
+        'date'       => $start_date,
+        'days'       => $days,
+        'rooms'      => $rooms,
+        'occupancy'  => $occupancy,
+        'daily_notes' => $daily_notes,
+    ] );
+}
+
+function simple_hotel_crm_rest_ticket_create_booking( WP_REST_Request $request ) {
+    global $wpdb;
+
+    $guest_name = trim( sanitize_text_field( (string) $request->get_param( 'guest_name' ) ) );
+    $phone = sanitize_text_field( (string) $request->get_param( 'phone' ) );
+    $email = sanitize_email( (string) $request->get_param( 'email' ) );
+    $check_in = sanitize_text_field( (string) $request->get_param( 'check_in' ) );
+    $check_out = sanitize_text_field( (string) $request->get_param( 'check_out' ) );
+    $room_id = absint( $request->get_param( 'room_id' ) );
+    $adults = absint( $request->get_param( 'adults' ) ?: 1 );
+    $children = absint( $request->get_param( 'children' ) );
+    $babies = absint( $request->get_param( 'babies' ) );
+    $total_amount = (float) $request->get_param( 'total_amount' ) ?: 0;
+
+    if ( '' === $guest_name ) {
+        return new WP_Error( 'missing_guest_name', 'Guest name is required.', [ 'status' => 400 ] );
+    }
+    if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_in ) || ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $check_out ) ) {
+        return new WP_Error( 'invalid_dates', 'Valid check-in and check-out dates required.', [ 'status' => 400 ] );
+    }
+    if ( $check_out <= $check_in ) {
+        return new WP_Error( 'invalid_dates', 'Check-out must be after check-in.', [ 'status' => 400 ] );
+    }
+
+    $guests_table = simple_hotel_crm_guests_table();
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+    $rooms_table = simple_hotel_crm_rooms_table();
+
+    if ( $room_id > 0 ) {
+        $room = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$rooms_table} WHERE id = %d AND active = 1 LIMIT 1", $room_id ) );
+        if ( ! $room ) {
+            return new WP_Error( 'room_not_found', 'Selected room not found.', [ 'status' => 400 ] );
         }
-        $lower = strtolower( $checkout_status );
-        if ( $lower === 'completed' || $lower === 'canceled' || $lower === 'failed' ) {
-            delete_post_meta( $booking_id, '_pending_checkout_amount' );
-            delete_post_meta( $booking_id, '_pending_checkout_skip_receipt' );
-            delete_post_meta( $booking_id, '_pending_checkout_action_id' );
+    }
+
+    $today = current_time( 'Y-m-d' );
+
+    list( $first_name, $last_name ) = simple_hotel_crm_split_guest_name( $guest_name );
+    $guest_inserted = $wpdb->insert(
+        $guests_table,
+        [
+            'first_name' => $first_name,
+            'last_name'  => $last_name,
+            'phone'      => $phone,
+            'email'      => $email,
+            'created_at' => current_time( 'mysql' ),
+            'updated_at' => current_time( 'mysql' ),
+        ],
+        [ '%s', '%s', '%s', '%s', '%s', '%s' ]
+    );
+    if ( ! $guest_inserted ) {
+        return new WP_Error( 'guest_create_failed', 'Could not create guest.', [ 'status' => 500 ] );
+    }
+    $guest_id = $wpdb->insert_id;
+
+    $nights = max( 1, (int) round( ( strtotime( $check_out ) - strtotime( $check_in ) ) / DAY_IN_SECONDS ) );
+    $guest_count = $adults + $children + $babies;
+
+    $booking_inserted = $wpdb->insert(
+        $bookings_table,
+        [
+            'guest_id'       => $guest_id,
+            'source_channel' => 'direct',
+            'status_code'    => 'confirmed',
+            'check_in_date'  => $check_in,
+            'check_out_date' => $check_out,
+            'adults'         => $adults,
+            'children'       => $children,
+            'babies'         => $babies,
+            'total_amount'   => $total_amount,
+            'currency'       => 'EUR',
+            'created_at'     => current_time( 'mysql' ),
+            'updated_at'     => current_time( 'mysql' ),
+        ],
+        [ '%d', '%s', '%s', '%s', '%s', '%d', '%d', '%d', '%f', '%s', '%s', '%s' ]
+    );
+    if ( ! $booking_inserted ) {
+        return new WP_Error( 'booking_create_failed', 'Could not create booking.', [ 'status' => 500 ] );
+    }
+    $booking_id = $wpdb->insert_id;
+
+    if ( $room_id > 0 ) {
+        $wpdb->insert(
+            $booking_rooms_table,
+            [
+                'booking_id'   => $booking_id,
+                'room_id'      => $room_id,
+                'occupancy_adults' => $adults,
+                'guest_count'  => $guest_count,
+                'adults'       => $adults,
+                'children'     => $children,
+                'babies'       => $babies,
+            ],
+            [ '%d', '%d', '%d', '%d', '%d', '%d', '%d' ]
+        );
+        $booking_room_id = $wpdb->insert_id;
+
+        for ( $i = 0; $i < $nights; $i++ ) {
+            $stay_date = gmdate( 'Y-m-d', strtotime( $check_in . ' +' . $i . ' days' ) );
+            $wpdb->insert(
+                $booking_nights_table,
+                [
+                    'booking_room_id' => $booking_room_id,
+                    'stay_date'       => $stay_date,
+                    'guest_count'     => $guest_count,
+                    'adults'          => $adults,
+                    'children'        => $children,
+                    'babies'          => $babies,
+                    'room_rate_amount' => 0,
+                    'total_amount'    => 0,
+                ],
+                [ '%d', '%s', '%d', '%d', '%d', '%d', '%f', '%f' ]
+            );
         }
-        return rest_ensure_response( [ 'status' => $lower, 'checkout_id' => $checkout_id ] );
     }
 
-    $amount = (float) get_post_meta( $booking_id, '_pending_checkout_amount', true );
-    $skip_receipt = '1' === get_post_meta( $booking_id, '_pending_checkout_skip_receipt', true );
+    simple_hotel_crm_clear_calendar_cache();
 
-    if ( $amount <= 0 ) {
-        return new WP_Error( 'invalid_amount', 'No pending amount found.', [ 'status' => 400 ] );
+    error_log( 'LGF: Booking #' . $booking_id . ' created via PWA (guest_id=' . $guest_id . ')' );
+
+    return rest_ensure_response( [
+        'success'    => true,
+        'booking_id' => $booking_id,
+        'guest_id'   => $guest_id,
+    ] );
+}
+
+function simple_hotel_crm_rest_ticket_guest_search( WP_REST_Request $request ) {
+    global $wpdb;
+
+    $q = trim( sanitize_text_field( (string) $request->get_param( 'q' ) ) );
+    if ( strlen( $q ) < 2 ) {
+        return rest_ensure_response( [ 'guests' => [] ] );
     }
 
-    $checkout_result = simple_hotel_crm_square_create_terminal_checkout( $booking_id, $amount, $skip_receipt, 'Booking #' . $booking_id );
-    if ( is_wp_error( $checkout_result ) ) {
-        return $checkout_result;
+    $guests_table = simple_hotel_crm_guests_table();
+    $bookings_table = simple_hotel_crm_bookings_table();
+
+    $like = '%' . $wpdb->esc_like( $q ) . '%';
+    $guests = $wpdb->get_results( $wpdb->prepare( "
+        SELECT g.id, g.first_name, g.last_name, g.phone, g.email,
+               (SELECT COUNT(*) FROM {$bookings_table} b WHERE b.guest_id = g.id AND b.is_deleted = 0 AND b.status_code NOT IN ('cancelled')) AS booking_count,
+               (SELECT MAX(b.check_in_date) FROM {$bookings_table} b WHERE b.guest_id = g.id AND b.is_deleted = 0) AS last_visit
+        FROM {$guests_table} g
+        WHERE g.is_deleted = 0
+          AND (g.first_name LIKE %s OR g.last_name LIKE %s OR CONCAT(g.first_name, ' ', g.last_name) LIKE %s OR g.phone LIKE %s OR g.email LIKE %s)
+        ORDER BY g.last_name ASC
+        LIMIT 20
+    ", $like, $like, $like, $like, $like ), ARRAY_A );
+
+    return rest_ensure_response( [ 'guests' => $guests ] );
+}
+
+function simple_hotel_crm_rest_ticket_get_room_statuses( WP_REST_Request $request ) {
+    global $wpdb;
+
+    $rooms_table = simple_hotel_crm_rooms_table();
+    $has_status = simple_hotel_crm_table_has_column( $rooms_table, 'room_status' );
+
+    $rooms = $wpdb->get_results( "SELECT id, room_code, room_name, sort_order, color, active" . ( $has_status ? ", room_status" : "" ) . " FROM {$rooms_table} WHERE active = 1 ORDER BY sort_order ASC", ARRAY_A );
+
+    return rest_ensure_response( [ 'rooms' => $rooms ] );
+}
+
+function simple_hotel_crm_rest_ticket_set_room_status( WP_REST_Request $request ) {
+    global $wpdb;
+
+    $room_id = absint( $request->get_param( 'room_id' ) );
+    $status = sanitize_text_field( (string) $request->get_param( 'status' ) );
+
+    if ( $room_id <= 0 ) {
+        return new WP_Error( 'invalid_room', 'Invalid room ID.', [ 'status' => 400 ] );
+    }
+    if ( ! in_array( $status, [ 'clean', 'dirty', 'maintenance' ], true ) ) {
+        return new WP_Error( 'invalid_status', 'Status must be clean, dirty, or maintenance.', [ 'status' => 400 ] );
     }
 
-    return rest_ensure_response( [ 'status' => 'in_progress' ] );
+    $rooms_table = simple_hotel_crm_rooms_table();
+    if ( ! simple_hotel_crm_table_has_column( $rooms_table, 'room_status' ) ) {
+        $wpdb->query( "ALTER TABLE {$rooms_table} ADD COLUMN room_status varchar(20) NOT NULL DEFAULT 'clean'" );
+    }
+
+    $wpdb->update( $rooms_table, [ 'room_status' => $status ], [ 'id' => $room_id ], [ '%s' ], [ '%d' ] );
+
+    return rest_ensure_response( [ 'success' => true, 'room_id' => $room_id, 'status' => $status ] );
+}
+
+function simple_hotel_crm_rest_ticket_update_booking( WP_REST_Request $request ) {
+    global $wpdb;
+
+    $booking_id = absint( $request->get_param( 'booking_id' ) );
+    if ( $booking_id <= 0 ) {
+        return new WP_Error( 'invalid_booking', 'Invalid booking.', [ 'status' => 400 ] );
+    }
+
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$bookings_table} WHERE id = %d AND is_deleted = 0 LIMIT 1", $booking_id ) );
+    if ( ! $booking ) {
+        return new WP_Error( 'booking_not_found', 'Booking not found.', [ 'status' => 404 ] );
+    }
+
+    $update = [];
+    $formats = [];
+
+    $new_check_in = (string) $request->get_param( 'check_in' );
+    $new_check_out = (string) $request->get_param( 'check_out' );
+
+    if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $new_check_in ) && $new_check_in !== $booking->check_in_date ) {
+        $update['check_in_date'] = $new_check_in;
+        $formats[] = '%s';
+    }
+    if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $new_check_out ) && $new_check_out !== $booking->check_out_date ) {
+        $update['check_out_date'] = $new_check_out;
+        $formats[] = '%s';
+    }
+
+    if ( ! empty( $update ) ) {
+        $update['updated_at'] = current_time( 'mysql' );
+        $formats[] = '%s';
+        $wpdb->update( $bookings_table, $update, [ 'id' => $booking_id ], $formats, [ '%d' ] );
+    }
+
+    $add_room_id = absint( $request->get_param( 'add_room_id' ) );
+    if ( $add_room_id > 0 ) {
+        $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+        $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+        $rooms_table = simple_hotel_crm_rooms_table();
+
+        $room = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$rooms_table} WHERE id = %d AND active = 1 LIMIT 1", $add_room_id ) );
+        if ( ! $room ) {
+            return new WP_Error( 'room_not_found', 'Room not found.', [ 'status' => 400 ] );
+        }
+
+        $existing_room = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM {$booking_rooms_table} WHERE booking_id = %d AND room_id = %d LIMIT 1", $booking_id, $add_room_id ) );
+        if ( ! $existing_room ) {
+            $check_in = $new_check_in && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $new_check_in ) ? $new_check_in : $booking->check_in_date;
+            $check_out = $new_check_out && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $new_check_out ) ? $new_check_out : $booking->check_out_date;
+            $nights = max( 1, (int) round( ( strtotime( $check_out ) - strtotime( $check_in ) ) / DAY_IN_SECONDS ) );
+
+            $wpdb->insert(
+                $booking_rooms_table,
+                [
+                    'booking_id'   => $booking_id,
+                    'room_id'      => $add_room_id,
+                    'guest_count'  => $booking->adults ?: 1,
+                    'adults'       => $booking->adults ?: 1,
+                ],
+                [ '%d', '%d', '%d', '%d' ]
+            );
+            $booking_room_id = $wpdb->insert_id;
+
+            for ( $i = 0; $i < $nights; $i++ ) {
+                $stay_date = gmdate( 'Y-m-d', strtotime( $check_in . ' +' . $i . ' days' ) );
+                $wpdb->insert(
+                    $booking_nights_table,
+                    [
+                        'booking_room_id' => $booking_room_id,
+                        'stay_date'       => $stay_date,
+                        'guest_count'     => $booking->adults ?: 1,
+                        'adults'          => $booking->adults ?: 1,
+                    ],
+                    [ '%d', '%s', '%d', '%d' ]
+                );
+            }
+        }
+    }
+
+    simple_hotel_crm_clear_calendar_cache();
+
+    return rest_ensure_response( [ 'success' => true ] );
+}
+
+function simple_hotel_crm_rest_ticket_daily_note( WP_REST_Request $request ) {
+    global $wpdb;
+
+    $date = (string) $request->get_param( 'date' );
+    if ( ! preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date ) ) {
+        $date = current_time( 'Y-m-d' );
+    }
+
+    $table = simple_hotel_crm_daily_notes_table();
+    $note = $wpdb->get_var( $wpdb->prepare( "SELECT note_text FROM {$table} WHERE note_date = %s", $date ) );
+
+    return rest_ensure_response( [
+        'date' => $date,
+        'note' => null !== $note ? (string) $note : '',
+    ] );
+}
+
+function simple_hotel_crm_rest_ticket_get_maintenance_notes() {
+    $notes = get_option( 'simple_hotel_crm_maintenance_notes', [] );
+    if ( ! is_array( $notes ) ) {
+        $notes = [];
+    }
+    return rest_ensure_response( [ 'notes' => array_values( $notes ) ] );
+}
+
+function simple_hotel_crm_rest_ticket_set_maintenance_notes( WP_REST_Request $request ) {
+    $notes = $request->get_param( 'notes' );
+    if ( ! is_array( $notes ) ) {
+        $notes = [];
+    }
+    $clean = [];
+    foreach ( $notes as $note ) {
+        if ( is_array( $note ) && isset( $note['text'] ) ) {
+            $clean[] = [
+                'id'    => sanitize_text_field( (string) ( $note['id'] ?? uniqid() ) ),
+                'text'  => sanitize_textarea_field( (string) $note['text'] ),
+                'date'  => sanitize_text_field( (string) ( $note['date'] ?? current_time( 'Y-m-d' ) ) ),
+                'done'  => ! empty( $note['done'] ),
+            ];
+        }
+    }
+    update_option( 'simple_hotel_crm_maintenance_notes', $clean, false );
+    return rest_ensure_response( [ 'success' => true, 'notes' => $clean ] );
+}
+
+function simple_hotel_crm_rest_ticket_auth( WP_REST_Request $request ) {
+    $username = $request->get_param( 'username' );
+    $password = $request->get_param( 'password' );
+
+    $user = wp_authenticate( $username, $password );
+    if ( is_wp_error( $user ) ) {
+        return new WP_Error( 'auth_failed', 'Invalid username or password.', [ 'status' => 401 ] );
+    }
+
+    if ( ! user_can( $user, 'manage_options' ) ) {
+        return new WP_Error( 'auth_failed', 'Insufficient privileges.', [ 'status' => 401 ] );
+    }
+
+    $api_key = get_option( 'simple_hotel_crm_dashboard_api_key', '' );
+    if ( empty( $api_key ) ) {
+        $api_key = wp_generate_password( 32, false );
+        update_option( 'simple_hotel_crm_dashboard_api_key', $api_key );
+    }
+
+    return rest_ensure_response( [
+        'ok'      => true,
+        'name'    => $user->display_name,
+        'api_key' => $api_key,
+    ] );
+}
+
+function simple_hotel_crm_rest_debug_ics() {
+    $data = simple_hotel_crm_debug_ics_feeds();
+    return rest_ensure_response( $data );
 }
 

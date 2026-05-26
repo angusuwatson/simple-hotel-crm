@@ -1,0 +1,1955 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LGF Orders">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-152.png" type="image/png">
+<link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
+<link rel="apple-touch-icon" sizes="167x167" href="icon-167.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<title>LGF Orders</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--text:#f1f5f9;--muted:#94a3b8;--accent:#3b82f6;--green:#22c55e;--red:#ef4444;--orange:#f97316;--hover-bg:rgba(59,130,246,.15);--error-bg:rgba(239,68,68,.15);--success-bg:rgba(34,197,94,.15)}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:18px;color:var(--text);background:var(--bg);overflow:hidden;-webkit-tap-highlight-color:transparent}
+#app{display:flex;flex-direction:column;height:100vh}
+button{cursor:pointer;font-family:inherit}
+input,select{font-family:inherit;font-size:16px}
+/* Login */
+#login-overlay{position:fixed;top:0;left:0;width:100%;height:100%;background:var(--bg);z-index:2000;display:flex;justify-content:center;align-items:center}
+.login-box{background:var(--card);border-radius:16px;padding:32px;width:90%;max-width:420px;text-align:center}
+.login-box h2{font-size:24px;color:var(--text);margin-bottom:8px}
+.login-box p{font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.4}
+.login-box input{width:100%;padding:14px;border:2px solid var(--border);border-radius:10px;font-size:16px;margin-bottom:12px;outline:none;transition:border-color .15s;background:var(--bg);color:var(--text)}
+.login-box input:focus{border-color:var(--accent)}
+.login-box button{width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:10px;font-size:17px;font-weight:700;margin-top:4px}
+.login-box button:active{background:#2563eb}
+.login-box button:disabled{opacity:.5}
+.login-box .login-hint{font-size:12px;color:var(--muted);margin-top:8px}
+#login-error{color:var(--red);font-size:14px;margin-top:12px;padding:8px 12px;background:var(--error-bg);border-radius:8px;display:none;word-break:break-word}
+/* Header */
+.header{background:var(--bg);color:#fff;padding:8px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0;flex-wrap:wrap;position:relative;z-index:100}
+.header h1{font-size:18px;font-weight:700;flex-shrink:0;margin-right:4px}
+.header input[type=date]{font-size:15px;padding:6px 10px;border-radius:8px;border:none;background:var(--card);color:var(--text);min-height:36px}
+.header .user-name{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px}
+.header .fs-btn{font-size:18px;background:none;border:2px solid rgba(255,255,255,.5);color:#fff;border-radius:6px;padding:4px 8px;line-height:1;flex-shrink:0}
+.header .fs-btn:active{border-color:#fff;background:rgba(255,255,255,.15)}
+.view-btn{background:none;border:1px solid rgba(255,255,255,.3);color:rgba(255,255,255,.7);border-radius:6px;padding:4px 10px;font-size:12px;font-weight:600;min-height:32px;flex-shrink:0}
+.view-btn.active{border-color:#fff;color:#fff;background:rgba(255,255,255,.15)}
+.view-btn:active{background:rgba(255,255,255,.2)}
+.gs-input{font-size:14px;padding:6px 10px;border-radius:8px;border:none;background:rgba(255,255,255,.15);color:#fff;min-height:32px;flex:1;min-width:80px;max-width:200px;outline:none}
+.gs-input::placeholder{color:rgba(255,255,255,.5)}
+.gs-input:focus{background:rgba(255,255,255,.25)}
+.btn-qb-hdr{background:rgba(255,255,255,.15);border:none;color:#fff;border-radius:6px;padding:2px 10px;font-size:22px;font-weight:700;line-height:1;min-height:32px;flex-shrink:0}
+.btn-qb-hdr:active{background:rgba(255,255,255,.3)}
+/* Search results */
+.gs-results{position:absolute;top:100%;left:0;right:0;background:var(--card);border-radius:0 0 12px 12px;box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:500;max-height:50vh;overflow-y:auto;display:none}
+.gs-results.active{display:block}
+.gs-result{padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;display:flex;align-items:center;gap:8px}
+.gs-result:active{background:var(--hover-bg)}
+.gs-result:last-child{border-bottom:none}
+.gs-result .gsr-name{font-weight:600;font-size:15px;white-space:nowrap}
+.gs-result .gsr-detail{font-size:12px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.gs-result .gsr-action{font-size:11px;color:var(--accent);font-weight:600;flex-shrink:0}
+.gs-no-results{padding:16px;text-align:center;color:var(--muted);font-size:14px}
+/* Bookings row */
+.bookings-row{display:flex;gap:8px;padding:10px;overflow-x:auto;flex-shrink:0;background:var(--card);border-bottom:2px solid var(--border);min-height:70px;-webkit-overflow-scrolling:touch}
+.booking-card{flex:0 0 auto;padding:10px 14px;border-radius:10px;border:2px solid var(--border);background:var(--card);cursor:pointer;text-align:left;min-width:160px;transition:border-color .1s}
+.booking-card:active,.booking-card-active{border-color:var(--accent);background:var(--hover-bg)}
+.booking-card-active{border-width:3px}
+.btn-ci{background:var(--accent);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:14px;font-weight:600;min-height:36px}
+.btn-ci:active{background:#2563eb}
+.btn-co{background:var(--orange);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-size:14px;font-weight:600;min-height:36px}
+.btn-co:active{background:#ea580c}
+.booking-name{font-weight:700;font-size:15px;white-space:nowrap}
+.booking-meta{font-size:12px;color:var(--muted);margin-top:2px}
+.booking-room{font-size:11px;color:var(--muted);margin-top:2px}
+/* Catalog */
+.catalog-scroll{flex:1;overflow-y:auto;padding:10px;background:var(--card);-webkit-overflow-scrolling:touch}
+.cat-header{margin:10px 0 6px;font-size:16px;font-weight:700;color:var(--text);cursor:pointer;-webkit-user-select:none;user-select:none;padding:4px 0}
+.cat-header:first-child{margin-top:0}
+.cat-arrow{display:inline-block;width:16px}
+.item-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:6px;margin-bottom:4px}
+.item-card{border:2px solid var(--border);border-radius:10px;padding:14px 8px;text-align:center;cursor:pointer;background:var(--card);transition:background .08s,border-color .08s;min-height:60px}
+.item-card:active{background:var(--accent);color:#fff;border-color:var(--accent)}
+.item-name{font-size:14px;font-weight:600;word-break:break-word}
+.item-price{font-size:13px;color:var(--muted);margin-top:4px}
+.item-card:active .item-price{color:rgba(255,255,255,.7)}
+/* Calendar */
+.cal-scroll{flex:1;overflow:auto;padding:6px;background:var(--card);-webkit-overflow-scrolling:touch}
+.cal-grid{display:table;border-collapse:collapse;width:100%;min-width:600px;font-size:13px}
+.cal-row{display:table-row}
+.cal-room-col{display:table-cell;padding:4px 6px;border:1px solid var(--border);font-weight:700;font-size:12px;white-space:nowrap;min-width:70px;text-align:center;vertical-align:middle}
+.cal-date-col{display:table-cell;padding:3px 4px;border:1px solid var(--border);text-align:center;font-size:11px;font-weight:600;color:var(--muted);min-width:50px;vertical-align:middle}
+.cal-cell{display:table-cell;padding:3px 4px;border:1px solid var(--border);text-align:center;font-size:11px;cursor:pointer;vertical-align:middle;transition:background .15s}
+.cal-cell:active{opacity:.7}
+.cal-free{background:transparent;color:var(--muted)}
+.cal-occ-confirmed{background:rgba(59,130,246,.25);color:#60a5fa}
+.cal-occ-checked_in{background:rgba(34,197,94,.25);color:#4ade80}
+.cal-today{font-weight:700;border-color:var(--accent)!important}
+.cal-guest-name{font-size:10px;display:block;max-width:60px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+/* Dashboard */
+.dash-scroll{flex:1;overflow-y:auto;padding:12px;background:var(--card);-webkit-overflow-scrolling:touch}
+.dash-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:12px;margin-bottom:12px}
+.dash-card{border:1px solid var(--border);border-radius:12px;background:var(--bg);overflow:hidden}
+.dash-card-header{padding:10px 14px;font-size:14px;font-weight:700;color:var(--text);border-bottom:1px solid var(--border);background:var(--card)}
+.dash-card-body{padding:10px 14px}
+/* Stats row */
+.dash-stats{display:flex;gap:8px;margin-bottom:12px}
+.dash-stat{flex:1;border-radius:10px;padding:12px 8px;text-align:center}
+.dash-stat-arr{background:rgba(59,130,246,.2);color:#60a5fa}
+.dash-stat-dep{background:rgba(249,115,22,.2);color:#fb923c}
+.dash-stat-room{background:rgba(34,197,94,.2);color:#4ade80}
+.dash-stat-num{font-size:26px;font-weight:800;line-height:1}
+.dash-stat-label{font-size:10px;margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+/* Guest rows in arrivals/departures */
+.dash-guest-list{max-height:220px;overflow-y:auto}
+.dash-guest{border-radius:8px;border:1px solid var(--border);padding:8px 10px;margin-bottom:4px;display:flex;align-items:center;gap:8px;cursor:pointer;min-height:40px;background:var(--card)}
+.dash-guest:active{background:var(--hover-bg)}
+.dash-guest-name{font-weight:700;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex-shrink:0;min-width:0}
+.dash-guest-meta{font-size:11px;color:var(--muted);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dash-guest-room{font-size:11px;color:var(--muted);flex-shrink:0}
+.dash-empty{padding:16px 0;text-align:center;color:var(--muted);font-size:13px}
+/* Occupancy grid (Next 7 Days) */
+.dash-occ-table{display:table;width:100%;border-collapse:collapse;font-size:10px;overflow-x:auto}
+.dash-occ-row{display:table-row}
+.dash-occ-room{display:table-cell;padding:2px 4px;border:1px solid var(--border);font-weight:700;font-size:9px;white-space:nowrap;text-align:center;vertical-align:middle;background:var(--card);width:40px}
+.dash-occ-date{display:table-cell;padding:2px 2px;border:1px solid var(--border);text-align:center;font-size:9px;min-width:36px;vertical-align:middle;color:var(--muted);background:var(--card)}
+.dash-occ-cell{display:table-cell;padding:2px 2px;border:1px solid var(--border);text-align:center;font-size:9px;vertical-align:middle;transition:background .15s}
+.dash-occ-free{background:transparent;color:var(--muted)}
+.dash-occ-confirmed{background:rgba(59,130,246,.2);color:#60a5fa}
+.dash-occ-checked_in{background:rgba(34,197,94,.2);color:#4ade80}
+.dash-occ-today{border-color:var(--accent)!important}
+/* Bread Order table */
+.dash-bread-table{display:table;width:100%;border-collapse:collapse;font-size:12px}
+.dash-bread-row{display:table-row}
+.dash-bread-date{display:table-cell;padding:4px 8px;border:1px solid var(--border);white-space:nowrap;font-weight:600}
+.dash-bread-cell{display:table-cell;padding:4px 8px;border:1px solid var(--border);text-align:center}
+.dash-bread-header{display:table-cell;padding:4px 8px;border:1px solid var(--border);font-weight:700;font-size:11px;text-align:center;background:var(--card);color:var(--muted)}
+/* Notes */
+.dash-notes-table{display:table;width:100%;border-collapse:collapse;font-size:12px}
+.dash-notes-row{display:table-row}
+.dash-notes-date{display:table-cell;padding:4px 8px;border:1px solid var(--border);white-space:nowrap;font-weight:600;color:var(--muted)}
+.dash-notes-text{display:table-cell;padding:4px 8px;border:1px solid var(--border);color:var(--text)}
+.dash-notes-empty{padding:16px 0;text-align:center;color:var(--muted);font-size:13px}
+.dash-card-footer{padding:10px 14px;border-top:1px solid var(--border)}
+/* Status labels */
+.dash-label{display:inline-block;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:700;line-height:1.4;flex-shrink:0;text-align:center;min-width:32px}
+.label-in{background:rgba(34,197,94,.2);color:#4ade80}
+.label-out{background:rgba(249,115,22,.2);color:#fb923c}
+.label-stay{background:rgba(59,130,246,.2);color:#60a5fa}
+/* Source channel badge */
+.ch-badge{font-size:9px;background:rgba(255,255,255,.1);border:1px solid var(--border);border-radius:4px;padding:1px 5px;color:var(--muted);white-space:nowrap;flex-shrink:0}
+/* Maintenance */
+.maint-scroll{flex:1;overflow-y:auto;padding:10px;background:var(--card);-webkit-overflow-scrolling:touch}
+.mt-input-row{display:flex;gap:8px;margin-bottom:12px}
+.mt-input-row input{flex:1;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:15px;outline:none;min-height:44px;background:var(--bg);color:var(--text)}
+.mt-input-row input:focus{border-color:var(--accent)}
+.mt-input-row button{background:var(--accent);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-size:14px;font-weight:700;min-height:44px}
+.mt-input-row button:active{background:#2563eb}
+.mt-item{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:6px}
+.mt-item .mt-done{width:22px;height:22px;flex-shrink:0;cursor:pointer}
+.mt-item .mt-text{flex:1;font-size:14px;line-height:1.3}
+.mt-item .mt-text.done{text-decoration:line-through;color:var(--muted)}
+.mt-item .mt-date{font-size:11px;color:var(--muted);flex-shrink:0}
+.mt-item .mt-del{background:none;border:none;font-size:18px;color:var(--red);cursor:pointer;padding:4px;line-height:1;flex-shrink:0}
+.mt-empty{color:var(--muted);text-align:center;padding:30px 0;font-size:14px}
+/* Main layout */
+.main{display:flex;flex:1;min-height:0}
+.left-panel{flex:1;display:flex;flex-direction:column;min-width:0;overflow:hidden}
+/* Hamburger */
+.hamburger{display:none;background:none;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:6px;padding:4px 10px;font-size:18px;line-height:1;min-height:32px;cursor:pointer;flex-shrink:0}
+.hamburger:active{background:rgba(255,255,255,.2)}
+.hm-menu{display:none;position:absolute;top:100%;right:8px;background:var(--bg);border:1px solid rgba(255,255,255,.2);border-radius:8px;padding:6px;z-index:600;flex-direction:column;gap:4px;min-width:180px}
+.hm-menu.active{display:flex}
+.hm-menu .view-btn{display:block;width:100%;text-align:left;padding:8px 14px;font-size:14px}
+.hm-menu .hm-search{display:block;width:100%;padding:8px 14px;font-size:14px;background:rgba(255,255,255,.1);border:none;border-radius:6px;color:#fff;outline:none}
+.hm-menu .hm-search::placeholder{color:rgba(255,255,255,.4)}
+.hm-menu .hm-user{display:block;padding:6px 14px;font-size:12px;color:rgba(255,255,255,.5);text-align:center;border-top:1px solid rgba(255,255,255,.1);margin-top:4px}
+.hm-menu .hm-logout{display:block;width:100%;padding:8px 14px;font-size:13px;background:none;border:none;color:#e57373;border-radius:6px;cursor:pointer;text-align:center}
+.hm-menu .hm-logout:active{background:rgba(255,255,255,.1)}
+/* Responsive */
+@media(max-width:768px){
+  .main{flex-direction:column}
+  .left-panel{flex:none;height:50vh}
+  .ticket-panel{width:100%;border-left:none;border-top:2px solid var(--border);flex:1}
+  .hamburger{display:inline-flex}
+  .header > .view-btn{display:none}
+  .header .gs-input{display:none}
+  .header .user-name{display:none}
+  .header #logout-btn{display:none}
+}
+/* Ticket panel */
+.ticket-panel{width:380px;flex-shrink:0;display:flex;flex-direction:column;background:var(--card);overflow:hidden;border-left:2px solid var(--border)}
+.ticket-header{display:flex;align-items:center;gap:6px;padding:12px 14px;font-weight:700;font-size:15px;border-bottom:2px solid var(--border);background:var(--card);flex-shrink:0;flex-wrap:wrap}
+.ticket-header #ticket-heading{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ticket-header .th-edit{background:none;border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px;min-height:32px;color:var(--muted)}
+.ticket-header .th-edit:active{background:var(--hover-bg)}
+.ticket-header small{font-weight:400;font-size:12px;color:var(--muted)}
+.th-close{background:none;border:none;font-size:28px;color:var(--muted);cursor:pointer;line-height:1;padding:4px 8px}
+.th-close:active{color:var(--text)}
+.ticket-items{flex:1;overflow-y:auto;padding:6px 10px;min-height:0;-webkit-overflow-scrolling:touch}
+.ticket-empty{color:var(--muted);text-align:center;padding:30px 0;font-size:14px}
+.ticket-item{display:flex;align-items:center;gap:6px;padding:8px;border-radius:8px;cursor:pointer;min-height:40px}
+.ticket-item:active{background:rgba(255,255,255,.05)}
+.ti-name{flex:1;font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ti-qty{font-size:13px;color:var(--muted);min-width:28px;text-align:center}
+.ti-total{font-size:13px;font-weight:600;min-width:55px;text-align:right}
+.ti-remove{background:none;border:none;font-size:20px;color:var(--red);cursor:pointer;padding:4px 6px;line-height:1}
+.ti-room{background:rgba(59,130,246,.1);border-radius:8px;margin:2px 0;pointer-events:none}
+.ti-room .ti-name{font-weight:600}
+.ti-sep{pointer-events:none;font-size:12px;color:var(--muted);border-bottom:1px solid var(--border);padding:3px 8px;margin:3px 0}
+/* Ticket footer */
+.ticket-footer{flex-shrink:0;padding:10px 14px;border-top:2px solid var(--border);background:var(--card)}
+.ticket-total{font-size:18px;font-weight:700;margin-bottom:8px}
+.ticket-actions{display:flex;gap:6px}
+.ticket-actions button{flex:1;padding:12px;border-radius:10px;border:none;font-size:15px;font-weight:700;min-height:44px}
+.btn-save{background:var(--accent);color:#fff}
+.btn-save:active{background:#2563eb}
+.btn-pay{background:var(--green);color:#fff}
+.btn-pay:active{background:#16a34a}
+/* Error / success */
+#ticket-error,#pay-error{background:var(--error-bg);color:var(--red);padding:8px 14px;border-radius:8px;margin:6px 10px;display:none;font-size:13px}
+#pay-success{background:var(--success-bg);color:var(--green);padding:8px 14px;border-radius:8px;margin:6px 10px;display:none;font-size:13px}
+#ticket-save-indicator{display:none;font-size:12px;color:var(--muted)}
+/* Pay modal */
+.modal-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);z-index:1000;justify-content:center;align-items:center}
+.modal-overlay.active{display:flex}
+.modal-box{background:var(--card);border-radius:16px;padding:24px;max-width:480px;width:90%;max-height:80vh;overflow-y:auto;position:relative}
+.modal-box h2{font-size:20px;margin-bottom:16px}
+.modal-close{background:none;border:none;font-size:28px;color:var(--muted);cursor:pointer;position:absolute;top:12px;right:16px;line-height:1;padding:4px 8px}
+.modal-close:active{color:var(--text)}
+.pay-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)}
+.pay-item input[type=checkbox]{width:20px;height:20px}
+.pay-item label{flex:1;font-size:15px}
+.pay-amount{font-weight:600;font-size:15px;white-space:nowrap}
+.pay-total{font-size:20px;font-weight:700;margin:14px 0;text-align:right}
+.pay-actions{display:flex;gap:10px}
+.pay-actions button{flex:1;padding:14px;border-radius:10px;border:none;font-size:16px;font-weight:700;min-height:48px}
+.btn-pay-confirm{background:var(--green);color:#fff}
+.btn-pay-confirm:disabled{opacity:.5}
+.btn-pay-cancel{background:var(--border);color:var(--text)}
+#pay-modal-error{background:var(--error-bg);color:var(--red);padding:10px 16px;border-radius:8px;margin:8px 0;display:none;font-size:14px}
+.ci-section{padding:8px 0;border-bottom:1px solid var(--border)}
+.ci-section:last-child{border-bottom:none}
+.ci-label{font-size:13px;color:var(--muted);margin-bottom:4px;font-weight:600}
+.ci-row{display:flex;gap:8px;margin-bottom:6px}
+.ci-row input,.ci-row select,.ci-row textarea{flex:1;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:15px;outline:none;min-height:44px;background:var(--bg);color:var(--text)}
+.ci-row input:focus,.ci-row select:focus{border-color:var(--accent)}
+.ci-row textarea{min-height:60px;resize:vertical}
+.btn-ci-photo{background:var(--card);border:2px solid var(--border);border-radius:8px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;min-height:44px;flex-shrink:0}
+.btn-ci-photo:active{background:var(--hover-bg)}
+/* Booking edit modal */
+.bedit-row{display:flex;gap:8px;margin-bottom:8px;align-items:center}
+.bedit-row label{font-size:13px;color:var(--muted);min-width:60px}
+.bedit-row input,.bedit-row select{flex:1;padding:10px;border:2px solid var(--border);border-radius:8px;font-size:15px;outline:none;min-height:44px;background:var(--bg);color:var(--text)}
+.bedit-row input:focus,.bedit-row select:focus{border-color:var(--accent)}
+/* Room selector */
+.room-selector{padding:6px 10px;display:flex;align-items:center;gap:6px;font-size:13px;border-bottom:1px solid var(--border);background:var(--card)}
+.room-selector select{padding:6px 8px;border-radius:6px;border:1px solid var(--border);font-size:13px;min-height:36px;background:var(--bg);color:var(--text)}
+/* misc */
+.dn-bar{border-bottom:1px solid var(--border);padding:6px 12px;background:var(--card);flex-shrink:0}
+.dn-bar>div:first-child{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.dn-label{font-size:13px;font-weight:700;color:var(--muted)}
+.dn-saved{font-size:11px;color:var(--green);display:none}
+#dn-input{width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;font-size:14px;outline:none;background:var(--bg);color:var(--text)}
+.text-muted{color:var(--muted)}
+.text-sm{font-size:12px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div class="header">
+    <h1>LGF</h1>
+    <input type="date" id="ticket-date">
+    <input type="search" id="gs-input" placeholder="Search guests..." class="gs-input" autocomplete="off">
+    <button class="view-btn active" data-view="dash" id="view-dash">Dash</button>
+    <button class="view-btn" data-view="list" id="view-list">List</button>
+    <button class="view-btn" data-view="cal" id="view-cal">Cal</button>
+    <button class="view-btn" data-view="maint" id="view-maint">Maint</button>
+    <button class="hamburger" id="hamburger">☰</button>
+    <button class="btn-qb-hdr" id="qb-open" title="Quick booking">+</button>
+    <span class="user-name" id="user-label"></span>
+    <button class="fs-btn" id="fs-btn" title="Toggle fullscreen">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+    </button>
+    <button id="logout-btn" style="background:none;border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:6px;padding:4px 8px;font-size:11px;min-height:32px">Logout</button>
+    <div class="hm-menu" id="hm-menu">
+      <input type="search" id="hm-search" placeholder="Search guests..." class="hm-search" autocomplete="off">
+      <button class="view-btn active" data-view="dash" id="hm-view-dash">📊 Dash</button>
+      <button class="view-btn" data-view="list" id="hm-view-list">📋 List</button>
+      <button class="view-btn" data-view="cal" id="hm-view-cal">📅 Calendar</button>
+      <button class="view-btn" data-view="maint" id="hm-view-maint">🔧 Maintenance</button>
+      <span class="hm-user" id="hm-user"></span>
+      <button class="hm-logout" id="hm-logout">Sign Out</button>
+    </div>
+  </div>
+
+  <div class="gs-results" id="gs-results"></div>
+
+  <div class="main">
+    <div class="left-panel">
+      <div class="dn-bar" id="dn-bar">
+        <div><span class="dn-label">&#128203; Daily Note</span><span class="dn-saved" id="dn-saved">Saved</span></div>
+        <input type="text" id="dn-input" placeholder="Note for today..." autocomplete="off">
+      </div>
+      <div class="bookings-row" id="booking-cards"></div>
+      <div class="catalog-scroll" id="item-grid"></div>
+      <div id="dash-view" class="dash-scroll" style="display:none"></div>
+      <div id="cal-view" class="cal-scroll" style="display:none"></div>
+      <div id="maint-view" class="maint-scroll" style="display:none"></div>
+    </div>
+
+    <div class="ticket-panel" id="ticket-panel" style="display:none">
+      <div class="ticket-header">
+        <span id="ticket-heading">Select a booking</span>
+        <button class="th-edit" id="ticket-edit-btn" style="display:none">Edit</button>
+        <button class="th-close" id="ticket-close">×</button>
+      </div>
+      <div class="room-selector" id="room-selector" style="display:none"></div>
+      <div id="ticket-error"></div>
+      <div id="pay-error"></div>
+      <div id="pay-success"></div>
+      <div class="ticket-items" id="ticket-items">
+        <div class="ticket-empty">Select a booking to start.</div>
+      </div>
+      <div class="ticket-footer">
+        <div class="ticket-total" id="ticket-total"></div>
+        <div class="ticket-actions">
+          <button class="btn-save" id="save-ticket">Save</button>
+          <button class="btn-pay" id="pay-ticket">Pay</button>
+          <span id="ticket-save-indicator">Saving…</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Login screen -->
+<div id="login-overlay">
+  <div class="login-box">
+    <h2>LGF Orders</h2>
+    <p>Sign in with your WordPress admin account.</p>
+    <input type="text" id="login-user" placeholder="Username" autocomplete="off">
+    <input type="password" id="login-pass" placeholder="Password" autocomplete="off">
+    <button id="login-btn">Sign In</button>
+    <div id="login-error"></div>
+    <div class="login-hint" id="login-hint"></div>
+  </div>
+</div>
+
+<!-- Pay modal -->
+<div class="modal-overlay" id="pay-modal">
+  <div class="modal-box">
+    <button class="modal-close" id="pay-modal-close">×</button>
+    <h2>Confirm Payment</h2>
+    <div id="pay-items-list"></div>
+    <div class="pay-total" id="pay-total"></div>
+    <div id="pay-modal-error"></div>
+    <div style="margin:8px 0;">
+      <label><input type="checkbox" id="pay-skip-receipt"> Skip receipt screen</label>
+    </div>
+    <div class="pay-actions">
+      <button class="btn-pay-confirm" id="pay-confirm">Pay with Terminal</button>
+      <button class="btn-pay-cancel" id="pay-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Check-in modal -->
+<div class="modal-overlay" id="ci-modal">
+  <div class="modal-box" style="max-width:520px">
+    <button class="modal-close" id="ci-modal-close">×</button>
+    <h2 id="ci-heading">Check In</h2>
+    <div id="ci-rooms" style="font-size:14px;color:var(--muted);margin-bottom:12px"></div>
+    <div id="ci-error" style="display:none;background:var(--error-bg);color:var(--red);padding:8px 12px;border-radius:8px;margin-bottom:12px;font-size:14px"></div>
+    <div class="ci-section">
+      <div class="ci-row"><input type="text" id="ci-first-name" placeholder="First name"><input type="text" id="ci-last-name" placeholder="Last name"></div>
+      <div class="ci-row"><input type="tel" id="ci-phone" placeholder="Phone"></div>
+      <div class="ci-row"><input type="email" id="ci-email" placeholder="Email"></div>
+      <div class="ci-row"><input type="text" id="ci-address" placeholder="Address line 1"></div>
+      <div class="ci-row"><input type="text" id="ci-city" placeholder="City"><input type="text" id="ci-postcode" placeholder="Postcode" style="max-width:120px"></div>
+      <div class="ci-row"><input type="text" id="ci-country" placeholder="Country"></div>
+    </div>
+    <div class="ci-section">
+      <div class="ci-label">ID Document</div>
+      <div class="ci-row">
+        <select id="ci-id-type" style="flex:1"><option value="">— Type —</option><option value="passport">Passport</option><option value="id_card">ID Card</option><option value="other">Other</option></select>
+        <input type="text" id="ci-id-number" placeholder="ID number" style="flex:2">
+      </div>
+      <div class="ci-row">
+        <input type="text" id="ci-nationality" placeholder="Nationality" style="flex:1">
+        <input type="date" id="ci-dob" placeholder="Date of birth" style="flex:1">
+      </div>
+      <div class="ci-row">
+        <button class="btn-ci-photo" id="ci-photo-btn" type="button">Take ID photo</button>
+        <input type="file" id="ci-photo-input" accept="image/*" capture="environment" style="display:none">
+        <span id="ci-photo-name" style="font-size:13px;color:var(--muted);margin-left:8px"></span>
+      </div>
+    </div>
+    <div class="pay-actions" style="margin-top:16px">
+      <button class="btn-pay-confirm" id="ci-confirm">✓ Confirm Check-in</button>
+      <button class="btn-pay-cancel" id="ci-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Quick booking modal -->
+<div class="modal-overlay" id="qb-modal">
+  <div class="modal-box" style="max-width:440px">
+    <button class="modal-close" id="qb-modal-close">×</button>
+    <h2>Quick Booking</h2>
+    <div id="qb-error" style="display:none;background:var(--error-bg);color:var(--red);padding:8px 12px;border-radius:8px;margin-bottom:12px;font-size:14px"></div>
+    <div class="ci-section">
+      <div class="ci-row"><input type="text" id="qb-name" placeholder="Guest name"></div>
+      <div class="ci-row"><input type="tel" id="qb-phone" placeholder="Phone (optional)"></div>
+      <div class="ci-row"><input type="email" id="qb-email" placeholder="Email (optional)"></div>
+      <div class="ci-row">
+        <input type="date" id="qb-check-in">
+        <input type="date" id="qb-check-out">
+      </div>
+      <div class="ci-row">
+        <select id="qb-room" style="flex:2"><option value="">Select room (optional)</option></select>
+        <input type="number" id="qb-adults" value="1" min="1" max="10" style="flex:1">
+      </div>
+    </div>
+    <div class="pay-actions" style="margin-top:16px">
+      <button class="btn-pay-confirm" id="qb-confirm">✓ Create Booking</button>
+      <button class="btn-pay-cancel" id="qb-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- Booking edit modal -->
+<div class="modal-overlay" id="be-modal">
+  <div class="modal-box" style="max-width:440px">
+    <button class="modal-close" id="be-modal-close">×</button>
+    <h2 id="be-heading">Edit Booking</h2>
+    <div id="be-error" style="display:none;background:var(--error-bg);color:var(--red);padding:8px 12px;border-radius:8px;margin-bottom:12px;font-size:14px"></div>
+    <div class="ci-section">
+      <div class="bedit-row">
+        <label>Check-in</label>
+        <input type="date" id="be-check-in">
+      </div>
+      <div class="bedit-row">
+        <label>Check-out</label>
+        <input type="date" id="be-check-out">
+      </div>
+      <div class="bedit-row">
+        <label>Add room</label>
+        <select id="be-add-room"><option value="">— Select —</option></select>
+      </div>
+    </div>
+    <div class="pay-actions" style="margin-top:16px">
+      <button class="btn-pay-confirm" id="be-confirm">✓ Save Changes</button>
+      <button class="btn-pay-cancel" id="be-cancel">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+var REST_BASE = 'https://lagrangefleurie.fr/wp-json/simple-hotel-crm/v1/';
+var AUTH_KEY = 'lgf_terminal_key';
+var FIRST_NAME_KEY = 'lgf_terminal_name';
+
+var state = {
+    date: '',
+    bookings: [],
+    catalog: [],
+    roomsByBooking: {},
+    activeBookingId: 0,
+    activeRoomId: 0,
+    bookingRooms: [],
+    ticketItems: [],
+    savedItems: [],
+    roomNights: [],
+    activeBooking: null,
+    tempIdCounter: 0,
+    viewMode: 'dash',
+    calRooms: [],
+    calOccupancy: [],
+    calDailyNotes: [],
+    maintNotes: [],
+    dailyNotes: [],
+    occupancy: [],
+    rooms: [],
+};
+
+/* ---- Auth ---- */
+function getAuth(){ try{return localStorage.getItem(AUTH_KEY)||''}catch(e){return ''} }
+function setAuth(v){ try{localStorage.setItem(AUTH_KEY,v)}catch(e){} }
+function removeAuth(){ try{localStorage.removeItem(AUTH_KEY);localStorage.removeItem(FIRST_NAME_KEY)}catch(e){} }
+
+function showLogin(msg){
+    var overlay=document.getElementById('login-overlay');
+    overlay.style.display='flex';
+    document.getElementById('app').style.display='none';
+    var errEl=document.getElementById('login-error');
+    if(msg){
+        errEl.textContent=msg;
+        errEl.style.display='block';
+    }else{
+        errEl.style.display='none';
+    }
+    document.getElementById('login-user').focus();
+}
+function hideLogin(){
+    document.getElementById('login-overlay').style.display='none';
+    document.getElementById('app').style.display='flex';
+}
+
+function doLogin(){
+    var btn=document.getElementById('login-btn');
+    btn.disabled=true;
+    btn.textContent='Signing in…';
+    var errEl=document.getElementById('login-error');
+    errEl.style.display='none';
+    var hintEl=document.getElementById('login-hint');
+    hintEl.textContent='';
+
+    var username=document.getElementById('login-user').value.trim();
+    var password=document.getElementById('login-pass').value;
+
+    if(!username||!password){
+        errEl.textContent='Please enter your WordPress username and password.';
+        errEl.style.display='block';
+        btn.disabled=false;
+        btn.textContent='Sign In';
+        return;
+    }
+
+    fetch(REST_BASE+'ticket-auth',{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({username:username,password:password}),
+    }).then(function(r){
+        if(r.status===401){
+            throw new Error('Invalid username or password.');
+        }
+        if(!r.ok){
+            return r.text().then(function(body){
+                throw new Error('Server error '+r.status+': '+(body||r.statusText).slice(0,300));
+            });
+        }
+        return r.json();
+    }).then(function(data){
+        setAuth(data.api_key);
+        try{localStorage.setItem(FIRST_NAME_KEY,data.name)}catch(e){}
+        setUserLabel(data.name);
+        document.getElementById('login-pass').value='';
+        document.getElementById('login-user').value='';
+        hideLogin();
+        fetchData();
+    }).catch(function(err){
+        removeAuth();
+        errEl.textContent=err.message||'Connection failed. Check your network.';
+        errEl.style.display='block';
+        btn.disabled=false;
+        btn.textContent='Sign In';
+    });
+}
+
+function doLogout(){
+    removeAuth();
+    showLogin();
+}
+
+function setUserLabel(name){
+    document.getElementById('user-label').textContent=name||'';
+    document.getElementById('hm-user').textContent=name||'';
+}
+
+/* ---- Helpers ---- */
+function el(tag, attrs, children){
+    var e=document.createElement(tag);
+    if(attrs) for(var k in attrs){
+        if(k==='className') e.className=attrs[k];
+        else if(k==='style'&&typeof attrs[k]==='object') for(var sk in attrs[k]) e.style[sk]=attrs[k][sk];
+        else if(k.indexOf('on')===0&&typeof attrs[k]==='function') e.addEventListener(k.slice(2).toLowerCase(),attrs[k]);
+        else if(k==='htmlFor') e.htmlFor=attrs[k];
+        else e.setAttribute(k,attrs[k]);
+    }
+    if(children){
+        if(typeof children==='string') e.textContent=children;
+        else if(Array.isArray(children)) for(var i=0;i<children.length;i++){
+            var c=children[i]; if(c==null) continue;
+            if(typeof c==='string') e.appendChild(document.createTextNode(c));
+            else e.appendChild(c);
+        }
+        else if(children instanceof Node) e.appendChild(children);
+    }
+    return e;
+}
+function qsa(s){return Array.prototype.slice.call(document.querySelectorAll(s))}
+function setText(id,t){var e=document.getElementById(id);if(e)e.textContent=t}
+function setHTML(id,h){var e=document.getElementById(id);if(e)e.innerHTML=h}
+function today(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2)}
+function showError(msg){
+    var el=document.getElementById('ticket-error');
+    if(el){el.textContent=msg;el.style.display='block';setTimeout(function(){el.style.display='none'},4000);}
+}
+function toggleHm(){
+    var m=document.getElementById('hm-menu');
+    m.classList.toggle('active');
+}
+function closeHm(){
+    document.getElementById('hm-menu').classList.remove('active');
+}
+
+function apiGet(path){
+    var key=getAuth();
+    var sep=path.indexOf('?')===-1?'?':'&';
+    return fetch(REST_BASE+path+sep+'api_key='+encodeURIComponent(key),{
+        headers:{},
+    }).then(function(r){
+        if(r.status===401){removeAuth();showLogin('Session expired. Please sign in again.');throw new Error('unauthorized');}
+        return r.text().then(function(text){
+            if(!r.ok) throw new Error((r.status||'')+' '+(r.statusText||'')+'\n'+(text||'').slice(0,500));
+            try{return JSON.parse(text)}catch(e){throw new Error('Invalid JSON response: '+(text||'').slice(0,200));}
+        });
+    });
+}
+function apiPost(path,body){
+    var key=getAuth();
+    body=body||{};
+    body.api_key=key;
+    var sep=path.indexOf('?')===-1?'?':'&';
+    return fetch(REST_BASE+path+sep+'api_key='+encodeURIComponent(key),{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify(body),
+    }).then(function(r){
+        if(r.status===401){removeAuth();showLogin('Session expired. Please sign in again.');throw new Error('unauthorized');}
+        return r.text().then(function(text){
+            if(!r.ok) throw new Error((r.status||'')+' '+(r.statusText||'')+'\n'+(text||'').slice(0,500));
+            try{return JSON.parse(text)}catch(e){throw new Error('Invalid JSON response: '+(text||'').slice(0,200));}
+        });
+    });
+}
+
+/* ---- Data ---- */
+function fetchData(){
+    var params=new URLSearchParams({date:state.date,_:Date.now()});
+    if(state.activeBookingId>0) params.set('booking_id',state.activeBookingId);
+    return apiGet('ticket-data?'+params.toString()).then(function(data){
+        state.bookings=data.bookings||[];
+        if(data.catalog) state.catalog=data.catalog;
+        state.roomsByBooking=data.rooms_by_booking||{};
+        state.dailyNotes=data.daily_notes||[];
+        state.occupancy=data.occupancy||[];
+        state.rooms=data.rooms||[];
+        if(state.activeBookingId>0){
+            state.savedItems=data.items||[];
+            state.bookingRooms=data.booking_rooms||[];
+            state.roomNights=data.room_nights||[];
+            state.ticketItems=(data.items||[]).map(function(item){
+                return {id:item.id,name:item.item_name,qty:parseInt(item.quantity,10),price:parseFloat(item.unit_price)};
+            });
+        }else{
+            state.savedItems=[];state.bookingRooms=[];state.roomNights=[];state.ticketItems=[];
+        }
+        render();
+        return data;
+    }).catch(function(err){
+        if(err.message==='unauthorized') return;
+        showError(err.message||'Failed to load data.');
+    });
+}
+
+function setViewMode(mode){
+    state.viewMode=mode;
+    qsa('.view-btn').forEach(function(b){
+        b.classList.toggle('active',b.getAttribute('data-view')===mode);
+    });
+    render();
+}
+
+/* ---- Dashboard ---- */
+function renderDashboard(){
+    var root=document.getElementById('dash-view');
+    var todayStr=today();
+
+    function roomLabel(b){
+        var rooms=state.roomsByBooking[b.id]||[];
+        return rooms.map(function(r){return r.room_code;}).join(', ');
+    }
+    function guestName(b){
+        return ((b.first_name||'')+' '+(b.last_name||'')).trim()||'#'+b.id;
+    }
+    function statusLabel(b){
+        if(b.status_code==='checked_out') return {text:'Out',cls:'label-out'};
+        if(b.status_code==='checked_in'){
+            if(b.check_out_date===todayStr) return {text:'Out',cls:'label-out'};
+            return {text:'In',cls:'label-in'};
+        }
+        if(b.check_in_date===todayStr) return {text:'In',cls:'label-in'};
+        return {text:'Stay',cls:'label-stay'};
+    }
+    function channelBadge(b){
+        if(!b.source_channel||b.source_channel==='direct') return null;
+        return el('span',{className:'ch-badge'},[b.source_channel]);
+    }
+
+    root.innerHTML='';
+    var grid=el('div',{className:'dash-grid'});
+
+    // Card 1: Arrivals / Departures
+    var arrDepCard=el('div',{className:'dash-card'});
+    arrDepCard.appendChild(el('div',{className:'dash-card-header'},['Bookings Today']));
+    var arrDepBody=el('div',{className:'dash-card-body'});
+
+    var totalIn=0,totalOut=0,totalStay=0;
+    state.bookings.forEach(function(b){
+        var sl=statusLabel(b);
+        if(sl.text==='In') totalIn++;
+        else if(sl.text==='Out') totalOut++;
+        else totalStay++;
+    });
+    arrDepBody.appendChild(el('div',{className:'dash-stats'},[
+        el('div',{className:'dash-stat dash-stat-arr'},[
+            el('div',{className:'dash-stat-num'},[String(totalIn)]),
+            el('div',{className:'dash-stat-label'},['In']),
+        ]),
+        el('div',{className:'dash-stat dash-stat-dep'},[
+            el('div',{className:'dash-stat-num'},[String(totalOut)]),
+            el('div',{className:'dash-stat-label'},['Out']),
+        ]),
+        el('div',{className:'dash-stat dash-stat-room'},[
+            el('div',{className:'dash-stat-num'},[String(totalStay)]),
+            el('div',{className:'dash-stat-label'},['Stay']),
+        ]),
+    ]));
+
+    // Guest list
+    var guestList=el('div',{className:'dash-guest-list'});
+    if(state.bookings.length===0){
+        guestList.appendChild(el('div',{className:'dash-empty'},['No bookings today.']));
+    }else{
+        state.bookings.forEach(function(b){
+            var sl=statusLabel(b);
+            var rooms=state.roomsByBooking[b.id]||[];
+            var roomLabels=rooms.map(function(r){return r.room_code;}).join(', ');
+            var name=guestName(b);
+            var meta='#'+b.id+(b.total_amount?' \u00B7 '+parseFloat(b.total_amount).toFixed(2)+'\u20AC':'');
+            var row=el('div',{
+                className:'dash-guest',
+                onClick:function(){selectBooking(parseInt(b.id,10));}
+            },[
+                el('span',{className:'dash-label '+sl.cls},[sl.text]),
+                el('div',{className:'dash-guest-name'},[name]),
+                channelBadge(b),
+                el('div',{className:'dash-guest-meta'},[meta]),
+                roomLabels?el('div',{className:'dash-guest-room'},[roomLabels]):null,
+            ]);
+            guestList.appendChild(row);
+        });
+    }
+    arrDepBody.appendChild(guestList);
+    arrDepCard.appendChild(arrDepBody);
+    grid.appendChild(arrDepCard);
+
+    // Card 2: Next 7 Days
+    var occCard=el('div',{className:'dash-card'});
+    occCard.appendChild(el('div',{className:'dash-card-header'},['Next 7 Days']));
+    var occBody=el('div',{className:'dash-card-body'});
+    occCard.appendChild(occBody);
+    grid.appendChild(occCard);
+
+    var rooms=state.rooms;
+    var weekDates=[];
+    for(var i=0;i<7;i++){
+        var d=new Date(todayStr);
+        d.setDate(d.getDate()+i);
+        var ds=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+        weekDates.push(ds);
+    }
+    if(rooms.length===0){
+        occBody.appendChild(el('div',{className:'dash-empty'},['No room data.']));
+    }else{
+        var occByDate={};
+        state.occupancy.forEach(function(o){
+            if(!occByDate[o.stay_date]) occByDate[o.stay_date]={};
+            occByDate[o.stay_date][o.room_code]=o;
+        });
+
+        var occTable=el('div',{className:'dash-occ-table'});
+        var hdrRow=el('div',{className:'dash-occ-row'});
+        hdrRow.appendChild(el('div',{className:'dash-occ-room',style:'background:var(--bg)'},['']));
+        weekDates.forEach(function(ds){
+            var dt=new Date(ds+'T12:00:00');
+            var isToday=ds===todayStr;
+            var cell=el('div',{className:'dash-occ-date'+(isToday?' dash-occ-today':'')},[
+                String(dt.getDate())
+            ]);
+            hdrRow.appendChild(cell);
+        });
+        occTable.appendChild(hdrRow);
+
+        rooms.forEach(function(rm){
+            var row=el('div',{className:'dash-occ-row'});
+            row.appendChild(el('div',{className:'dash-occ-room'},[rm.room_code]));
+            weekDates.forEach(function(ds){
+                var occ=occByDate[ds]&&occByDate[ds][rm.room_code];
+                var isToday=ds===todayStr;
+                var cls='dash-occ-cell'+(isToday?' dash-occ-today':'');
+                if(occ){
+                    var guests=occ.guest_count||'';
+                    cls+=' dash-occ-checked_in';
+                    row.appendChild(el('div',{className:cls},[String(guests)]));
+                }else{
+                    cls+=' dash-occ-free';
+                    row.appendChild(el('div',{className:cls},['']));
+                }
+            });
+            occTable.appendChild(row);
+        });
+        occBody.appendChild(occTable);
+    }
+
+    // Card 3: Bread Order (yesterday)
+    var breadCard=el('div',{className:'dash-card'});
+    breadCard.appendChild(el('div',{className:'dash-card-header'},['Bread Order']));
+    var breadBody=el('div',{className:'dash-card-body'});
+    breadCard.appendChild(breadBody);
+    grid.appendChild(breadCard);
+
+    var yesterday=new Date(todayStr);
+    yesterday.setDate(yesterday.getDate()-1);
+    var yStr=yesterday.getFullYear()+'-'+String(yesterday.getMonth()+1).padStart(2,'0')+'-'+String(yesterday.getDate()).padStart(2,'0');
+
+    var yTotal=0;
+    state.occupancy.forEach(function(o){
+        if(o.stay_date===yStr){
+            yTotal+=parseInt(o.guest_count,10)||0;
+        }
+    });
+
+    if(yTotal===0){
+        breadBody.appendChild(el('div',{className:'dash-empty'},['No guests yesterday ('+yStr+').']));
+    }else{
+        var croissants=yTotal;
+        var baguettes=Math.ceil(yTotal/4);
+        breadBody.appendChild(el('div',{style:'font-size:13px;line-height:1.6'},[
+            el('div',{style:'margin-bottom:8px;color:var(--muted)'},['Based on '+yStr+' ('+yTotal+' guests):']),
+            el('div',{style:'display:flex;gap:16px;flex-wrap:wrap'},[
+                el('div',{style:'background:rgba(249,115,22,.15);border-radius:10px;padding:12px 16px;text-align:center;flex:1;min-width:100px'},[
+                    el('div',{style:'font-size:24px;font-weight:800;color:#fb923c'},[String(croissants)]),
+                    el('div',{style:'font-size:11px;color:var(--muted);margin-top:2px'},['Croissants']),
+                ]),
+                el('div',{style:'background:rgba(59,130,246,.15);border-radius:10px;padding:12px 16px;text-align:center;flex:1;min-width:100px'},[
+                    el('div',{style:'font-size:24px;font-weight:800;color:#60a5fa'},[String(baguettes)]),
+                    el('div',{style:'font-size:11px;color:var(--muted);margin-top:2px'},['Baguettes']),
+                ]),
+            ]),
+        ]));
+    }
+
+    // Card 4: Notes
+    root.appendChild(grid);
+
+    var notesCard=el('div',{className:'dash-card',style:'margin-top:0'});
+    notesCard.appendChild(el('div',{className:'dash-card-header'},['Notes']));
+    var notesBody=el('div',{className:'dash-card-body'});
+
+    if(state.dailyNotes.length===0){
+        notesBody.appendChild(el('div',{className:'dash-notes-empty'},['No notes this month.']));
+    }else{
+        var notesTable=el('div',{className:'dash-notes-table'});
+        state.dailyNotes.forEach(function(n){
+            var row=el('div',{className:'dash-notes-row'});
+            row.appendChild(el('div',{className:'dash-notes-date'},[n.note_date]));
+            row.appendChild(el('div',{className:'dash-notes-text',style:n.note_text?'':'color:var(--muted)'},[n.note_text||'(empty)']));
+            notesTable.appendChild(row);
+        });
+        notesBody.appendChild(notesTable);
+    }
+    notesCard.appendChild(notesBody);
+    root.appendChild(notesCard);
+}
+
+function render(){
+    if(state.viewMode==='dash'){
+        document.getElementById('booking-cards').style.display='none';
+        document.getElementById('item-grid').style.display='none';
+        document.getElementById('cal-view').style.display='none';
+        document.getElementById('maint-view').style.display='none';
+        document.getElementById('dash-view').style.display='block';
+        renderDashboard();
+    }else if(state.viewMode==='list'){
+        document.getElementById('booking-cards').style.display='flex';
+        document.getElementById('item-grid').style.display='block';
+        document.getElementById('cal-view').style.display='none';
+        document.getElementById('maint-view').style.display='none';
+        document.getElementById('dash-view').style.display='none';
+        renderBookings();
+        renderCatalog();
+    }else if(state.viewMode==='cal'){
+        document.getElementById('booking-cards').style.display='none';
+        document.getElementById('item-grid').style.display='none';
+        document.getElementById('cal-view').style.display='block';
+        document.getElementById('maint-view').style.display='none';
+        document.getElementById('dash-view').style.display='none';
+        loadCalendar();
+    }else if(state.viewMode==='maint'){
+        document.getElementById('booking-cards').style.display='none';
+        document.getElementById('item-grid').style.display='none';
+        document.getElementById('cal-view').style.display='none';
+        document.getElementById('maint-view').style.display='block';
+        document.getElementById('dash-view').style.display='none';
+        loadMaintenanceNotes();
+    }
+    renderTicket();
+}
+
+/* ---- Bookings ---- */
+function renderBookings(){
+    var container=document.getElementById('booking-cards');
+    if(state.bookings.length===0){
+        container.innerHTML='<div class="text-muted text-sm" style="padding:8px;">No bookings on this date.</div>';
+        if(!state.activeBookingId) document.getElementById('ticket-panel').style.display='none';
+        return;
+    }
+    var todayStr=today();
+    var cards=state.bookings.map(function(b){
+        var isActive=parseInt(b.id,10)===state.activeBookingId;
+        var rooms=state.roomsByBooking[b.id]||[];
+        var roomLabels=rooms.map(function(r){return r.room_code}).join(', ');
+        var name=(b.first_name||'')+' '+(b.last_name||'');
+        var isCheckedIn=b.status_code==='checked_in';
+        var isCheckedOut=b.status_code==='checked_out';
+        var canCheckIn=b.status_code==='confirmed'&&b.check_in_date===todayStr;
+        var canCheckOut=isCheckedIn&&b.check_out_date===todayStr;
+        var children=[
+            el('div',{className:'booking-name'},[name.trim()||'#'+b.id]),
+            el('div',{className:'booking-meta'},[
+                '#'+b.id+' · '+b.check_in_date+' → '+b.check_out_date,
+                (b.total_amount?' · '+parseFloat(b.total_amount).toFixed(2)+'\u20AC':''),
+                (b.payment_status==='paid'||b.payment_status==='completed'?' ✓':''),
+                (isCheckedIn?' · ✓ In':''),
+                (isCheckedOut?' · ✓ Out':''),
+            ]),
+            roomLabels?el('div',{className:'booking-room'},[roomLabels]):null,
+        ];
+        if(canCheckIn){
+            children.push(el('div',{style:{marginTop:'6px'}},[
+                el('button',{className:'btn-ci',type:'button',onClick:function(e){e.stopPropagation();openCheckinModal(parseInt(b.id,10));}},['Check in']),
+            ]));
+        }
+        if(canCheckOut){
+            children.push(el('div',{style:{marginTop:'6px'}},[
+                el('button',{className:'btn-co',type:'button',onClick:function(e){e.stopPropagation();doCheckout(parseInt(b.id,10));}},['Check out']),
+            ]));
+        }
+        return el('div',{
+            className:isActive?'booking-card-active':'booking-card',
+            onClick:function(){selectBooking(parseInt(b.id,10));}
+        },children);
+    });
+    container.innerHTML='';
+    cards.forEach(function(c){container.appendChild(c);});
+}
+
+function doCheckout(bookingId){
+    if(!confirm('Check out booking #'+bookingId+'?')) return;
+    apiPost('ticket-departure',{booking_id:bookingId}).then(function(){
+        for(var i=0;i<state.bookings.length;i++){
+            if(parseInt(state.bookings[i].id,10)===bookingId){
+                state.bookings[i].status_code='checked_out';
+                break;
+            }
+        }
+        if(state.activeBookingId===bookingId){state.activeBookingId=0;}
+        renderBookings();
+        if(!state.activeBookingId) document.getElementById('ticket-panel').style.display='none';
+    }).catch(function(err){
+        if(err.message!=='unauthorized') showError(err.message||'Checkout failed.');
+    });
+}
+
+/* ---- Catalog ---- */
+function renderCatalog(){
+    var grid=document.getElementById('item-grid');
+    if(state.catalog.length===0){
+        grid.innerHTML='<div class="text-muted text-sm" style="padding:20px;">No catalog items. Import CSV in Settings.</div>';
+        return;
+    }
+    var groups={};
+    state.catalog.forEach(function(item){
+        var cat=item.category||'other';
+        if(!groups[cat]) groups[cat]=[];
+        groups[cat].push(item);
+    });
+    var catOrder=['dinner','other','rooms'];
+    var catLabels={'rooms':'Rooms','dinner':'Dinner','other':'Other'};
+    var catCollapsed={'rooms':true,'dinner':true,'other':true};
+    grid.innerHTML='';
+    catOrder.forEach(function(cat){
+        var items=groups[cat];
+        if(!items||items.length===0) return;
+        var idx=catOrder.indexOf(cat);
+        var collapsed=!!catCollapsed[cat];
+        var hdr=el('div',{className:'cat-header',style:{marginTop:idx===0?'0':'10px'}},[
+            el('span',{className:'cat-arrow'},[collapsed?'\u25B6':'\u25BC']),
+            ' '+(catLabels[cat]||cat)+' ('+items.length+')',
+        ]);
+        hdr.addEventListener('click',function(){
+            var g=this.nextElementSibling;
+            var a=this.querySelector('.cat-arrow');
+            if(g&&g.classList.contains('item-grid')){
+                var h=g.style.display==='none';
+                g.style.display=h?'':'none';
+                if(a) a.textContent=h?'\u25BC':'\u25B6';
+            }
+        });
+        grid.appendChild(hdr);
+        var sub=el('div',{className:'item-grid'});
+        if(collapsed) sub.style.display='none';
+        items.forEach(function(item){
+            sub.appendChild(el('div',{
+                className:'item-card',
+                onClick:function(){addItem(item);}
+            },[
+                el('div',{className:'item-name'},[item.item_name]),
+                el('div',{className:'item-price'},[parseFloat(item.unit_price).toFixed(2)+'\u20AC']),
+            ]));
+        });
+        grid.appendChild(sub);
+    });
+}
+
+/* ---- Calendar ---- */
+var _calLoaded=false;
+function loadCalendar(){
+    if(_calLoaded) return;
+    _calLoaded=true;
+    apiGet('ticket-calendar?date='+state.date+'&days=12').then(function(data){
+        state.calRooms=data.rooms||[];
+        state.calOccupancy=data.occupancy||[];
+        state.calDailyNotes=data.daily_notes||[];
+        renderCalendar();
+    }).catch(function(err){
+        if(err.message!=='unauthorized') showError('Calendar load failed.');
+        _calLoaded=false;
+    });
+}
+
+function renderCalendar(){
+    var occMap={};
+    state.calOccupancy.forEach(function(o){occMap[o.stay_date+'-'+o.room_id]=o;});
+    var noteMap={};
+    state.calDailyNotes.forEach(function(n){noteMap[n.note_date]=n.note_text;});
+
+    var dates=[];
+    for(var i=0;i<12;i++){
+        var d=new Date(state.date+'T12:00:00');
+        d.setDate(d.getDate()+i);
+        dates.push(d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2));
+    }
+    var todayStr=today();
+
+    var html='<div class="cal-grid">';
+    html+='<div class="cal-row">';
+    html+='<div class="cal-room-col">Room</div>';
+    dates.forEach(function(d){
+        var cls='cal-date-col'+(d===todayStr?' cal-today':'');
+        var lbl=d.slice(5);
+        html+='<div class="'+cls+'">'+lbl+'</div>';
+    });
+    html+='</div>';
+
+    state.calRooms.forEach(function(room){
+        if(!room.active) return;
+        html+='<div class="cal-row">';
+        html+='<div class="cal-room-col" style="background:'+(room.color||'var(--border)')+'">'+
+            (room.room_code||'')+'</div>';
+        dates.forEach(function(date){
+            var occ=occMap[date+'-'+room.id];
+            var cls='cal-cell';
+            var guestName='';
+            var bookingId=0;
+            if(occ){
+                cls+=' cal-occ-'+(occ.status_code==='checked_in'?'checked_in':'confirmed');
+                guestName=(occ.first_name||'')+' '+(occ.last_name||'');
+                bookingId=parseInt(occ.booking_id,10);
+            }else{
+                cls+=' cal-free';
+            }
+            if(date===todayStr) cls+=' cal-today';
+            var extra='';
+            if(bookingId){
+                extra='<span class="cal-guest-name">'+guestName.slice(0,15)+'</span>';
+            }
+            html+='<div class="'+cls+'"'+
+                (bookingId?' onclick="window._calSelectBooking&&window._calSelectBooking('+bookingId+')"':'')+
+                '>'+extra+'</div>';
+        });
+        html+='</div>';
+    });
+
+    // Daily notes row
+    html+='<div class="cal-row">';
+    html+='<div class="cal-room-col" style="background:var(--accent);font-size:11px;font-weight:600;color:#fff">Notes</div>';
+    dates.forEach(function(date){
+        var note=noteMap[date];
+        var cls='cal-cell cal-free';
+        if(date===todayStr) cls+=' cal-today';
+        html+='<div class="'+cls+'" style="color:var(--muted);max-width:60px;overflow:hidden;text-overflow:ellipsis">'+
+            (note?note.slice(0,20):'')+'</div>';
+    });
+    html+='</div>';
+
+    html+='</div>';
+    document.getElementById('cal-view').innerHTML=html;
+}
+window._calSelectBooking=function(bid){
+    // Switch to list view and select booking
+    setViewMode('list');
+    selectBooking(bid);
+};
+
+/* ---- Maintenance Notes ---- */
+function loadMaintenanceNotes(){
+    apiGet('ticket-maintenance-notes').then(function(data){
+        state.maintNotes=data.notes||[];
+        renderMaintenanceNotes();
+    }).catch(function(err){
+        if(err.message!=='unauthorized') showError('Failed to load maintenance notes.');
+    });
+}
+
+function renderMaintenanceNotes(){
+    var div=document.getElementById('maint-view');
+    if(!state.maintNotes) state.maintNotes=[];
+    var html='<div class="mt-input-row">';
+    html+='<input type="text" id="mt-input" placeholder="What needs fixing..." autocomplete="off">';
+    html+='<button id="mt-add-btn">Add</button>';
+    html+='</div>';
+    if(state.maintNotes.length===0){
+        html+='<div class="mt-empty">No maintenance items. Add one above.</div>';
+    }else{
+        state.maintNotes.forEach(function(note,i){
+            html+='<div class="mt-item">';
+            html+='<input type="checkbox" class="mt-done"'+(note.done?' checked':'')+' onclick="window._toggleMaintDone('+i+')">';
+            html+='<span class="mt-text'+(note.done?' done':'')+'">'+escapeHtml(note.text)+'</span>';
+            html+='<span class="mt-date">'+escapeHtml(note.date)+'</span>';
+            html+='<button class="mt-del" onclick="window._deleteMaintNote('+i+')">×</button>';
+            html+='</div>';
+        });
+    }
+    div.innerHTML=html;
+    var inp=document.getElementById('mt-input');
+    if(inp) inp.addEventListener('keydown',function(e){if(e.key==='Enter') addMaintNote();});
+    var btn=document.getElementById('mt-add-btn');
+    if(btn) btn.addEventListener('click',function(){addMaintNote();});
+}
+
+function addMaintNote(){
+    var inp=document.getElementById('mt-input');
+    if(!inp||!inp.value.trim()) return;
+    state.maintNotes.push({
+        id:Date.now()+'-'+Math.random().toString(36).slice(2,6),
+        text:inp.value.trim(),
+        date:today(),
+        done:false,
+    });
+    saveMaintNotes();
+}
+
+window._toggleMaintDone=function(idx){
+    if(state.maintNotes[idx]) state.maintNotes[idx].done=!state.maintNotes[idx].done;
+    saveMaintNotes();
+};
+window._deleteMaintNote=function(idx){
+    state.maintNotes.splice(idx,1);
+    saveMaintNotes();
+};
+
+function saveMaintNotes(){
+    var data=state.maintNotes.map(function(n){return {id:n.id,text:n.text,date:n.date,done:n.done};});
+    apiPost('ticket-maintenance-notes',{notes:data}).then(function(){
+        renderMaintenanceNotes();
+    }).catch(function(err){
+        if(err.message!=='unauthorized') showError('Failed to save maintenance notes.');
+    });
+}
+
+function escapeHtml(s){
+    if(typeof s!=='string') return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ---- Guest Search ---- */
+var _gsTimer=0;
+function doGuestSearch(){
+    var q=document.getElementById('gs-input').value.trim();
+    var resultsEl=document.getElementById('gs-results');
+    if(q.length<2){
+        resultsEl.classList.remove('active');
+        return;
+    }
+    clearTimeout(_gsTimer);
+    _gsTimer=setTimeout(function(){
+        apiGet('ticket-guest-search?q='+encodeURIComponent(q)).then(function(data){
+            showGuestResults(data.guests||[]);
+        }).catch(function(err){
+            if(err.message!=='unauthorized') showError('Search failed.');
+        });
+    },300);
+}
+function showGuestResults(guests){
+    var el=document.getElementById('gs-results');
+    if(guests.length===0){
+        el.innerHTML='<div class="gs-no-results">No guests found.</div>';
+        el.classList.add('active');
+        return;
+    }
+    var html='';
+    guests.forEach(function(g){
+        var name=((g.first_name||'')+' '+(g.last_name||'')).trim()||'Guest #'+g.id;
+        var detail=g.phone||g.email||'';
+        var lastVisit=g.last_visit?'Last: '+g.last_visit:'';
+        html+='<div class="gs-result" onclick="window._selectGuestResult('+g.id+')">';
+        html+='<span class="gsr-name">'+escapeHtml(name)+'</span>';
+        html+='<span class="gsr-detail">'+escapeHtml(detail)+(lastVisit?' · '+lastVisit:'')+'</span>';
+        html+='<span class="gsr-action">'+(g.booking_count||0)+' bookings</span>';
+        html+='</div>';
+    });
+    el.innerHTML=html;
+    el.classList.add('active');
+}
+window._selectGuestResult=function(guestId){
+    // Switch to list view, search will close
+    setViewMode('list');
+    document.getElementById('gs-input').value='';
+    document.getElementById('gs-results').classList.remove('active');
+    // Try to find a booking for this guest in current data
+    for(var i=0;i<state.bookings.length;i++){
+        if(parseInt(state.bookings[i].guest_id,10)===guestId){
+            selectBooking(parseInt(state.bookings[i].id,10));
+            return;
+        }
+    }
+    showError('Guest found — change date to their booking date.');
+};
+
+/* ---- Daily Note ---- */
+var _dnTimer=0;
+function loadDailyNote(){
+    apiGet('ticket-daily-note?date='+state.date).then(function(data){
+        var inp=document.getElementById('dn-input');
+        if(inp&&data.note!==undefined) inp.value=data.note||'';
+    }).catch(function(){});
+}
+function saveDailyNote(){
+    clearTimeout(_dnTimer);
+    _dnTimer=setTimeout(function(){
+        var note=document.getElementById('dn-input').value;
+        apiPost('daily-note',{date:state.date,note:note}).then(function(){
+            var s=document.getElementById('dn-saved');
+            if(s){s.style.display='inline';setTimeout(function(){s.style.display='none';},2000);}
+        }).catch(function(){});
+    },600);
+}
+
+/* ---- Ticket ---- */
+function getRoomCharges(){
+    var groups={};
+    state.roomNights.forEach(function(n){
+        var key=n.booking_room_id;
+        if(!groups[key]) groups[key]={name:n.room_name||n.room_code,nights:0,roomTotal:0,taxTotal:0};
+        groups[key].nights+=1;
+        groups[key].roomTotal+=(parseFloat(n.room_rate_amount)||0);
+        groups[key].taxTotal+=(parseFloat(n.tourist_tax_amount)||0);
+    });
+    var charges=[];
+    Object.keys(groups).forEach(function(key){
+        var g=groups[key];
+        charges.push({name:g.name+' ('+g.nights+'n)',amount:g.roomTotal,type:'room',key:key});
+        if(g.taxTotal>0) charges.push({name:g.name+' Taxe de s\u00E9jour',amount:g.taxTotal,type:'tax',key:key});
+    });
+    return charges;
+}
+
+function renderTicket(){
+    if(!state.activeBookingId){
+        document.getElementById('ticket-panel').style.display='none';
+        return;
+    }
+    document.getElementById('ticket-panel').style.display='';
+    var b=state.activeBooking;
+    var name=b?((b.first_name||'')+' '+(b.last_name||'')).trim():'#'+state.activeBookingId;
+    setText('ticket-heading',name+' — '+(state.bookingRooms.map(function(r){return r.room_code}).join(', ')||'No room'));
+
+    var editBtn=document.getElementById('ticket-edit-btn');
+    editBtn.style.display='inline-block';
+
+    var roomSel=document.getElementById('room-selector');
+    if(state.bookingRooms.length>1){
+        roomSel.style.display='flex';
+        roomSel.innerHTML='<span>Room:</span><select id="room-select">'+
+            '<option value="0">All rooms</option>'+
+            state.bookingRooms.map(function(r){
+                var sel=r.booking_room_id===state.activeRoomId?' selected':'';
+                return '<option value="'+r.booking_room_id+'"'+sel+'>'+(r.room_name||r.room_code)+'</option>';
+            }).join('')+
+            '</select>';
+        document.getElementById('room-select').addEventListener('change',function(e){
+            selectRoom(parseInt(e.target.value,10));
+        });
+    }else{
+        roomSel.style.display='none';
+    }
+
+    var itemsDiv=document.getElementById('ticket-items');
+    var rows=[];
+
+    var roomCharges=getRoomCharges();
+    roomCharges.forEach(function(c){
+        rows.push(el('div',{className:'ticket-item ti-room'},[
+            el('span',{className:'ti-name'},[c.name]),
+            el('span',{className:'ti-qty'},['']),
+            el('span',{className:'ti-total'},[c.amount.toFixed(2)+'\u20AC']),
+            el('span',{className:'ti-remove'},['']),
+        ]));
+    });
+
+    if(state.ticketItems.length>0||roomCharges.length>0){
+        if(roomCharges.length>0&&state.ticketItems.length>0){
+            rows.push(el('div',{className:'ticket-item ti-sep'},[
+                el('span',{className:'ti-name'},['— Items —']),
+                el('span',{className:'ti-qty'},['']),
+                el('span',{className:'ti-total'},['']),
+                el('span',{className:'ti-remove'},['']),
+            ]));
+        }
+        state.ticketItems.forEach(function(item,idx){
+            rows.push(el('div',{className:'ticket-item',onClick:function(){incrementItem(idx);}},[
+                el('span',{className:'ti-name'},[item.name]),
+                el('span',{className:'ti-qty'},['\u00D7'+item.qty]),
+                el('span',{className:'ti-total'},[(item.qty*item.price).toFixed(2)+'\u20AC']),
+                el('button',{className:'ti-remove',type:'button',title:'Remove',
+                    onClick:function(e){e.stopPropagation();removeItem(idx);}
+                },['\u00D7']),
+            ]));
+        });
+        itemsDiv.innerHTML='';
+        rows.forEach(function(r){itemsDiv.appendChild(r);});
+    }else{
+        itemsDiv.innerHTML='<div class="ticket-empty">Click catalog items to add.</div>';
+    }
+
+    var roomTotal=roomCharges.reduce(function(s,c){return s+c.amount;},0);
+    var itemTotal=state.ticketItems.reduce(function(s,item){return s+item.qty*item.price;},0);
+    setText('ticket-total','Total: '+(roomTotal+itemTotal).toFixed(2)+'\u20AC');
+}
+
+/* ---- Interactions ---- */
+function selectBooking(bid){
+    if(state.activeBookingId===bid) return;
+    state.activeBookingId=bid;
+    state.activeRoomId=0;
+    state.activeBooking=null;
+    state.ticketItems=[];
+    for(var i=0;i<state.bookings.length;i++){
+        if(parseInt(state.bookings[i].id,10)===bid){
+            state.activeBooking=state.bookings[i];
+            break;
+        }
+    }
+    var rooms=state.roomsByBooking[bid]||[];
+    if(rooms.length===1) state.activeRoomId=rooms[0].booking_room_id;
+    fetchData();
+}
+function selectRoom(rid){
+    state.activeRoomId=rid;
+    state.ticketItems=[];
+    fetchData();
+}
+function addItem(item){
+    if(!state.activeBookingId){showError('Select a booking first.');return;}
+    var name=item.item_name,price=parseFloat(item.unit_price);
+    var found=-1;
+    for(var i=0;i<state.ticketItems.length;i++){if(state.ticketItems[i].name===name){found=i;break;}}
+    if(found>=0){state.ticketItems[found].qty+=1;}
+    else{state.tempIdCounter-=1;state.ticketItems.push({id:state.tempIdCounter,name:name,qty:1,price:price});}
+    renderTicket();
+    autoSave();
+}
+function incrementItem(idx){if(idx>=0&&idx<state.ticketItems.length){state.ticketItems[idx].qty+=1;renderTicket();autoSave();}}
+function removeItem(idx){if(idx>=0&&idx<state.ticketItems.length){state.ticketItems.splice(idx,1);renderTicket();autoSave();}}
+
+var _saveTimer=0;
+function autoSave(){
+    clearTimeout(_saveTimer);
+    _saveTimer=setTimeout(function(){saveTicket().catch(function(){})},800);
+}
+
+function saveTicket(){
+    document.getElementById('ticket-error').style.display='none';
+    document.getElementById('ticket-save-indicator').style.display='inline';
+    return apiPost('ticket-save',{
+        booking_id:state.activeBookingId,
+        booking_room_id:state.activeRoomId||null,
+        date:state.date,
+        items:state.ticketItems.map(function(item){return {name:item.name,qty:item.qty,price:item.price};}),
+    }).then(function(data){
+        state.ticketItems=(data.items||[]).map(function(item){
+            return {id:item.id,name:item.item_name,qty:parseInt(item.quantity,10),price:parseFloat(item.unit_price)};
+        });
+        state.savedItems=data.items||[];
+        renderTicket();
+        document.getElementById('ticket-save-indicator').style.display='none';
+    }).catch(function(err){
+        document.getElementById('ticket-save-indicator').style.display='none';
+        if(err.message!=='unauthorized') showError(err.message||'Save failed');
+        throw err;
+    });
+}
+
+/* ---- Pay ---- */
+function showPayModal(){
+    if(!state.activeBookingId){showError('Select a booking first.');return;}
+    hidePayError();
+    saveTicket().then(function(){
+        var list=document.getElementById('pay-items-list');
+
+        var roomGroups={};
+        state.roomNights.forEach(function(n){
+            var key=n.booking_room_id;
+            if(!roomGroups[key]) roomGroups[key]={roomName:n.room_name||n.room_code,roomTotal:0,taxTotal:0,nights:0};
+            roomGroups[key].roomTotal+=(parseFloat(n.room_rate_amount)||0);
+            roomGroups[key].taxTotal+=(parseFloat(n.tourist_tax_amount)||0);
+            roomGroups[key].nights+=1;
+        });
+
+        var charges=[];
+        Object.keys(roomGroups).forEach(function(key){
+            var rg=roomGroups[key];
+            charges.push({id:'room-'+key,label:rg.roomName+' ('+rg.nights+' nights)',amount:rg.roomTotal,type:'room'});
+            if(rg.taxTotal>0) charges.push({id:'tax-'+key,label:rg.roomName+' — Tourist tax',amount:rg.taxTotal,type:'tax'});
+        });
+        (state.savedItems||[]).forEach(function(item){
+            var total=parseFloat(item.quantity)*parseFloat(item.unit_price);
+            charges.push({id:'item-'+item.id,label:item.item_name+' \u00D7'+item.quantity,amount:total,type:'item'});
+        });
+
+        if(charges.length===0){showPayError('No charges to display.');return;}
+
+        var rows=charges.map(function(c,idx){
+            return el('div',{className:'pay-item'},[
+                el('input',{type:'checkbox',id:'pay-chk-'+idx,checked:true,value:c.amount,'data-label':c.label}),
+                el('label',{htmlFor:'pay-chk-'+idx},[c.label]),
+                el('span',{className:'pay-amount'},[c.amount.toFixed(2)+'\u20AC']),
+            ]);
+        });
+        list.innerHTML='';
+        rows.forEach(function(r){list.appendChild(r);});
+        updatePayTotal();
+        document.getElementById('pay-modal').classList.add('active');
+    }).catch(function(){});
+}
+
+function updatePayTotal(){
+    var total=0;
+    qsa('#pay-items-list input[type=checkbox]:checked').forEach(function(cb){total+=parseFloat(cb.value||0);});
+    setText('pay-total','Total: '+total.toFixed(2)+'\u20AC');
+}
+
+function sendToTerminal(){
+    hidePayError();
+    var checkboxes=qsa('#pay-items-list input[type=checkbox]:checked');
+    if(checkboxes.length===0){showPayError('Select at least one item to charge.');return;}
+    var total=0;
+    checkboxes.forEach(function(cb){total+=parseFloat(cb.value||0);});
+    var skipReceipt=document.getElementById('pay-skip-receipt').checked;
+    var btn=document.getElementById('pay-confirm');
+    btn.disabled=true;
+    btn.textContent='Sending to terminal…';
+
+    apiPost('ticket-show-bill',{
+        booking_id:state.activeBookingId,
+        amount:total,
+        skip_receipt:skipReceipt,
+    }).then(function(data){
+        if(!data.checkout_id){
+            btn.textContent='Check terminal…';
+            btn.disabled=false;
+            setTimeout(function(){closePayModal();fetchData();},5000);
+            return;
+        }
+        btn.textContent='Waiting for terminal…';
+        document.getElementById('pay-ticket').style.display='none';
+        return pollCheckoutStatus(data.checkout_id);
+    }).then(function(data){
+        if(!data) return;
+        setHTML('pay-success','Payment sent to terminal! '+total.toFixed(2)+'\u20AC');
+        document.getElementById('pay-success').style.display='block';
+        btn.textContent='\u2713 '+(total.toFixed(2))+'€';
+        setTimeout(function(){closePayModal();fetchData();},3000);
+    }).catch(function(err){
+        if(err.message==='unauthorized') return;
+        showPayError(err.message||'Failed to send payment.');
+        btn.disabled=false;
+        btn.textContent='Retry';
+    });
+}
+
+function pollCheckoutStatus(statusId){
+    return new Promise(function(resolve,reject){
+        if(!statusId){reject(new Error('No ID returned from server.'));return;}
+        var maxAttempts=150;
+        var attempts=0;
+        var btn=document.getElementById('pay-confirm');
+        function poll(){
+            attempts++;
+            apiGet('ticket-checkout-status/'+encodeURIComponent(statusId)).then(function(data){
+                if(data.status==='completed'){
+                    resolve(data);
+                }else if(data.status==='canceled'||data.status==='failed'){
+                    reject(new Error('Payment '+data.status+' on terminal.'));
+                }else{
+                    if(attempts>=maxAttempts){
+                        reject(new Error('Timed out waiting for terminal.'));
+                    }else{
+                        setTimeout(poll,2000);
+                    }
+                }
+            }).catch(function(err){
+                reject(err);
+            });
+        }
+        poll();
+    });
+}
+
+function closePayModal(){
+    document.getElementById('pay-modal').classList.remove('active');
+    var btn=document.getElementById('pay-confirm');
+    btn.disabled=false;
+    btn.textContent='Pay with Terminal';
+    document.getElementById('pay-ticket').style.display='';
+    hidePayError();
+    document.getElementById('pay-success').style.display='none';
+}
+
+function hidePayError(){
+    var e1=document.getElementById('pay-error');if(e1)e1.style.display='none';
+    var e2=document.getElementById('pay-modal-error');if(e2)e2.style.display='none';
+    var s=document.getElementById('pay-success');if(s)s.style.display='none';
+}
+function showPayError(msg){
+    var el=document.getElementById('pay-modal-error')||document.getElementById('pay-error');
+    if(el){el.textContent=msg;el.style.display='block';setTimeout(function(){el.style.display='none'},5000);}
+}
+
+/* ---- Check-in ---- */
+var _ciBookingId=0;
+var _ciPhotoData='';
+
+function openCheckinModal(bookingId){
+    hideCiError();
+    _ciBookingId=bookingId;
+    _ciPhotoData='';
+    document.getElementById('ci-photo-name').textContent='';
+
+    var b=null;
+    for(var i=0;i<state.bookings.length;i++){
+        if(parseInt(state.bookings[i].id,10)===bookingId){b=state.bookings[i];break;}
+    }
+    if(!b) return;
+
+    setText('ci-heading','Check In — '+(b.first_name||'')+' '+(b.last_name||''));
+
+    var rooms=state.roomsByBooking[bookingId]||[];
+    var roomLabels=rooms.map(function(r){return r.room_code+' ('+r.room_name+')'}).join(', ');
+    setText('ci-rooms','Rooms: '+(roomLabels||'None')+' · '+b.check_in_date+' → '+b.check_out_date);
+
+    document.getElementById('ci-first-name').value=b.first_name||'';
+    document.getElementById('ci-last-name').value=b.last_name||'';
+    document.getElementById('ci-phone').value=b.phone||'';
+    document.getElementById('ci-email').value=b.email||'';
+    document.getElementById('ci-address').value=b.address_line_1||'';
+    document.getElementById('ci-city').value=b.city||'';
+    document.getElementById('ci-postcode').value=b.postcode||'';
+    document.getElementById('ci-country').value=b.country||'';
+    document.getElementById('ci-nationality').value=b.nationality||'';
+    document.getElementById('ci-dob').value=b.date_of_birth||'';
+    document.getElementById('ci-id-type').value=b.id_document_type||'';
+    document.getElementById('ci-id-number').value=b.id_document_number||'';
+
+    document.getElementById('ci-modal').classList.add('active');
+}
+
+function closeCiModal(){
+    document.getElementById('ci-modal').classList.remove('active');
+    _ciBookingId=0;
+    _ciPhotoData='';
+    document.getElementById('ci-photo-name').textContent='';
+}
+
+function hideCiError(){
+    var el=document.getElementById('ci-error');
+    if(el) el.style.display='none';
+}
+function showCiError(msg){
+    var el=document.getElementById('ci-error');
+    if(el){el.textContent=msg;el.style.display='block';setTimeout(function(){el.style.display='none'},5000);}
+}
+
+function submitCheckin(){
+    hideCiError();
+    var firstName=document.getElementById('ci-first-name').value.trim();
+    var lastName=document.getElementById('ci-last-name').value.trim();
+    if(!firstName&&!lastName){showCiError('Enter guest name.');return;}
+
+    var guestData={
+        first_name:firstName,
+        last_name:lastName,
+        phone:document.getElementById('ci-phone').value.trim(),
+        email:document.getElementById('ci-email').value.trim(),
+        address_line_1:document.getElementById('ci-address').value.trim(),
+        city:document.getElementById('ci-city').value.trim(),
+        postcode:document.getElementById('ci-postcode').value.trim(),
+        country:document.getElementById('ci-country').value.trim(),
+        nationality:document.getElementById('ci-nationality').value.trim(),
+        date_of_birth:document.getElementById('ci-dob').value||null,
+        id_document_type:document.getElementById('ci-id-type').value||'',
+        id_document_number:document.getElementById('ci-id-number').value.trim(),
+    };
+
+    if(_ciPhotoData) guestData.id_photo_base64=_ciPhotoData;
+
+    var btn=document.getElementById('ci-confirm');
+    btn.disabled=true;
+    btn.textContent='Checking in…';
+
+    apiPost('ticket-checkin',{
+        booking_id:_ciBookingId,
+        guest:guestData,
+    }).then(function(data){
+        closeCiModal();
+        for(var i=0;i<state.bookings.length;i++){
+            if(parseInt(state.bookings[i].id,10)===_ciBookingId){
+                state.bookings[i].status_code='checked_in';
+                break;
+            }
+        }
+        renderBookings();
+    }).catch(function(err){
+        if(err.message==='unauthorized') return;
+        showCiError(err.message||'Check-in failed.');
+        btn.disabled=false;
+        btn.textContent='✓ Confirm Check-in';
+    });
+}
+
+/* ---- Quick Booking ---- */
+function openQuickBookingModal(){
+    document.getElementById('qb-error').style.display='none';
+    document.getElementById('qb-name').value='';
+    document.getElementById('qb-phone').value='';
+    document.getElementById('qb-email').value='';
+    document.getElementById('qb-check-in').value=state.date;
+    var d=new Date(state.date+'T12:00:00');
+    d.setDate(d.getDate()+1);
+    document.getElementById('qb-check-out').value=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+    document.getElementById('qb-adults').value='1';
+
+    // Populate room dropdown
+    var sel=document.getElementById('qb-room');
+    sel.innerHTML='<option value="">Select room (optional)</option>';
+    state.bookings.forEach(function(b){
+        var rooms=state.roomsByBooking[b.id]||[];
+        rooms.forEach(function(r){
+            // Only show room if not already in dropdown
+            var exists=false;
+            for(var j=0;j<sel.options.length;j++){if(sel.options[j].value===String(r.room_id)){exists=true;break;}}
+            if(!exists&&r.room_code){
+                sel.add(new Option(r.room_code+' ('+r.room_name+')',r.room_id));
+            }
+        });
+    });
+
+    // If no rooms from bookings, try catalog rooms
+    if(sel.options.length<=1){
+        // Will load rooms from ticket-room-status endpoint
+        apiGet('ticket-room-status').then(function(data){
+            (data.rooms||[]).forEach(function(r){
+                if(r.active){
+                    var exists=false;
+                    for(var j=0;j<sel.options.length;j++){if(sel.options[j].value===String(r.id)){exists=true;break;}}
+                    if(!exists) sel.add(new Option(r.room_code||r.room_name,r.id));
+                }
+            });
+        }).catch(function(){});
+    }
+
+    document.getElementById('qb-modal').classList.add('active');
+}
+
+function closeQbModal(){
+    document.getElementById('qb-modal').classList.remove('active');
+}
+
+function submitQuickBooking(){
+    var errEl=document.getElementById('qb-error');
+    errEl.style.display='none';
+    var guestName=document.getElementById('qb-name').value.trim();
+    if(!guestName){errEl.textContent='Guest name is required.';errEl.style.display='block';return;}
+
+    var checkIn=document.getElementById('qb-check-in').value;
+    var checkOut=document.getElementById('qb-check-out').value;
+    if(!checkIn||!checkOut||checkOut<=checkIn){errEl.textContent='Check-out must be after check-in.';errEl.style.display='block';return;}
+
+    var btn=document.getElementById('qb-confirm');
+    btn.disabled=true;
+    btn.textContent='Creating…';
+
+    apiPost('ticket-create-booking',{
+        guest_name:guestName,
+        phone:document.getElementById('qb-phone').value.trim(),
+        email:document.getElementById('qb-email').value.trim(),
+        check_in:checkIn,
+        check_out:checkOut,
+        room_id:parseInt(document.getElementById('qb-room').value,10)||0,
+        adults:parseInt(document.getElementById('qb-adults').value,10)||1,
+    }).then(function(data){
+        closeQbModal();
+        // Switch to the booking's date and select it
+        state.date=checkIn;
+        document.getElementById('ticket-date').value=checkIn;
+        state.activeBookingId=0;
+        state.activeBooking=null;
+        state.ticketItems=[];
+        state.savedItems=[];
+        fetchData().then(function(){
+            // Find and select the new booking
+            for(var i=0;i<state.bookings.length;i++){
+                if(parseInt(state.bookings[i].id,10)===data.booking_id){
+                    selectBooking(data.booking_id);
+                    break;
+                }
+            }
+        });
+    }).catch(function(err){
+        if(err.message!=='unauthorized'){
+            errEl.textContent=err.message||'Failed to create booking.';
+            errEl.style.display='block';
+        }
+        btn.disabled=false;
+        btn.textContent='✓ Create Booking';
+    });
+}
+
+/* ---- Booking Edit ---- */
+var _beBookingId=0;
+function openEditModal(){
+    if(!state.activeBookingId||!state.activeBooking) return;
+    _beBookingId=state.activeBookingId;
+    document.getElementById('be-error').style.display='none';
+    setText('be-heading','Edit Booking #'+state.activeBookingId);
+
+    document.getElementById('be-check-in').value=state.activeBooking.check_in_date||'';
+    document.getElementById('be-check-out').value=state.activeBooking.check_out_date||'';
+
+    var sel=document.getElementById('be-add-room');
+    sel.innerHTML='<option value="">— Select room to add —</option>';
+    // Load rooms from room status endpoint
+    apiGet('ticket-room-status').then(function(data){
+        (data.rooms||[]).forEach(function(r){
+            if(!r.active) return;
+            // Check if room already in booking
+            var already=state.bookingRooms.some(function(br){return parseInt(br.room_id,10)===parseInt(r.id,10);});
+            if(!already) sel.add(new Option(r.room_code||r.room_name,r.id));
+        });
+    }).catch(function(){});
+
+    document.getElementById('be-modal').classList.add('active');
+}
+
+function closeEditModal(){
+    document.getElementById('be-modal').classList.remove('active');
+    _beBookingId=0;
+}
+
+function submitEditBooking(){
+    var errEl=document.getElementById('be-error');
+    errEl.style.display='none';
+
+    var ci=document.getElementById('be-check-in').value;
+    var co=document.getElementById('be-check-out').value;
+    var addRoom=parseInt(document.getElementById('be-add-room').value,10)||0;
+
+    if(!ci||!co||co<=ci){errEl.textContent='Invalid dates.';errEl.style.display='block';return;}
+
+    var btn=document.getElementById('be-confirm');
+    btn.disabled=true;
+    btn.textContent='Saving…';
+
+    var payload={booking_id:_beBookingId,check_in:ci,check_out:co};
+    if(addRoom>0) payload.add_room_id=addRoom;
+
+    apiPost('ticket-update-booking',payload).then(function(){
+        closeEditModal();
+        fetchData();
+    }).catch(function(err){
+        if(err.message!=='unauthorized'){
+            errEl.textContent=err.message||'Failed to update.';
+            errEl.style.display='block';
+        }
+        btn.disabled=false;
+        btn.textContent='✓ Save Changes';
+    });
+}
+
+/* ---- Fullscreen ---- */
+function toggleFullscreen(){
+    var d=document.documentElement;
+    if(document.fullscreenElement||document.webkitFullscreenElement){
+        if(document.exitFullscreen) document.exitFullscreen();
+        else if(document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }else{
+        if(d.requestFullscreen) d.requestFullscreen();
+        else if(d.webkitRequestFullscreen) d.webkitRequestFullscreen();
+    }
+}
+
+/* ---- Viewport ---- */
+function fixViewport(){
+    document.getElementById('app').style.height=window.innerHeight+'px';
+}
+
+/* ---- Init ---- */
+document.addEventListener('DOMContentLoaded',function(){
+    if('serviceWorker' in navigator){
+        navigator.serviceWorker.register('sw.js?_v='+Date.now());
+    }
+    fixViewport();
+    window.addEventListener('resize',fixViewport);
+    document.addEventListener('fullscreenchange',fixViewport);
+    document.addEventListener('webkitfullscreenchange',fixViewport);
+    document.addEventListener('click',function(e){
+        if(!e.target.closest('.header')&&!e.target.closest('.gs-results')){
+            document.getElementById('gs-results').classList.remove('active');
+        }
+        if(!e.target.closest('.hm-menu')&&!e.target.closest('#hamburger')){
+            closeHm();
+        }
+    });
+
+    var dateInput=document.getElementById('ticket-date');
+    if(!dateInput) return;
+    dateInput.value=today();
+    state.date=dateInput.value;
+
+    var auth=getAuth();
+    if(!auth){showLogin();}else{
+        var storedName='';
+        try{storedName=localStorage.getItem(FIRST_NAME_KEY)||''}catch(e){}
+        setUserLabel(storedName);
+        hideLogin();
+        fetchData();
+        loadDailyNote();
+    }
+
+    dateInput.addEventListener('change',function(){
+        state.date=this.value;
+        state.activeBookingId=0;state.activeRoomId=0;state.activeBooking=null;
+        state.ticketItems=[];state.savedItems=[];
+        _calLoaded=false;
+        fetchData();
+        loadDailyNote();
+    });
+
+    // View switching
+    document.getElementById('hamburger').addEventListener('click',function(e){e.stopPropagation();toggleHm();});
+    document.getElementById('view-dash').addEventListener('click',function(){closeHm();setViewMode('dash');});
+    document.getElementById('view-list').addEventListener('click',function(){closeHm();setViewMode('list');});
+    document.getElementById('view-cal').addEventListener('click',function(){closeHm();setViewMode('cal');});
+    document.getElementById('view-maint').addEventListener('click',function(){closeHm();setViewMode('maint');});
+    document.getElementById('hm-view-dash').addEventListener('click',function(){closeHm();setViewMode('dash');});
+    document.getElementById('hm-view-list').addEventListener('click',function(){closeHm();setViewMode('list');});
+    document.getElementById('hm-view-cal').addEventListener('click',function(){closeHm();setViewMode('cal');});
+    document.getElementById('hm-view-maint').addEventListener('click',function(){closeHm();setViewMode('maint');});
+
+    // Daily note
+    document.getElementById('dn-input').addEventListener('input',function(){saveDailyNote();});
+
+    // Guest search
+    document.getElementById('gs-input').addEventListener('input',function(){doGuestSearch();});
+    document.getElementById('hm-search').addEventListener('input',function(){
+        var v=this.value;
+        document.getElementById('gs-input').value=v;
+        if(v.trim()){doGuestSearch();}else{document.getElementById('gs-results').classList.remove('active');}
+    });
+    document.getElementById('hm-search').addEventListener('keydown',function(e){
+        if(e.key==='Enter'&&this.value.trim()){closeHm();}
+    });
+
+    // Quick booking
+    document.getElementById('qb-open').addEventListener('click',function(){openQuickBookingModal();});
+    document.getElementById('qb-confirm').addEventListener('click',function(){submitQuickBooking();});
+    document.getElementById('qb-cancel').addEventListener('click',function(){closeQbModal();});
+    document.getElementById('qb-modal-close').addEventListener('click',function(){closeQbModal();});
+
+    // Booking edit
+    document.getElementById('ticket-edit-btn').addEventListener('click',function(){openEditModal();});
+    document.getElementById('be-confirm').addEventListener('click',function(){submitEditBooking();});
+    document.getElementById('be-cancel').addEventListener('click',function(){closeEditModal();});
+    document.getElementById('be-modal-close').addEventListener('click',function(){closeEditModal();});
+
+    document.getElementById('save-ticket').addEventListener('click',function(){saveTicket().catch(function(){});});
+    document.getElementById('ticket-close').addEventListener('click',function(){
+        state.activeBookingId=0;state.activeRoomId=0;state.activeBooking=null;
+        state.ticketItems=[];state.savedItems=[];
+        render();
+    });
+    document.getElementById('pay-ticket').addEventListener('click',function(){showPayModal();});
+    document.getElementById('pay-items-list').addEventListener('change',function(e){if(e.target.type==='checkbox') updatePayTotal();});
+    document.getElementById('pay-confirm').addEventListener('click',function(){sendToTerminal();});
+    document.getElementById('pay-cancel').addEventListener('click',function(){closePayModal();});
+    document.getElementById('pay-modal-close').addEventListener('click',function(){closePayModal();});
+    document.getElementById('ci-confirm').addEventListener('click',function(){submitCheckin();});
+    document.getElementById('ci-cancel').addEventListener('click',function(){closeCiModal();});
+    document.getElementById('ci-modal-close').addEventListener('click',function(){closeCiModal();});
+    document.getElementById('ci-photo-btn').addEventListener('click',function(){document.getElementById('ci-photo-input').click();});
+    document.getElementById('ci-photo-input').addEventListener('change',function(e){
+        var file=e.target.files&&e.target.files[0];
+        if(!file) return;
+        document.getElementById('ci-photo-name').textContent=file.name;
+        var reader=new FileReader();
+        reader.onload=function(ev){
+            var img=new Image();
+            img.onload=function(){
+                var maxW=1024,maxH=768;
+                var w=img.width,h=img.height;
+                if(w>maxW){h=h*maxW/w;w=maxW;}
+                if(h>maxH){w=w*maxH/h;h=maxH;}
+                var c=document.createElement('canvas');
+                c.width=w;c.height=h;
+                var ctx=c.getContext('2d');
+                ctx.drawImage(img,0,0,w,h);
+                _ciPhotoData=c.toDataURL('image/jpeg',0.7);
+            };
+            img.src=ev.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+    document.getElementById('fs-btn').addEventListener('click',function(){toggleFullscreen();});
+    document.getElementById('login-btn').addEventListener('click',function(){doLogin();});
+    document.getElementById('logout-btn').addEventListener('click',function(){doLogout();});
+    document.getElementById('hm-logout').addEventListener('click',function(){closeHm();doLogout();});
+    document.getElementById('login-pass').addEventListener('keydown',function(e){if(e.key==='Enter') doLogin();});
+    document.getElementById('login-user').addEventListener('keydown',function(e){if(e.key==='Enter') document.getElementById('login-pass').focus();});
+});
+})();
+</script>
+</body>
+</html>
