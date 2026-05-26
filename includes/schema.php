@@ -1249,6 +1249,31 @@ function simple_hotel_crm_booking_is_enriched( $booking ) {
         || ! empty( $booking['internal_notes'] );
 }
 
+function simple_hotel_crm_booking_is_ics_skeleton( $booking ) {
+    if ( false === strpos( (string) ( $booking['internal_notes'] ?? '' ), '[ICS_SKELETON]' ) ) {
+        return false;
+    }
+    if ( (int) ( $booking['adults'] ?? 0 ) > 0 ) { return false; }
+    if ( (int) ( $booking['children'] ?? 0 ) > 0 ) { return false; }
+    if ( (int) ( $booking['babies'] ?? 0 ) > 0 ) { return false; }
+    if ( (float) ( $booking['room_rate_amount'] ?? 0 ) > 0 ) { return false; }
+    if ( (float) ( $booking['extras_amount'] ?? 0 ) > 0 ) { return false; }
+    if ( (float) ( $booking['tourist_tax_amount'] ?? 0 ) > 0 ) { return false; }
+    if ( (float) ( $booking['total_amount'] ?? 0 ) > 0 ) { return false; }
+    if ( ! empty( $booking['booking_note'] ) ) { return false; }
+    global $wpdb;
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_id = (int) ( $booking['id'] ?? 0 );
+    if ( $booking_id > 0 ) {
+        $enriched_room = $wpdb->get_row( $wpdb->prepare(
+            "SELECT id FROM {$booking_rooms_table} WHERE booking_id = %d AND (adults > 0 OR room_rate_amount > 0 OR total_amount > 0) LIMIT 1",
+            $booking_id
+        ), ARRAY_A );
+        if ( $enriched_room ) { return false; }
+    }
+    return true;
+}
+
 function simple_hotel_crm_import_sync_data_to_crm() {
     global $wpdb;
 
@@ -1357,7 +1382,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
             ARRAY_A
         );
         if ( $booking ) {
-            $is_ics_skeleton = false !== strpos( (string) ( $booking['internal_notes'] ?? '' ), '[ICS_SKELETON]' );
+            $is_ics_skeleton = simple_hotel_crm_booking_is_ics_skeleton( $booking );
             if ( ! $is_ics_skeleton ) {
                 $real_source_booking_id = (string) ( $booking_group['source_booking_id'] ?: '' );
                 if ( '' !== $real_source_booking_id && (string) $booking['source_booking_id'] !== $real_source_booking_id ) {
@@ -1402,7 +1427,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                 if ( $fallback ) {
                     $booking = $fallback;
                     $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE id = %d", (int) $booking['guest_id'] ), ARRAY_A );
-                    if ( false !== strpos( (string) ( $booking['internal_notes'] ?? '' ), '[ICS_SKELETON]' ) ) {
+                    if ( simple_hotel_crm_booking_is_ics_skeleton( $booking ) ) {
                         $wpdb->update(
                             $crm_bookings_table,
                             [
@@ -1471,7 +1496,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         }
 
         // For ICS skeleton bookings, delete existing rooms and nights and rebuild from fresh sync data
-        $is_ics_skeleton = false !== strpos( (string) ( $booking['internal_notes'] ?? '' ), '[ICS_SKELETON]' );
+        $is_ics_skeleton = simple_hotel_crm_booking_is_ics_skeleton( $booking );
         if ( $is_ics_skeleton ) {
             $existing_room_ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$crm_booking_rooms_table} WHERE booking_id = %d", (int) $booking['id'] ) );
             if ( ! empty( $existing_room_ids ) ) {
