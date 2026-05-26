@@ -1394,23 +1394,25 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                 if ( '' !== $real_source_booking_id && (string) $booking['source_booking_id'] !== $real_source_booking_id ) {
                     $wpdb->update( $crm_bookings_table, [ 'source_booking_id' => $real_source_booking_id ], [ 'id' => (int) $booking['id'] ], [ '%s' ], [ '%d' ] );
                 }
-                $wpdb->query( 'COMMIT' );
-                continue;
+                // Do NOT continue — fall through to room processing loop so NEW rooms
+                // from the same reservation (same external_booking_id) get added.
+                // Existing rooms are skipped by the dedup at line 1532.
+            } else {
+                // Skeleton booking found — update dates, then rebuild rooms from fresh sync data
+                $wpdb->update(
+                    $crm_bookings_table,
+                    [
+                        'check_in_date' => (string) $booking_group['check_in_date'],
+                        'check_out_date' => (string) $booking_group['check_out_date'],
+                        'status_code' => (string) $booking_group['status_code'],
+                        'source_booking_id' => (string) ( $booking_group['source_booking_id'] ?: $booking_group['external_booking_id'] ),
+                    ],
+                    [ 'id' => (int) $booking['id'] ],
+                    [ '%s', '%s', '%s', '%s' ],
+                    [ '%d' ]
+                );
+                $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$crm_bookings_table} WHERE id = %d", (int) $booking['id'] ), ARRAY_A );
             }
-            // Skeleton booking found — update dates, then rebuild rooms from fresh sync data
-            $wpdb->update(
-                $crm_bookings_table,
-                [
-                    'check_in_date' => (string) $booking_group['check_in_date'],
-                    'check_out_date' => (string) $booking_group['check_out_date'],
-                    'status_code' => (string) $booking_group['status_code'],
-                    'source_booking_id' => (string) ( $booking_group['source_booking_id'] ?: $booking_group['external_booking_id'] ),
-                ],
-                [ 'id' => (int) $booking['id'] ],
-                [ '%s', '%s', '%s', '%s' ],
-                [ '%d' ]
-            );
-            $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$crm_bookings_table} WHERE id = %d", (int) $booking['id'] ), ARRAY_A );
         }
 
         if ( ! $booking ) {
