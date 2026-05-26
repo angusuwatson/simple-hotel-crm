@@ -1731,7 +1731,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
                     'tourist_tax_amount' => $tax_nightly[ $i ],
                     'room_count' => count( $room_lines ),
                     'source_channel' => $source_channel,
-                    'source_booking_id' => '',
+                    'source_booking_id' => $existing_booking ? (string) $existing_booking['source_booking_id'] : '',
                     'channel_label' => simple_hotel_crm_get_booking_channel_options()[ $source_channel ] ?? $source_channel,
                     'guest_name' => trim( (string) ( $data['guest_name'] ?? '' ) ),
                     'phone' => sanitize_text_field( (string) ( $data['phone'] ?? '' ) ),

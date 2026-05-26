@@ -1287,7 +1287,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         return;
     }
 
-    $booking_groups = $wpdb->get_results( "SELECT external_booking_id, MIN(source_booking_id) AS source_booking_id, MIN(guest_name) AS guest_name, MIN(phone) AS phone, MIN(source_channel) AS source_channel, MIN(status_code) AS status_code, MIN(check_in) AS check_in_date, MIN(check_out) AS check_out_date, MIN(source_created_at) AS source_created_at, MIN(import_notes) AS import_notes, MIN(invoice_ninja_client_id) AS invoice_ninja_client_id, MIN(invoice_ninja_invoice_id) AS invoice_ninja_invoice_id, room_sync_id, external_room_id FROM {$sync_bookings_table} WHERE source_channel = 'booking_com' GROUP BY external_booking_id, room_sync_id, external_room_id ORDER BY external_booking_id ASC, room_sync_id ASC", ARRAY_A );
+    $booking_groups = $wpdb->get_results( "SELECT external_booking_id, MIN(source_booking_id) AS source_booking_id, MIN(guest_name) AS guest_name, MIN(phone) AS phone, MIN(source_channel) AS source_channel, MIN(status_code) AS status_code, MIN(check_in) AS check_in_date, MIN(check_out) AS check_out_date, MIN(source_created_at) AS source_created_at, MIN(import_notes) AS import_notes, MIN(invoice_ninja_client_id) AS invoice_ninja_client_id, MIN(invoice_ninja_invoice_id) AS invoice_ninja_invoice_id, room_sync_id, external_room_id FROM {$sync_bookings_table} WHERE source_channel = 'booking_com' AND source_booking_id <> '' GROUP BY external_booking_id, room_sync_id, external_room_id ORDER BY external_booking_id ASC, room_sync_id ASC", ARRAY_A );
 
     foreach ( $booking_groups as $booking_group ) {
         $wpdb->query( 'START TRANSACTION' );
@@ -1312,6 +1312,10 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $booking_group['room_sync_id'] );
         if ( $crm_room_id <= 0 ) {
             $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $booking_group['external_room_id'] );
+        }
+        if ( $crm_room_id <= 0 ) {
+            $wpdb->query( 'COMMIT' );
+            continue;
         }
 
         $guest_id = $wpdb->get_var( $wpdb->prepare(
