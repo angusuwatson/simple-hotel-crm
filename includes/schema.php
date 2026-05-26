@@ -1331,10 +1331,11 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                     continue;
                 }
                 $existing_guest_id = (int) $wpdb->get_var( $wpdb->prepare(
-                    "SELECT b.guest_id FROM {$crm_bookings_table} b INNER JOIN {$crm_booking_rooms_table} br ON br.booking_id = b.id WHERE b.source_channel = 'booking_com' AND b.is_deleted = 0 AND (b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR b.internal_notes IS NULL) AND br.room_id = %d AND b.check_in_date < %s AND b.check_out_date > %s AND b.status_code != 'cancelled' ORDER BY b.id DESC LIMIT 1",
+                    "SELECT b.guest_id FROM {$crm_bookings_table} b INNER JOIN {$crm_booking_rooms_table} br ON br.booking_id = b.id WHERE b.source_channel = 'booking_com' AND b.is_deleted = 0 AND (b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR b.internal_notes IS NULL) AND br.room_id = %d AND b.check_in_date < %s AND b.check_out_date > %s AND b.status_code != 'cancelled' AND b.source_booking_id = %s ORDER BY b.id DESC LIMIT 1",
                     $crm_room_id,
                     $check_out_date,
-                    $check_in_date
+                    $check_in_date,
+                    $source_id
                 ) );
                 if ( $existing_guest_id > 0 ) {
                     $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE id = %d", $existing_guest_id ), ARRAY_A );
