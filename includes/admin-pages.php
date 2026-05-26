@@ -1543,12 +1543,51 @@ function simple_hotel_crm_render_booking_duplicates_page() {
     $total_dupes = array_sum( array_map( function( $g ) { return count( $g['duplicates'] ); }, $duplicates ) );
     echo '<p>' . esc_html( sprintf( __( 'Found %d groups with %d duplicate booking(s).', 'simple-hotel-crm' ), count( $duplicates ), $total_dupes ) ) . '</p>';
 
+    // Collect all booking IDs across all groups for batch queries
+    $all_booking_ids = [];
+    foreach ( $duplicates as $group ) {
+        $all_booking_ids[] = (int) $group['keeper']['id'];
+        foreach ( $group['duplicates'] as $dup ) {
+            $all_booking_ids[] = (int) $dup['id'];
+        }
+    }
+    $all_booking_ids = array_values( array_unique( array_filter( $all_booking_ids ) ) );
+
+    // Batch query: room codes per booking
+    $rooms_table = simple_hotel_crm_rooms_table();
+    $room_map = [];
+    if ( ! empty( $all_booking_ids ) ) {
+        $ids_placeholders = implode( ',', array_fill( 0, count( $all_booking_ids ), '%d' ) );
+        $room_rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT br.booking_id, r.room_code, r.room_name FROM {$booking_rooms_table} br JOIN {$rooms_table} r ON r.id = br.room_id WHERE br.booking_id IN ({$ids_placeholders}) ORDER BY br.id ASC",
+            $all_booking_ids
+        ), ARRAY_A );
+        foreach ( $room_rows as $rr ) {
+            $bid = (int) $rr['booking_id'];
+            if ( ! isset( $room_map[ $bid ] ) ) {
+                $room_map[ $bid ] = [];
+            }
+            $room_map[ $bid ][] = $rr['room_code'] ?: $rr['room_name'];
+        }
+    }
+
+    // Batch query: guest names
+    $guest_ids = array_map( 'intval', $wpdb->get_col( "SELECT DISTINCT guest_id FROM {$bookings_table} WHERE id IN (" . implode( ',', $all_booking_ids ) . ")" ) );
+    $guest_map = [];
+    if ( ! empty( $guest_ids ) ) {
+        $g_placeholders = implode( ',', array_fill( 0, count( $guest_ids ), '%d' ) );
+        $guest_rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT id, first_name, last_name FROM {$guests_table} WHERE id IN ({$g_placeholders})",
+            $guest_ids
+        ), ARRAY_A );
+        foreach ( $guest_rows as $gr ) {
+            $guest_map[ (int) $gr['id'] ] = trim( (string) $gr['first_name'] . ' ' . (string) $gr['last_name'] );
+        }
+    }
+
     foreach ( $duplicates as $group_index => $group ) {
         $sid = $group['source_booking_id'] ?: __( '(empty source_booking_id — ghost bookings)', 'simple-hotel-crm' );
         $keeper = $group['keeper'];
-
-        $keeper_guest = $wpdb->get_row( $wpdb->prepare( "SELECT first_name, last_name FROM {$guests_table} WHERE id = %d LIMIT 1", (int) $keeper['guest_id'] ), ARRAY_A );
-        $keeper_name = $keeper_guest ? trim( (string) $keeper_guest['first_name'] . ' ' . (string) $keeper_guest['last_name'] ) : '—';
 
         echo '<form method="post" style="margin:0 0 24px 0;padding:12px;border:1px solid #ccd0d4;background:#fff;">';
         wp_nonce_field( 'simple_hotel_crm_delete_booking_duplicates' );
@@ -1567,20 +1606,10 @@ function simple_hotel_crm_render_booking_duplicates_page() {
             <th>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</th>
         </tr></thead><tbody>';
 
-        $rooms_table = simple_hotel_crm_rooms_table();
         $all_bks = array_merge( [ $keeper ], $group['duplicates'] );
         foreach ( $all_bks as $index => $bk ) {
-            $rc = $group['room_counts'][ $bk['id'] ] ?? 0;
-            $bk_rooms = $wpdb->get_results( $wpdb->prepare(
-                "SELECT r.room_code, r.room_name FROM {$booking_rooms_table} br JOIN {$rooms_table} r ON r.id = br.room_id WHERE br.booking_id = %d ORDER BY br.id ASC",
-                $bk['id']
-            ), ARRAY_A );
-            $room_labels = array_map( function( $r ) {
-                return $r['room_code'] ?: $r['room_name'];
-            }, $bk_rooms );
-            $room_display = ! empty( $room_labels ) ? implode( ', ', $room_labels ) : '—';
-            $bk_guest = $wpdb->get_row( $wpdb->prepare( "SELECT first_name, last_name FROM {$guests_table} WHERE id = %d LIMIT 1", (int) $bk['guest_id'] ), ARRAY_A );
-            $bk_name = $bk_guest ? trim( (string) $bk_guest['first_name'] . ' ' . (string) $bk_guest['last_name'] ) : '—';
+            $room_display = isset( $room_map[ $bk['id'] ] ) ? implode( ', ', $room_map[ $bk['id'] ] ) : '—';
+            $bk_name = isset( $guest_map[ (int) $bk['guest_id'] ] ) ? $guest_map[ (int) $bk['guest_id'] ] : '—';
             $is_keeper = $bk['id'] === $keeper['id'];
 
             echo '<tr' . ( $is_keeper ? ' style="background:#f0f8e8;"' : '' ) . '>';
