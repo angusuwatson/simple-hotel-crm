@@ -1384,6 +1384,12 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         if ( $booking ) {
             $is_ics_skeleton = simple_hotel_crm_booking_is_ics_skeleton( $booking );
             if ( ! $is_ics_skeleton ) {
+                // Strip [ICS_SKELETON] marker so future syncs don't mistake this for a skeleton
+                $internal_notes = (string) ( $booking['internal_notes'] ?? '' );
+                if ( false !== strpos( $internal_notes, '[ICS_SKELETON]' ) ) {
+                    $cleaned = trim( str_replace( '[ICS_SKELETON]', '', $internal_notes ) );
+                    $wpdb->update( $crm_bookings_table, [ 'internal_notes' => $cleaned ], [ 'id' => (int) $booking['id'] ], [ '%s' ], [ '%d' ] );
+                }
                 $real_source_booking_id = (string) ( $booking_group['source_booking_id'] ?: '' );
                 if ( '' !== $real_source_booking_id && (string) $booking['source_booking_id'] !== $real_source_booking_id ) {
                     $wpdb->update( $crm_bookings_table, [ 'source_booking_id' => $real_source_booking_id ], [ 'id' => (int) $booking['id'] ], [ '%s' ], [ '%d' ] );

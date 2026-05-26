@@ -1555,6 +1555,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
     $booking_note = sanitize_textarea_field( (string) ( $data['booking_note'] ?? '' ) );
     simple_hotel_crm_upsert_booking_note( $booking_id, $booking_note, null, null, 'booking' );
     $import_notes = sanitize_textarea_field( (string) ( $data['import_notes'] ?? '' ) );
+    $import_notes = trim( str_replace( '[ICS_SKELETON]', '', $import_notes ) );
     $source_created_at = ( '' !== $contacted_date ? $contacted_date : current_time( 'mysql' ) );
 
     $existing_rooms = $wpdb->get_results( $wpdb->prepare( "SELECT br.legacy_reserved_room_id, br.room_id FROM {$crm_booking_rooms_table} br WHERE br.booking_id = %d ORDER BY br.id ASC", $booking_id ), ARRAY_A );
