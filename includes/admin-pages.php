@@ -17,6 +17,7 @@ function simple_hotel_crm_register_admin_menu() {
     add_submenu_page( 'simple-hotel-crm', __( 'Rooms', 'simple-hotel-crm' ), __( 'Rooms', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-rooms', 'simple_hotel_crm_render_rooms_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Guests', 'simple-hotel-crm' ), __( 'Guests', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guests', 'simple_hotel_crm_render_guests_page' );
     add_submenu_page( null, __( 'Guest Duplicates', 'simple-hotel-crm' ), __( 'Guest Duplicates', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-duplicates', 'simple_hotel_crm_render_guest_duplicates_page' );
+    add_submenu_page( null, __( 'Booking Duplicates', 'simple-hotel-crm' ), __( 'Booking Duplicates', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-booking-duplicates', 'simple_hotel_crm_render_booking_duplicates_page' );
     add_submenu_page( null, __( 'Booking Transfers', 'simple-hotel-crm' ), __( 'Booking Transfers', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-booking-transfers', 'simple_hotel_crm_render_booking_transfers_page' );
     add_submenu_page( null, __( 'Booking Merges', 'simple-hotel-crm' ), __( 'Booking Merges', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-booking-merges', 'simple_hotel_crm_render_booking_merges_page' );
     add_submenu_page( null, __( 'Guest Detail', 'simple-hotel-crm' ), __( 'Guest Detail', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-detail', 'simple_hotel_crm_render_guest_detail_page' );
@@ -530,7 +531,7 @@ function simple_hotel_crm_render_bookings_page() {
     $archive_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE is_deleted = 0 AND internal_notes LIKE '%[MERGED_ARCHIVE]%'" );
     $trash_count = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$bookings_table} WHERE is_deleted = 1" );
     echo '<div class="wrap">';
-    echo '<h1>' . esc_html__( 'Bookings', 'simple-hotel-crm' ) . ' <a class="page-title-action" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-add-booking' ) ) . '">' . esc_html__( 'Add Booking', 'simple-hotel-crm' ) . '</a></h1>';
+    echo '<h1>' . esc_html__( 'Bookings', 'simple-hotel-crm' ) . ' <a class="page-title-action" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-add-booking' ) ) . '">' . esc_html__( 'Add Booking', 'simple-hotel-crm' ) . '</a> <a class="page-title-action" href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-booking-duplicates' ) ) . '">' . esc_html__( 'Duplicate Check', 'simple-hotel-crm' ) . '</a></h1>';
     if ( isset( $_GET['per_page'] ) ) { update_user_meta( get_current_user_id(), 'simple_hotel_crm_bookings_per_page', $per_page ); }
     if ( isset( $_GET['per_page'] ) ) { update_user_meta( get_current_user_id(), 'simple_hotel_crm_guests_per_page', $per_page ); }
     echo '<form method="get" style="margin:12px 0;">';
@@ -1474,6 +1475,124 @@ function simple_hotel_crm_render_guest_duplicates_page() {
         }
         echo '</tbody></table>';
         submit_button( __( 'Merge Selected Guests', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_merge_guests', false, [ 'onclick' => "return confirm('" . esc_js( __( 'Merge the selected duplicate guest into the primary guest?', 'simple-hotel-crm' ) ) . "');" ] );
+        echo '</form>';
+    }
+
+    echo '</div>';
+}
+
+function simple_hotel_crm_render_booking_duplicates_page() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
+    }
+
+    global $wpdb;
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+    $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
+    $guests_table = simple_hotel_crm_guests_table();
+
+    if ( isset( $_POST['simple_hotel_crm_delete_booking_duplicates'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_delete_booking_duplicates' );
+        $group_key = sanitize_text_field( wp_unslash( $_POST['group_key'] ?? '' ) );
+        $keeper_id = absint( $_POST['keeper_booking_id'] ?? 0 );
+        $delete_ids = isset( $_POST['delete_booking_ids'] ) ? array_map( 'absint', (array) $_POST['delete_booking_ids'] ) : [];
+        $delete_ids = array_values( array_filter( $delete_ids, function( $id ) use ( $keeper_id ) {
+            return $id > 0 && $id !== $keeper_id;
+        } ) );
+
+        $deleted = 0;
+        $errors = 0;
+        foreach ( $delete_ids as $bid ) {
+            $room_ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$booking_rooms_table} WHERE booking_id = %d", $bid ) );
+            $legacy_ids = $wpdb->get_col( $wpdb->prepare( "SELECT legacy_reserved_room_id FROM {$booking_rooms_table} WHERE booking_id = %d", $bid ) );
+            if ( ! empty( $room_ids ) ) {
+                $wpdb->query( "DELETE FROM {$booking_nights_table} WHERE booking_room_id IN (" . implode( ',', array_map( 'intval', $room_ids ) ) . ")" );
+            }
+            if ( ! empty( $legacy_ids ) ) {
+                $wpdb->query( "DELETE FROM {$sync_bookings_table} WHERE external_booking_room_id IN (" . implode( ',', array_map( 'intval', array_filter( $legacy_ids ) ) ) . ")" );
+            }
+            $wpdb->delete( $booking_rooms_table, [ 'booking_id' => $bid ], [ '%d' ] );
+            $deleted_booking = $wpdb->delete( $bookings_table, [ 'id' => $bid ], [ '%d' ] );
+            if ( $deleted_booking ) {
+                $deleted++;
+            } else {
+                $errors++;
+            }
+        }
+        simple_hotel_crm_clear_calendar_cache();
+        echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Deleted %d duplicate booking(s).', 'simple-hotel-crm' ), $deleted ) ) . '</p></div>';
+        if ( $errors > 0 ) {
+            echo '<div class="notice notice-error"><p>' . esc_html( sprintf( __( 'Failed to delete %d booking(s).', 'simple-hotel-crm' ), $errors ) ) . '</p></div>';
+        }
+    }
+
+    $duplicates = simple_hotel_crm_find_duplicate_bookings();
+
+    echo '<div class="wrap">';
+    echo '<h1>' . esc_html__( 'Booking Duplicates', 'simple-hotel-crm' ) . '</h1>';
+    echo '<p>' . esc_html__( 'Bookings sharing the same source_booking_id (Booking.com UID). Keep the one with the most room data; delete the rest.', 'simple-hotel-crm' ) . '</p>';
+
+    if ( empty( $duplicates ) ) {
+        echo '<p>' . esc_html__( 'No duplicate bookings found.', 'simple-hotel-crm' ) . '</p>';
+        echo '</div>';
+        return;
+    }
+
+    $total_dupes = array_sum( array_map( function( $g ) { return count( $g['duplicates'] ); }, $duplicates ) );
+    echo '<p>' . esc_html( sprintf( __( 'Found %d groups with %d duplicate booking(s).', 'simple-hotel-crm' ), count( $duplicates ), $total_dupes ) ) . '</p>';
+
+    foreach ( $duplicates as $group_index => $group ) {
+        $sid = $group['source_booking_id'] ?: __( '(empty source_booking_id — ghost bookings)', 'simple-hotel-crm' );
+        $keeper = $group['keeper'];
+
+        $keeper_guest = $wpdb->get_row( $wpdb->prepare( "SELECT first_name, last_name FROM {$guests_table} WHERE id = %d LIMIT 1", (int) $keeper['guest_id'] ), ARRAY_A );
+        $keeper_name = $keeper_guest ? trim( (string) $keeper_guest['first_name'] . ' ' . (string) $keeper_guest['last_name'] ) : '—';
+
+        echo '<form method="post" style="margin:0 0 24px 0;padding:12px;border:1px solid #ccd0d4;background:#fff;">';
+        wp_nonce_field( 'simple_hotel_crm_delete_booking_duplicates' );
+        echo '<input type="hidden" name="group_key" value="' . esc_attr( (string) $group_index ) . '" />';
+        echo '<h2 style="margin-top:0;">' . esc_html( $sid ) . '</h2>';
+        echo '<table class="widefat striped">';
+        echo '<thead><tr>
+            <th>' . esc_html__( 'Keep', 'simple-hotel-crm' ) . '</th>
+            <th>' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</th>
+            <th>ID</th>
+            <th>' . esc_html__( 'Guest', 'simple-hotel-crm' ) . '</th>
+            <th>' . esc_html__( 'Room Count', 'simple-hotel-crm' ) . '</th>
+            <th>' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '</th>
+            <th>' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '</th>
+            <th>' . esc_html__( 'Total', 'simple-hotel-crm' ) . '</th>
+            <th>' . esc_html__( 'Status', 'simple-hotel-crm' ) . '</th>
+        </tr></thead><tbody>';
+
+        $all_bks = array_merge( [ $keeper ], $group['duplicates'] );
+        foreach ( $all_bks as $index => $bk ) {
+            $rc = $group['room_counts'][ $bk['id'] ] ?? 0;
+            $bk_guest = $wpdb->get_row( $wpdb->prepare( "SELECT first_name, last_name FROM {$guests_table} WHERE id = %d LIMIT 1", (int) $bk['guest_id'] ), ARRAY_A );
+            $bk_name = $bk_guest ? trim( (string) $bk_guest['first_name'] . ' ' . (string) $bk_guest['last_name'] ) : '—';
+            $is_keeper = $bk['id'] === $keeper['id'];
+
+            echo '<tr' . ( $is_keeper ? ' style="background:#f0f8e8;"' : '' ) . '>';
+            echo '<td><input type="radio" name="keeper_booking_id" value="' . esc_attr( (string) $bk['id'] ) . '"' . checked( true, $is_keeper, false ) . ' /></td>';
+            echo '<td><input type="checkbox" name="delete_booking_ids[]" value="' . esc_attr( (string) $bk['id'] ) . '"' . checked( false, $is_keeper, false ) . ' /></td>';
+            echo '<td>' . esc_html( (string) $bk['id'] );
+            if ( $is_keeper ) {
+                echo ' <span class="dashicons dashicons-yes" style="color:#46b450;" title="' . esc_attr__( 'Keeper', 'simple-hotel-crm' ) . '"></span>';
+            }
+            echo '</td>';
+            echo '<td>' . esc_html( $bk_name ) . '</td>';
+            echo '<td>' . esc_html( (string) $rc ) . '</td>';
+            echo '<td>' . esc_html( (string) $bk['check_in_date'] ) . '</td>';
+            echo '<td>' . esc_html( (string) $bk['check_out_date'] ) . '</td>';
+            echo '<td>€' . esc_html( number_format( (float) $bk['total_amount'], 2 ) ) . '</td>';
+            echo '<td>' . esc_html( (string) $bk['status_code'] ) . '</td>';
+            echo '</tr>';
+        }
+
+        echo '</tbody></table>';
+        submit_button( __( 'Delete Selected Duplicates', 'simple-hotel-crm' ), 'primary', 'simple_hotel_crm_delete_booking_duplicates', false, [ 'onclick' => "return confirm('" . esc_js( __( 'Permanently delete the selected duplicate bookings? This cannot be undone.', 'simple-hotel-crm' ) ) . "');" ] );
         echo '</form>';
     }
 
