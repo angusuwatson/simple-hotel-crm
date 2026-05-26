@@ -71,4 +71,64 @@ if ( defined( 'WP_CLI' ) && WP_CLI ) {
         }
     } );
 
+    WP_CLI::add_command( 'simple-hotel-crm find-duplicates', function( $args, $assoc_args ) {
+        $do_delete = isset( $assoc_args['delete'] );
+        $dry_run = ! $do_delete;
+        $source = isset( $assoc_args['source'] ) ? $assoc_args['source'] : 'booking_com';
+        $skip_empty = isset( $assoc_args['skip-empty'] );
+
+        WP_CLI::line( "Finding duplicates for source_channel: {$source}" );
+        if ( $dry_run ) {
+            WP_CLI::line( 'DRY RUN — use --delete to actually remove duplicates.' );
+        }
+        WP_CLI::line( '' );
+
+        $duplicates = simple_hotel_crm_find_duplicate_bookings( $source, ! $skip_empty );
+
+        if ( empty( $duplicates ) ) {
+            WP_CLI::success( 'No duplicates found.' );
+            return;
+        }
+
+        $total_dupes = 0;
+        foreach ( $duplicates as $group ) {
+            $total_dupes += count( $group['duplicates'] );
+        }
+
+        WP_CLI::line( "Found " . count( $duplicates ) . " groups with " . $total_dupes . " duplicate bookings." );
+        WP_CLI::line( '' );
+
+        foreach ( $duplicates as $group ) {
+            $sid = $group['source_booking_id'] ?: '(empty source_booking_id)';
+            $keeper = $group['keeper'];
+            $room_count_keeper = $group['room_counts'][ $keeper['id'] ] ?? 0;
+
+            $first_date = $keeper['check_in_date'] ?? '?';
+
+            WP_CLI::line( "--- Group: {$sid} ({$group['count']} bookings, keeper ID {$keeper['id']}, {$room_count_keeper} rooms, {$first_date}) ---" );
+            WP_CLI::line( "  KEEPER: ID {$keeper['id']}, {$room_count_keeper} rooms, €{$keeper['total_amount']}, guest {$keeper['guest_id']}" );
+
+            foreach ( $group['duplicates'] as $dup ) {
+                $rc = $group['room_counts'][ $dup['id'] ] ?? 0;
+                WP_CLI::line( "  DUPE:   ID {$dup['id']}, {$rc} rooms, €{$dup['total_amount']}, guest {$dup['guest_id']}, status {$dup['status_code']}" );
+            }
+            WP_CLI::line( '' );
+        }
+
+        if ( $dry_run ) {
+            WP_CLI::line( "Run with --delete to remove these {$total_dupes} duplicate bookings." );
+            return;
+        }
+
+        WP_CLI::confirm( "Are you sure you want to delete {$total_dupes} duplicate bookings?" );
+
+        $results = simple_hotel_crm_delete_duplicate_bookings( $duplicates, false );
+        $deleted_count = count( array_filter( $results, function( $r ) {
+            return $r['deleted'];
+        } ) );
+        WP_CLI::success( "Deleted {$deleted_count} duplicate bookings." );
+
+        simple_hotel_crm_clear_calendar_cache();
+    } );
+
 }

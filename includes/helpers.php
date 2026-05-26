@@ -798,3 +798,160 @@ function simple_hotel_crm_debug_ics_feeds() {
     return $result;
 }
 
+function simple_hotel_crm_find_duplicate_bookings( $source_channel = 'booking_com', $include_empty_source = true ) {
+    global $wpdb;
+
+    $bookings_table = simple_hotel_crm_bookings_table();
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $guests_table = simple_hotel_crm_guests_table();
+
+    $duplicates = [];
+
+    $bookings = $wpdb->get_results( $wpdb->prepare(
+        "SELECT b.id, b.source_booking_id, b.external_booking_id, b.source_channel,
+                b.check_in_date, b.check_out_date, b.status_code, b.adults,
+                b.total_amount, b.guest_id, b.internal_notes, b.is_deleted
+         FROM {$bookings_table} b
+         WHERE b.source_channel = %s
+           AND b.is_deleted = 0
+         ORDER BY b.source_booking_id ASC, b.id ASC",
+        $source_channel
+    ), ARRAY_A );
+
+    $grouped = [];
+    foreach ( $bookings as $bk ) {
+        $key = '' !== $bk['source_booking_id'] ? $bk['source_booking_id'] : '__EMPTY__';
+        $grouped[ $key ][] = $bk;
+    }
+
+    foreach ( $grouped as $key => $bks ) {
+        if ( '__EMPTY__' === $key ) {
+            if ( ! $include_empty_source ) {
+                continue;
+            }
+            if ( count( $bks ) <= 0 ) {
+                continue;
+            }
+            $room_counts = [];
+            foreach ( $bks as $bk ) {
+                $room_count = (int) $wpdb->get_var( $wpdb->prepare(
+                    "SELECT COUNT(*) FROM {$booking_rooms_table} WHERE booking_id = %d", $bk['id']
+                ) );
+                $room_counts[ $bk['id'] ] = $room_count;
+            }
+            $bks_with_rooms = array_filter( $bks, function( $bk ) use ( $room_counts ) {
+                return $room_counts[ $bk['id'] ] > 0;
+            } );
+            if ( count( $bks_with_rooms ) > 0 ) {
+                $keepers = $bks_with_rooms;
+            } else {
+                $keepers = $bks;
+            }
+            $keeper = $keepers[0];
+            $duplicates[] = [
+                'source_booking_id' => '',
+                'count' => count( $bks ),
+                'keeper' => $keeper,
+                'duplicates' => array_values( array_filter( $bks, function( $bk ) use ( $keeper ) {
+                    return $bk['id'] !== $keeper['id'];
+                } ) ),
+                'room_counts' => $room_counts,
+            ];
+            continue;
+        }
+
+        if ( count( $bks ) <= 1 ) {
+            continue;
+        }
+
+        $room_counts = [];
+        foreach ( $bks as $bk ) {
+            $room_count = (int) $wpdb->get_var( $wpdb->prepare(
+                "SELECT COUNT(*) FROM {$booking_rooms_table} WHERE booking_id = %d", $bk['id']
+            ) );
+            $room_counts[ $bk['id'] ] = $room_count;
+        }
+
+        usort( $bks, function( $a, $b ) use ( $room_counts ) {
+            $rooms_a = $room_counts[ $a['id'] ];
+            $rooms_b = $room_counts[ $b['id'] ];
+            if ( $rooms_a !== $rooms_b ) {
+                return $rooms_b - $rooms_a;
+            }
+            $amount_a = (float) $a['total_amount'];
+            $amount_b = (float) $b['total_amount'];
+            if ( $amount_a !== $amount_b ) {
+                return $amount_b <=> $amount_a;
+            }
+            return $a['id'] - $b['id'];
+        } );
+
+        $keeper = $bks[0];
+        $rest = array_slice( $bks, 1 );
+
+        $duplicates[] = [
+            'source_booking_id' => $key,
+            'count' => count( $bks ),
+            'keeper' => $keeper,
+            'duplicates' => $rest,
+            'room_counts' => $room_counts,
+        ];
+    }
+
+    usort( $duplicates, function( $a, $b ) {
+        return $b['count'] - $a['count'];
+    } );
+
+    return $duplicates;
+}
+
+function simple_hotel_crm_delete_duplicate_bookings( $duplicates, $dry_run = true ) {
+    global $wpdb;
+
+    $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+    $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
+    $bookings_table = simple_hotel_crm_bookings_table();
+
+    $results = [];
+
+    foreach ( $duplicates as $group ) {
+        foreach ( $group['duplicates'] as $dup ) {
+            $booking_id = (int) $dup['id'];
+
+            if ( $dry_run ) {
+                $results[] = [
+                    'id' => $booking_id,
+                    'source_booking_id' => $dup['source_booking_id'],
+                    'keeper_id' => (int) $group['keeper']['id'],
+                    'deleted' => false,
+                    'reason' => 'dry_run',
+                ];
+                continue;
+            }
+
+            $room_ids = $wpdb->get_col( $wpdb->prepare( "SELECT id FROM {$booking_rooms_table} WHERE booking_id = %d", $booking_id ) );
+            $legacy_ids = $wpdb->get_col( $wpdb->prepare( "SELECT legacy_reserved_room_id FROM {$booking_rooms_table} WHERE booking_id = %d", $booking_id ) );
+
+            if ( ! empty( $room_ids ) ) {
+                $wpdb->query( "DELETE FROM {$booking_nights_table} WHERE booking_room_id IN (" . implode( ',', array_map( 'intval', $room_ids ) ) . ")" );
+            }
+            if ( ! empty( $legacy_ids ) ) {
+                $wpdb->query( "DELETE FROM {$sync_bookings_table} WHERE external_booking_room_id IN (" . implode( ',', array_map( 'intval', array_filter( $legacy_ids ) ) ) . ")" );
+            }
+            $wpdb->delete( $booking_rooms_table, [ 'booking_id' => $booking_id ], [ '%d' ] );
+            $wpdb->delete( $bookings_table, [ 'id' => $booking_id ], [ '%d' ] );
+
+            $results[] = [
+                'id' => $booking_id,
+                'source_booking_id' => $dup['source_booking_id'],
+                'keeper_id' => (int) $group['keeper']['id'],
+                'deleted' => true,
+                'reason' => 'deleted',
+            ];
+        }
+    }
+
+    return $results;
+}
+
