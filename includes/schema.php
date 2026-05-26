@@ -1287,15 +1287,16 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         return;
     }
 
-    $booking_groups = $wpdb->get_results( "SELECT external_booking_id, MIN(source_booking_id) AS source_booking_id, MIN(guest_name) AS guest_name, MIN(phone) AS phone, MIN(source_channel) AS source_channel, MIN(status_code) AS status_code, MIN(check_in) AS check_in_date, MIN(check_out) AS check_out_date, MIN(source_created_at) AS source_created_at, MIN(import_notes) AS import_notes, MIN(invoice_ninja_client_id) AS invoice_ninja_client_id, MIN(invoice_ninja_invoice_id) AS invoice_ninja_invoice_id FROM {$sync_bookings_table} WHERE source_channel = 'booking_com' GROUP BY external_booking_id ORDER BY external_booking_id ASC", ARRAY_A );
+    $booking_groups = $wpdb->get_results( "SELECT external_booking_id, MIN(source_booking_id) AS source_booking_id, MIN(guest_name) AS guest_name, MIN(phone) AS phone, MIN(source_channel) AS source_channel, MIN(status_code) AS status_code, MIN(check_in) AS check_in_date, MIN(check_out) AS check_out_date, MIN(source_created_at) AS source_created_at, MIN(import_notes) AS import_notes, MIN(invoice_ninja_client_id) AS invoice_ninja_client_id, MIN(invoice_ninja_invoice_id) AS invoice_ninja_invoice_id, room_sync_id, external_room_id FROM {$sync_bookings_table} WHERE source_channel = 'booking_com' GROUP BY external_booking_id, room_sync_id, external_room_id ORDER BY external_booking_id ASC, room_sync_id ASC", ARRAY_A );
 
     foreach ( $booking_groups as $booking_group ) {
         $wpdb->query( 'START TRANSACTION' );
 
         $room_groups = $wpdb->get_results(
             $wpdb->prepare(
-                "SELECT external_booking_room_id, room_sync_id, external_room_id, MIN(adults) AS adults, MIN(children) AS children, MIN(babies) AS babies, MIN(guest_count) AS guest_count, SUM(room_amount) AS room_rate_amount, SUM(COALESCE(extras_amount, 0)) AS extras_amount, SUM(COALESCE(tourist_tax_amount, 0)) AS tourist_tax_amount, SUM(total_amount) AS total_amount FROM {$sync_bookings_table} WHERE external_booking_id = %d GROUP BY external_booking_room_id, room_sync_id, external_room_id ORDER BY external_booking_room_id ASC",
-                $booking_group['external_booking_id']
+                "SELECT external_booking_room_id, room_sync_id, external_room_id, MIN(adults) AS adults, MIN(children) AS children, MIN(babies) AS babies, MIN(guest_count) AS guest_count, SUM(room_amount) AS room_rate_amount, SUM(COALESCE(extras_amount, 0)) AS extras_amount, SUM(COALESCE(tourist_tax_amount, 0)) AS tourist_tax_amount, SUM(total_amount) AS total_amount FROM {$sync_bookings_table} WHERE external_booking_id = %d AND room_sync_id = %d GROUP BY external_booking_room_id, room_sync_id, external_room_id ORDER BY external_booking_room_id ASC",
+                $booking_group['external_booking_id'],
+                $booking_group['room_sync_id']
             ),
             ARRAY_A
         );
@@ -1307,8 +1308,15 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         list( $first_name, $last_name ) = simple_hotel_crm_split_guest_name( $booking_group['guest_name'] );
         $source_id = (string) ( $booking_group['source_booking_id'] ?: $booking_group['external_booking_id'] );
 
+        // Determine the CRM room ID for this group (single room per group)
+        $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $booking_group['room_sync_id'] );
+        if ( $crm_room_id <= 0 ) {
+            $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $booking_group['external_room_id'] );
+        }
+
         $guest_id = $wpdb->get_var( $wpdb->prepare(
-            "SELECT b.guest_id FROM {$crm_bookings_table} b WHERE b.source_booking_id = %s AND b.source_channel = %s AND (b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR b.internal_notes IS NULL) LIMIT 1",
+            "SELECT b.guest_id FROM {$crm_bookings_table} b INNER JOIN {$crm_booking_rooms_table} br ON br.booking_id = b.id AND br.room_id = %d WHERE b.source_booking_id = %s AND b.source_channel = %s AND (b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR b.internal_notes IS NULL) LIMIT 1",
+            $crm_room_id,
             $source_id,
             $booking_group['source_channel']
         ) );
@@ -1317,33 +1325,6 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         if ( ! $guest ) {
             $guest_note = 'Booking.com ICS import ' . $source_id;
             $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE notes LIKE %s LIMIT 1", '%' . $wpdb->esc_like( $guest_note ) . '%' ), ARRAY_A );
-        }
-
-        if ( ! $guest ) {
-            $check_in_date = (string) $booking_group['check_in_date'];
-            $check_out_date = (string) $booking_group['check_out_date'];
-            foreach ( $room_groups as $room_group ) {
-                $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $room_group['room_sync_id'] );
-                if ( $crm_room_id <= 0 ) {
-                    $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $room_group['external_room_id'] );
-                }
-                if ( $crm_room_id <= 0 ) {
-                    continue;
-                }
-                $existing_guest_id = (int) $wpdb->get_var( $wpdb->prepare(
-                    "SELECT b.guest_id FROM {$crm_bookings_table} b INNER JOIN {$crm_booking_rooms_table} br ON br.booking_id = b.id WHERE b.source_channel = 'booking_com' AND b.is_deleted = 0 AND (b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR b.internal_notes IS NULL) AND br.room_id = %d AND b.check_in_date < %s AND b.check_out_date > %s AND b.status_code != 'cancelled' AND b.source_booking_id = %s ORDER BY b.id DESC LIMIT 1",
-                    $crm_room_id,
-                    $check_out_date,
-                    $check_in_date,
-                    $source_id
-                ) );
-                if ( $existing_guest_id > 0 ) {
-                    $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE id = %d", $existing_guest_id ), ARRAY_A );
-                    if ( $guest ) {
-                        break;
-                    }
-                }
-            }
         }
 
         if ( ! $guest ) {
@@ -1375,7 +1356,8 @@ function simple_hotel_crm_import_sync_data_to_crm() {
 
         $booking = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT * FROM {$crm_bookings_table} WHERE source_channel = %s AND (source_booking_id = %s OR source_booking_id = %s) AND (internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR internal_notes IS NULL) LIMIT 1",
+                "SELECT b.* FROM {$crm_bookings_table} b INNER JOIN {$crm_booking_rooms_table} br ON br.booking_id = b.id AND br.room_id = %d WHERE b.source_channel = %s AND (b.source_booking_id = %s OR b.source_booking_id = %s) AND (b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR b.internal_notes IS NULL) LIMIT 1",
+                $crm_room_id,
                 (string) $booking_group['source_channel'],
                 (string) ( $booking_group['source_booking_id'] ?: '' ),
                 (string) $booking_group['external_booking_id']
@@ -1395,9 +1377,14 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                 if ( '' !== $real_source_booking_id && (string) $booking['source_booking_id'] !== $real_source_booking_id ) {
                     $wpdb->update( $crm_bookings_table, [ 'source_booking_id' => $real_source_booking_id ], [ 'id' => (int) $booking['id'] ], [ '%s' ], [ '%d' ] );
                 }
-                // Do NOT continue — fall through to room processing loop so NEW rooms
-                // from the same reservation (same external_booking_id) get added.
-                // Existing rooms are skipped by the dedup at line 1532.
+                // Clean stale booking_rooms from other rooms that have zero data (leftover from old skeleton rebuilds)
+                $wpdb->query( $wpdb->prepare(
+                    "DELETE FROM {$crm_booking_rooms_table} WHERE booking_id = %d AND room_id != %d AND adults = 0 AND room_rate_amount = 0 AND total_amount = 0",
+                    (int) $booking['id'],
+                    $crm_room_id
+                ) );
+                $wpdb->query( 'COMMIT' );
+                continue;
             } else {
                 // Skeleton booking found — update dates, then rebuild rooms from fresh sync data
                 $wpdb->update(
@@ -1413,50 +1400,6 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                     [ '%d' ]
                 );
                 $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$crm_bookings_table} WHERE id = %d", (int) $booking['id'] ), ARRAY_A );
-            }
-        }
-
-        if ( ! $booking ) {
-            $check_in_date = (string) $booking_group['check_in_date'];
-            $check_out_date = (string) $booking_group['check_out_date'];
-            foreach ( $room_groups as $room_group ) {
-                $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $room_group['room_sync_id'] );
-                if ( $crm_room_id <= 0 ) {
-                    $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $room_group['external_room_id'] );
-                }
-                if ( $crm_room_id <= 0 ) {
-                    continue;
-                }
-                $fallback = $wpdb->get_row( $wpdb->prepare(
-                    "SELECT b.* FROM {$crm_bookings_table} b INNER JOIN {$crm_booking_rooms_table} br ON br.booking_id = b.id WHERE b.source_channel = 'booking_com' AND b.is_deleted = 0 AND (b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%' OR b.internal_notes IS NULL) AND br.room_id = %d AND b.check_in_date < %s AND b.check_out_date > %s AND b.status_code != 'cancelled' AND b.source_booking_id = %s ORDER BY b.id DESC LIMIT 1",
-                    $crm_room_id,
-                    $check_out_date,
-                    $check_in_date,
-                    (string) ( $booking_group['source_booking_id'] ?: '' )
-                ), ARRAY_A );
-                if ( $fallback ) {
-                    $booking = $fallback;
-                    $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE id = %d", (int) $booking['guest_id'] ), ARRAY_A );
-                    if ( simple_hotel_crm_booking_is_ics_skeleton( $booking ) ) {
-                        $wpdb->update(
-                            $crm_bookings_table,
-                            [
-                                'check_in_date' => (string) $booking_group['check_in_date'],
-                                'check_out_date' => (string) $booking_group['check_out_date'],
-                                'status_code' => (string) $booking_group['status_code'],
-                            ],
-                            [ 'id' => (int) $booking['id'] ],
-                            [ '%s', '%s', '%s' ],
-                            [ '%d' ]
-                        );
-                        $booking = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$crm_bookings_table} WHERE id = %d", (int) $booking['id'] ), ARRAY_A );
-                    }
-                    $real_source_booking_id = (string) ( $booking_group['source_booking_id'] ?: '' );
-                    if ( '' !== $real_source_booking_id ) {
-                        $wpdb->update( $crm_bookings_table, [ 'source_booking_id' => $real_source_booking_id ], [ 'id' => (int) $booking['id'] ], [ '%s' ], [ '%d' ] );
-                    }
-                    break;
-                }
             }
         }
 
@@ -1523,10 +1466,6 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         }
 
         foreach ( $room_groups as $room_group ) {
-            $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $room_group['room_sync_id'] );
-            if ( $crm_room_id <= 0 ) {
-                $crm_room_id = simple_hotel_crm_find_crm_room_id( (int) $room_group['external_room_id'] );
-            }
             if ( $crm_room_id <= 0 ) {
                 continue;
             }
