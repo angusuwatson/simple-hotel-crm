@@ -744,11 +744,20 @@ function simple_hotel_crm_debug_ics_feeds() {
 
     // Show sync table stats
     $sync_bookings_table = simple_hotel_crm_sync_bookings_table();
+    $distinct_room_sync_ids = $wpdb->get_col( "SELECT DISTINCT room_sync_id FROM {$sync_bookings_table} WHERE source_channel = 'booking_com' ORDER BY room_sync_id ASC" );
+    $room_sync_id_map = [];
+    foreach ( $distinct_room_sync_ids as $rsid ) {
+        $room_id = simple_hotel_crm_find_crm_room_id( (int) $rsid );
+        $room_sync_id_map[ (string) $rsid ] = $room_id;
+    }
     $result['sync_stats'] = [
-        'total_rows'      => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$sync_bookings_table} WHERE source_channel = 'booking_com'" ),
-        'distinct_groups' => (int) $wpdb->get_var( "SELECT COUNT(DISTINCT CONCAT(external_booking_id, '-', room_sync_id, '-', external_room_id)) FROM {$sync_bookings_table} WHERE source_channel = 'booking_com'" ),
-        'distinct_rooms'  => (int) $wpdb->get_var( "SELECT COUNT(DISTINCT room_sync_id) FROM {$sync_bookings_table} WHERE source_channel = 'booking_com'" ),
-        'room_sync_ids'   => $wpdb->get_col( "SELECT DISTINCT room_sync_id FROM {$sync_bookings_table} WHERE source_channel = 'booking_com' ORDER BY room_sync_id ASC" ),
+        'total_rows'          => (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$sync_bookings_table} WHERE source_channel = 'booking_com'" ),
+        'distinct_groups'     => (int) $wpdb->get_var( "SELECT COUNT(DISTINCT CONCAT(external_booking_id, '-', room_sync_id, '-', external_room_id)) FROM {$sync_bookings_table} WHERE source_channel = 'booking_com'" ),
+        'distinct_rooms'      => (int) $wpdb->get_var( "SELECT COUNT(DISTINCT room_sync_id) FROM {$sync_bookings_table} WHERE source_channel = 'booking_com'" ),
+        'room_sync_ids'       => $distinct_room_sync_ids,
+        'room_sync_id_map'    => $room_sync_id_map,
+        'zero_room_count'     => (int) $wpdb->get_var( "SELECT COUNT(DISTINCT external_booking_id) FROM {$sync_bookings_table} WHERE source_channel = 'booking_com' AND (room_sync_id = 0 OR external_room_id = 0)" ),
+        'sample_groups'       => $wpdb->get_results( "SELECT external_booking_id, room_sync_id, external_room_id, source_booking_id, guest_name, check_in, check_out FROM {$sync_bookings_table} WHERE source_channel = 'booking_com' GROUP BY external_booking_id, room_sync_id, external_room_id ORDER BY external_booking_id ASC LIMIT 10", ARRAY_A ),
     ];
 
     $bookings_table     = simple_hotel_crm_bookings_table();
