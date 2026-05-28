@@ -2361,10 +2361,10 @@ function simple_hotel_crm_render_booking_detail_page() {
         echo '</ul>';
     }
     echo '<h2>' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</h2>';
-    echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Remove', 'simple-hotel-crm' ) . '</th><th>ID</th><th>' . esc_html__( 'Room', 'simple-hotel-crm' ) . '</th><th>A</th><th>C</th><th>BB</th><th>' . esc_html__( 'Rate', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Discount', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Discount value', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Extras total', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Tax', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Commission', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Total', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
+    echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Remove', 'simple-hotel-crm' ) . '</th><th>ID</th><th>' . esc_html__( 'Room', 'simple-hotel-crm' ) . '</th><th>A</th><th>C</th><th>BB</th><th>' . esc_html__( 'Rate', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Discount', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Discount value', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Extras total', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Tax', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Comm', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Total', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
     foreach ( $rooms as $index => $room ) {
         echo '<tr>';
-        echo '<td><label><input type="checkbox" name="room_lines[' . esc_attr( $index ) . '][remove]" value="1" /> ' . esc_html__( 'Remove', 'simple-hotel-crm' ) . '</label></td>';
+        echo '<td><input type="checkbox" name="room_lines[' . esc_attr( $index ) . '][remove]" value="1" /></td>';
         echo '<td>' . esc_html( (string) $room['id'] ) . '</td>';
         echo '<td><select name="room_lines[' . esc_attr( $index ) . '][room_sync_id]">';
         echo '<option value="">' . esc_html__( 'Select room', 'simple-hotel-crm' ) . '</option>';
@@ -2373,9 +2373,9 @@ function simple_hotel_crm_render_booking_detail_page() {
             echo '<option value="' . esc_attr( (string) $available_room['id'] ) . '"' . selected( (string) ( $room['room_sync_id'] ?? '' ), (string) $available_room['id'], false ) . '>' . esc_html( $label ) . '</option>';
         }
         echo '</select></td>';
-        echo '<td><input type="number" min="0" style="width:44px;" name="room_lines[' . esc_attr( $index ) . '][adults]" value="' . esc_attr( (string) ( $room['adults'] ?? 0 ) ) . '" /></td>';
-        echo '<td><input type="number" min="0" style="width:44px;" name="room_lines[' . esc_attr( $index ) . '][children]" value="' . esc_attr( (string) ( $room['children'] ?? 0 ) ) . '" /></td>';
-        echo '<td><input type="number" min="0" style="width:44px;" name="room_lines[' . esc_attr( $index ) . '][babies]" value="' . esc_attr( (string) ( $room['babies'] ?? 0 ) ) . '" /></td>';
+        echo '<td><input type="number" min="0" style="width:55px;" name="room_lines[' . esc_attr( $index ) . '][adults]" value="' . esc_attr( (string) ( $room['adults'] ?? 0 ) ) . '" /></td>';
+        echo '<td><input type="number" min="0" style="width:55px;" name="room_lines[' . esc_attr( $index ) . '][children]" value="' . esc_attr( (string) ( $room['children'] ?? 0 ) ) . '" /></td>';
+        echo '<td><input type="number" min="0" style="width:55px;" name="room_lines[' . esc_attr( $index ) . '][babies]" value="' . esc_attr( (string) ( $room['babies'] ?? 0 ) ) . '" /></td>';
         echo '<td><input type="text" style="width:80px;" name="room_lines[' . esc_attr( $index ) . '][room_rate_amount]" value="' . esc_attr( isset( $room['room_rate_amount'] ) ? number_format( (float) $room['room_rate_amount'], 2, '.', '' ) : '0.00' ) . '" /></td>';
         echo '<td><select name="room_lines[' . esc_attr( $index ) . '][discount_type]" style="width:92px;"><option value="none"' . selected( (string) ( $room['discount_type'] ?? 'none' ), 'none', false ) . '>None</option><option value="percent"' . selected( (string) ( $room['discount_type'] ?? 'none' ), 'percent', false ) . '>Percent</option><option value="amount"' . selected( (string) ( $room['discount_type'] ?? 'none' ), 'amount', false ) . '>Amount</option></select></td>';
         echo '<td><input type="text" style="width:80px;" name="room_lines[' . esc_attr( $index ) . '][discount_value]" value="' . esc_attr( isset( $room['discount_value'] ) ? number_format( (float) $room['discount_value'], 2, '.', '' ) : '0.00' ) . '" /></td>';
