@@ -5129,7 +5129,9 @@ function simple_hotel_crm_render_room_closures_page() {
     }
 
     if ( isset( $_POST['simple_hotel_crm_save_closures'] ) ) {
-        check_admin_referer( 'simple_hotel_crm_room_closures' );
+        if ( ! isset( $_REQUEST['_wpnonce'] ) || ! wp_verify_nonce( wp_unslash( $_REQUEST['_wpnonce'] ), 'simple_hotel_crm_room_closures' ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'Security check failed. Please reload the page and try again.', 'simple-hotel-crm' ) . '</p></div>';
+        } else {
         $date_from = sanitize_text_field( wp_unslash( $_POST['date_from'] ?? '' ) );
         $date_to = sanitize_text_field( wp_unslash( $_POST['date_to'] ?? '' ) );
         $reason = sanitize_text_field( wp_unslash( $_POST['reason'] ?? '' ) );
@@ -5184,10 +5186,13 @@ function simple_hotel_crm_render_room_closures_page() {
         } else {
             echo '<div class="notice notice-error"><p>' . esc_html__( 'Invalid date range.', 'simple-hotel-crm' ) . '</p></div>';
         }
+        }
     }
 
     if ( isset( $_POST['simple_hotel_crm_bulk_delete_closures'] ) ) {
-        check_admin_referer( 'simple_hotel_crm_room_closures' );
+        if ( ! isset( $_REQUEST['_wpnonce'] ) || ! wp_verify_nonce( wp_unslash( $_REQUEST['_wpnonce'] ), 'simple_hotel_crm_room_closures' ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'Security check failed. Please reload the page and try again.', 'simple-hotel-crm' ) . '</p></div>';
+        } else {
         $ids = isset( $_POST['closure_ids'] ) && is_array( $_POST['closure_ids'] ) ? array_map( 'absint', wp_unslash( $_POST['closure_ids'] ) ) : [];
         if ( ! empty( $ids ) ) {
             $placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
@@ -5199,13 +5204,17 @@ function simple_hotel_crm_render_room_closures_page() {
             }
             simple_hotel_crm_ics_export_refresh_all_files();
         }
+        }
     }
 
     if ( isset( $_GET['delete_closure'] ) ) {
-        check_admin_referer( 'simple_hotel_crm_delete_closure_' . absint( $_GET['delete_closure'] ) );
+        if ( ! isset( $_REQUEST['_wpnonce'] ) || ! wp_verify_nonce( wp_unslash( $_REQUEST['_wpnonce'] ), 'simple_hotel_crm_delete_closure_' . absint( $_GET['delete_closure'] ) ) ) {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'Security check failed. Please reload the page and try again.', 'simple-hotel-crm' ) . '</p></div>';
+        } else {
         $wpdb->delete( $room_closures_table, [ 'id' => absint( $_GET['delete_closure'] ) ], [ '%d' ] );
         echo '<div class="notice notice-success"><p>' . esc_html__( 'Closure removed.', 'simple-hotel-crm' ) . '</p></div>';
         simple_hotel_crm_ics_export_refresh_all_files();
+        }
     }
 
     echo '<div class="wrap">';
@@ -5233,6 +5242,7 @@ function simple_hotel_crm_render_room_closures_page() {
     echo '<p class="submit"><button type="submit" class="button button-primary">' . esc_html__( 'Close Rooms', 'simple-hotel-crm' ) . '</button></p>';
     echo '</form>';
     echo '<script>
+document.addEventListener("DOMContentLoaded",function(){
 document.getElementById("date_from").addEventListener("change",function(){
 var d=new Date(this.value);
 if(isNaN(d.getTime()))return;
@@ -5241,6 +5251,7 @@ var next=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d
 var to=document.getElementById("date_to");
 to.value=next;
 to.focus();if(to.showPicker)to.showPicker();
+});
 });
 </script>';
 
