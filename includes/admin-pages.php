@@ -5122,6 +5122,7 @@ function simple_hotel_crm_render_room_closures_page() {
     global $wpdb;
     $room_closures_table = simple_hotel_crm_room_closures_table();
     $rooms_table = simple_hotel_crm_rooms_table();
+    $rooms = $wpdb->get_results( "SELECT id, room_code, room_name FROM {$rooms_table} WHERE active = 1 ORDER BY sort_order ASC, room_name ASC", ARRAY_A );
 
     if ( $wpdb->get_var( "SHOW TABLES LIKE '{$room_closures_table}'" ) !== $room_closures_table ) {
         simple_hotel_crm_install_tables();
@@ -5139,17 +5140,24 @@ function simple_hotel_crm_render_room_closures_page() {
                     "SELECT id FROM {$room_closures_table} WHERE room_id = %d AND date_from <= %s AND date_to >= %s LIMIT 1",
                     $room_id, $date_to, $date_from
                 ) );
-                if ( ! $existing ) {
+                if ( $existing ) {
+                    echo '<div class="notice notice-warning"><p>' . esc_html__( 'This room already has a closure overlapping these dates.', 'simple-hotel-crm' ) . '</p></div>';
+                } else {
                     $wpdb->insert( $room_closures_table, [
                         'room_id' => $room_id,
                         'date_from' => $date_from,
                         'date_to' => $date_to,
                         'reason' => $reason,
                     ], [ '%d', '%s', '%s', '%s' ] );
+                    if ( $wpdb->last_error ) {
+                        echo '<div class="notice notice-error"><p>' . esc_html( sprintf( __( 'Database error: %s', 'simple-hotel-crm' ), $wpdb->last_error ) ) . '</p></div>';
+                    } else {
+                        echo '<div class="notice notice-success"><p>' . esc_html__( 'Room closed.', 'simple-hotel-crm' ) . '</p></div>';
+                    }
                     simple_hotel_crm_ics_export_refresh_file( $room_id );
                 }
             } else {
-                $room_ids = $wpdb->get_col( "SELECT id FROM {$rooms_table} WHERE active = 1" );
+                $room_ids = wp_list_pluck( $rooms, 'id' );
                 $inserted = 0;
                 foreach ( $room_ids as $room_id ) {
                     $existing = $wpdb->get_var( $wpdb->prepare(
@@ -5178,10 +5186,26 @@ function simple_hotel_crm_render_room_closures_page() {
         }
     }
 
+    if ( isset( $_POST['simple_hotel_crm_bulk_delete_closures'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_room_closures' );
+        $ids = isset( $_POST['closure_ids'] ) && is_array( $_POST['closure_ids'] ) ? array_map( 'absint', wp_unslash( $_POST['closure_ids'] ) ) : [];
+        if ( ! empty( $ids ) ) {
+            $placeholders = implode( ',', array_fill( 0, count( $ids ), '%d' ) );
+            $wpdb->query( $wpdb->prepare( "DELETE FROM {$room_closures_table} WHERE id IN ({$placeholders})", $ids ) );
+            if ( $wpdb->last_error ) {
+                echo '<div class="notice notice-error"><p>' . esc_html( sprintf( __( 'Database error: %s', 'simple-hotel-crm' ), $wpdb->last_error ) ) . '</p></div>';
+            } else {
+                echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Removed %d closure(s).', 'simple-hotel-crm' ), count( $ids ) ) ) . '</p></div>';
+            }
+            simple_hotel_crm_ics_export_refresh_all_files();
+        }
+    }
+
     if ( isset( $_GET['delete_closure'] ) ) {
         check_admin_referer( 'simple_hotel_crm_delete_closure_' . absint( $_GET['delete_closure'] ) );
         $wpdb->delete( $room_closures_table, [ 'id' => absint( $_GET['delete_closure'] ) ], [ '%d' ] );
         echo '<div class="notice notice-success"><p>' . esc_html__( 'Closure removed.', 'simple-hotel-crm' ) . '</p></div>';
+        simple_hotel_crm_ics_export_refresh_all_files();
     }
 
     echo '<div class="wrap">';
@@ -5190,15 +5214,23 @@ function simple_hotel_crm_render_room_closures_page() {
     echo '<form method="post" style="margin-bottom:24px;padding:16px;background:#fff;border:1px solid #ccd0d4;">';
     wp_nonce_field( 'simple_hotel_crm_room_closures' );
     echo '<h2>' . esc_html__( 'Close Rooms', 'simple-hotel-crm' ) . '</h2>';
-    echo '<table class="form-table"><tr><th scope="row"><label for="date_from">' . esc_html__( 'Date from', 'simple-hotel-crm' ) . '</label></th>';
+    echo '<table class="form-table">';
+    echo '<tr><th scope="row"><label for="date_from">' . esc_html__( 'Date from', 'simple-hotel-crm' ) . '</label></th>';
     echo '<td><input type="date" id="date_from" name="date_from" required /></td></tr>';
     echo '<tr><th scope="row"><label for="date_to">' . esc_html__( 'Date to', 'simple-hotel-crm' ) . '</label></th>';
     echo '<td><input type="date" id="date_to" name="date_to" required /></td></tr>';
     echo '<tr><th scope="row"><label for="reason">' . esc_html__( 'Reason', 'simple-hotel-crm' ) . '</label></th>';
-    echo '<td><input type="text" id="reason" name="reason" class="regular-text" placeholder="' . esc_attr__( 'e.g. Holiday closing', 'simple-hotel-crm' ) . '" /></td></tr></table>';
+    echo '<td><input type="text" id="reason" name="reason" class="regular-text" placeholder="' . esc_attr__( 'e.g. Holiday closing', 'simple-hotel-crm' ) . '" /></td></tr>';
+    echo '<tr><th scope="row"><label for="close_specific_room">' . esc_html__( 'Room', 'simple-hotel-crm' ) . '</label></th>';
+    echo '<td><select id="close_specific_room" name="close_specific_room"><option value="">' . esc_html__( '— All active rooms —', 'simple-hotel-crm' ) . '</option>';
+    foreach ( $rooms as $room ) {
+        $label = ( $room['room_code'] ?? '' ) ? $room['room_code'] . ' - ' . $room['room_name'] : $room['room_name'];
+        echo '<option value="' . esc_attr( $room['id'] ) . '">' . esc_html( $label ) . '</option>';
+    }
+    echo '</select><p class="description">' . esc_html__( 'Select a specific room, or leave as "All active rooms" to close every room.', 'simple-hotel-crm' ) . '</p></td></tr>';
+    echo '</table>';
     echo '<input type="hidden" name="simple_hotel_crm_save_closures" value="1" />';
-    echo '<p class="submit"><button type="submit" class="button button-primary">' . esc_html__( 'Close All Rooms', 'simple-hotel-crm' ) . '</button>';
-    echo ' <span class="description">' . esc_html__( 'Creates closures for all active rooms in the selected date range.', 'simple-hotel-crm' ) . '</span></p>';
+    echo '<p class="submit"><button type="submit" class="button button-primary">' . esc_html__( 'Close Rooms', 'simple-hotel-crm' ) . '</button></p>';
     echo '</form>';
 
     $closures = $wpdb->get_results(
@@ -5210,8 +5242,13 @@ function simple_hotel_crm_render_room_closures_page() {
     );
 
     if ( ! empty( $closures ) ) {
+        echo '<form method="post" style="margin-top:16px;">';
+        wp_nonce_field( 'simple_hotel_crm_room_closures' );
         echo '<h2>' . esc_html__( 'Existing Closures', 'simple-hotel-crm' ) . '</h2>';
+        echo '<p><label><input type="checkbox" id="select-all-closures" /> ' . esc_html__( 'Select all', 'simple-hotel-crm' ) . '</label>';
+        echo ' <button type="submit" name="simple_hotel_crm_bulk_delete_closures" value="1" class="button button-small button-link-delete" onclick="return confirm(' . wp_json_encode( __( 'Delete selected closures?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Delete Selected', 'simple-hotel-crm' ) . '</button></p>';
         echo '<table class="widefat striped"><thead><tr>';
+        echo '<th style="width:30px;"><input type="checkbox" id="select-all-closures-hdr" /></th>';
         echo '<th>' . esc_html__( 'Room', 'simple-hotel-crm' ) . '</th>';
         echo '<th>' . esc_html__( 'From', 'simple-hotel-crm' ) . '</th>';
         echo '<th>' . esc_html__( 'To', 'simple-hotel-crm' ) . '</th>';
@@ -5222,6 +5259,7 @@ function simple_hotel_crm_render_room_closures_page() {
             $delete_url = wp_nonce_url( admin_url( 'admin.php?page=simple-hotel-crm-room-closures&delete_closure=' . absint( $closure['id'] ) ), 'simple_hotel_crm_delete_closure_' . absint( $closure['id'] ) );
             $room_label = ( $closure['room_code'] ?? '' ) ? $closure['room_code'] . ' - ' . $closure['room_name'] : ( $closure['room_name'] ?? '#' . $closure['room_id'] );
             echo '<tr>';
+            echo '<td><input type="checkbox" name="closure_ids[]" value="' . esc_attr( $closure['id'] ) . '" class="closure-cb" /></td>';
             echo '<td>' . esc_html( $room_label ) . '</td>';
             echo '<td>' . esc_html( (string) $closure['date_from'] ) . '</td>';
             echo '<td>' . esc_html( (string) $closure['date_to'] ) . '</td>';
@@ -5230,6 +5268,23 @@ function simple_hotel_crm_render_room_closures_page() {
             echo '</tr>';
         }
         echo '</tbody></table>';
+        echo '</form>';
+        echo '<script>
+document.addEventListener("DOMContentLoaded",function(){
+var sel=document.getElementById("select-all-closures");
+var hdr=document.getElementById("select-all-closures-hdr");
+var cbs=function(){return document.querySelectorAll(".closure-cb");};
+function syncAll(){
+cbs().forEach(function(cb){cb.checked=sel.checked;});
+if(hdr) hdr.checked=sel.checked;
+}
+if(sel){sel.addEventListener("change",syncAll);}
+if(hdr){hdr.addEventListener("change",function(){
+cbs().forEach(function(cb){cb.checked=hdr.checked;});
+if(sel) sel.checked=hdr.checked;
+});}
+});
+</script>';
     } else {
         echo '<p>' . esc_html__( 'No closures defined.', 'simple-hotel-crm' ) . '</p>';
     }
