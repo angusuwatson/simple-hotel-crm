@@ -5123,6 +5123,10 @@ function simple_hotel_crm_render_room_closures_page() {
     $room_closures_table = simple_hotel_crm_room_closures_table();
     $rooms_table = simple_hotel_crm_rooms_table();
 
+    if ( $wpdb->get_var( "SHOW TABLES LIKE '{$room_closures_table}'" ) !== $room_closures_table ) {
+        simple_hotel_crm_install_tables();
+    }
+
     if ( isset( $_POST['simple_hotel_crm_save_closures'] ) ) {
         check_admin_referer( 'simple_hotel_crm_room_closures' );
         $date_from = sanitize_text_field( wp_unslash( $_POST['date_from'] ?? '' ) );
@@ -5162,7 +5166,11 @@ function simple_hotel_crm_render_room_closures_page() {
                         $inserted++;
                     }
                 }
-                echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Closed %d room(s) from %s to %s.', 'simple-hotel-crm' ), $inserted, $date_from, $date_to ) ) . '</p></div>';
+                if ( $wpdb->last_error ) {
+                    echo '<div class="notice notice-error"><p>' . esc_html( sprintf( __( 'Database error: %s', 'simple-hotel-crm' ), $wpdb->last_error ) ) . '</p></div>';
+                } else {
+                    echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Closed %d room(s) from %s to %s.', 'simple-hotel-crm' ), $inserted, $date_from, $date_to ) ) . '</p></div>';
+                }
                 simple_hotel_crm_ics_export_refresh_all_files();
             }
         } else {
