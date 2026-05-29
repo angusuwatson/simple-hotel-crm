@@ -190,7 +190,7 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
     $room_closures_table = simple_hotel_crm_room_closures_table();
     $closure_rows = $wpdb->get_results(
         $wpdb->prepare(
-            "SELECT room_id, date_from, date_to FROM {$room_closures_table}
+            "SELECT room_id, date_from, date_to, reason FROM {$room_closures_table}
              WHERE date_from < %s AND date_to >= %s",
             $month_after_last_day_str,
             $first_day_str
@@ -213,6 +213,7 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
                 $matrix[ $room_id ][ $d_str ] = [ 'booking' => null, 'is_checkin' => false, 'is_checkout' => false ];
             }
             $matrix[ $room_id ][ $d_str ]['is_closed'] = true;
+            $matrix[ $room_id ][ $d_str ]['closure_reason'] = $closure['reason'];
             $d->modify( '+1 day' );
         }
     }

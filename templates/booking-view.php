@@ -94,7 +94,7 @@ $scroll_to_today = ( (int) $month === $today_month && (int) $year === $today_yea
                                 if ( ! empty( $booking ) ) {
                                     $cell_classes[] = 'has-booking';
                                 }
-                                if ( $is_closed ) {
+                                if ( $is_closed && 'room-name-row' !== $row['class'] ) {
                                     $cell_classes[] = 'is-closed';
                                 }
                             ?>
@@ -105,6 +105,8 @@ $scroll_to_today = ( (int) $month === $today_month && (int) $year === $today_yea
                                         <span class="closed-label"><?php esc_html_e( 'Closed', 'simple-hotel-crm' ); ?></span>
                                     <?php elseif ( $booking && 'guest-row' === $row['class'] ) : ?>
                                         <a class="calendar-booking-link quick-booking-trigger" href="<?php echo esc_url( $booking_detail_url ); ?>" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>"><?php echo esc_html( $display_value ); ?></a>
+                                    <?php elseif ( $is_closed && 'guest-row' === $row['class'] ) : ?>
+                                        <?php echo esc_html( $entry['closure_reason'] ?? '' ); ?>
                                     <?php elseif ( $booking && 'occupancy-row' === $row['class'] ) : ?>
                                         <?php echo esc_html( $display_value ); ?>
                                     <?php elseif ( $booking && 'extras-row' === $row['class'] ) : ?>
