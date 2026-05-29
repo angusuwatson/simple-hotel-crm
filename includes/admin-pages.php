@@ -5142,6 +5142,7 @@ function simple_hotel_crm_render_room_closures_page() {
                         'date_to' => $date_to,
                         'reason' => $reason,
                     ], [ '%d', '%s', '%s', '%s' ] );
+                    simple_hotel_crm_ics_export_refresh_file( $room_id );
                 }
             } else {
                 $room_ids = $wpdb->get_col( "SELECT id FROM {$rooms_table} WHERE active = 1" );
@@ -5162,6 +5163,7 @@ function simple_hotel_crm_render_room_closures_page() {
                     }
                 }
                 echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Closed %d room(s) from %s to %s.', 'simple-hotel-crm' ), $inserted, $date_from, $date_to ) ) . '</p></div>';
+                simple_hotel_crm_ics_export_refresh_all_files();
             }
         } else {
             echo '<div class="notice notice-error"><p>' . esc_html__( 'Invalid date range.', 'simple-hotel-crm' ) . '</p></div>';
@@ -5186,7 +5188,8 @@ function simple_hotel_crm_render_room_closures_page() {
     echo '<td><input type="date" id="date_to" name="date_to" required /></td></tr>';
     echo '<tr><th scope="row"><label for="reason">' . esc_html__( 'Reason', 'simple-hotel-crm' ) . '</label></th>';
     echo '<td><input type="text" id="reason" name="reason" class="regular-text" placeholder="' . esc_attr__( 'e.g. Holiday closing', 'simple-hotel-crm' ) . '" /></td></tr></table>';
-    echo '<p class="submit"><button type="submit" name="simple_hotel_crm_save_closures" class="button button-primary">' . esc_html__( 'Close All Rooms', 'simple-hotel-crm' ) . '</button>';
+    echo '<input type="hidden" name="simple_hotel_crm_save_closures" value="1" />';
+    echo '<p class="submit"><button type="submit" class="button button-primary">' . esc_html__( 'Close All Rooms', 'simple-hotel-crm' ) . '</button>';
     echo ' <span class="description">' . esc_html__( 'Creates closures for all active rooms in the selected date range.', 'simple-hotel-crm' ) . '</span></p>';
     echo '</form>';
 

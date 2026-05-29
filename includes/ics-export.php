@@ -18,12 +18,38 @@ function simple_hotel_crm_ics_export_generate( $room_id ) {
         $room_id
     ), ARRAY_A );
 
+    $room_closures_table = simple_hotel_crm_room_closures_table();
+    $closure_rows = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, date_from, date_to FROM {$room_closures_table}
+         WHERE room_id = %d AND date_to >= CURDATE()
+         ORDER BY date_from ASC",
+        $room_id
+    ), ARRAY_A );
+
     $lines = [];
     $lines[] = 'BEGIN:VCALENDAR';
     $lines[] = 'VERSION:2.0';
     $lines[] = 'PRODID:-//LGF Bookings//WordPress';
     $lines[] = 'CALSCALE:GREGORIAN';
     $lines[] = 'METHOD:PUBLISH';
+
+    $closure_idx = 0;
+    foreach ( $closure_rows as $closure ) {
+        $closure_idx++;
+        $uid = 'lgf-closure-' . absint( $room_id ) . '-' . absint( $closure['id'] ) . '@' . parse_url( home_url(), PHP_URL_HOST );
+        $dtstart = str_replace( '-', '', (string) $closure['date_from'] );
+        $dtend_temp = new DateTime( (string) $closure['date_to'] );
+        $dtend_temp->modify( '+1 day' );
+        $dtend = $dtend_temp->format( 'Ymd' );
+
+        $lines[] = 'BEGIN:VEVENT';
+        $lines[] = 'UID:' . $uid;
+        $lines[] = 'DTSTAMP:' . gmdate( 'Ymd\THis\Z' );
+        $lines[] = 'DTSTART;VALUE=DATE:' . $dtstart;
+        $lines[] = 'DTEND;VALUE=DATE:' . $dtend;
+        $lines[] = 'SUMMARY:closed';
+        $lines[] = 'END:VEVENT';
+    }
 
     foreach ( $rows as $row ) {
         $uid = 'lgf-room-' . absint( $room_id ) . '-br-' . absint( $row['booking_room_id'] ) . '-' . str_replace( '-', '', (string) $row['check_in_date'] ) . '@' . parse_url( home_url(), PHP_URL_HOST );
