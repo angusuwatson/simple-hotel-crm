@@ -27,6 +27,7 @@ function simple_hotel_crm_install_tables() {
     $crm_booking_nights_table = simple_hotel_crm_booking_room_nights_table();
     $crm_booking_items_table = simple_hotel_crm_booking_items_table();
     $crm_catalog_items_table = simple_hotel_crm_catalog_items_table();
+    $room_closures_table = simple_hotel_crm_room_closures_table();
 
     $sql_daily_notes = "CREATE TABLE {$daily_notes_table} (
         note_date date NOT NULL,
@@ -293,6 +294,20 @@ function simple_hotel_crm_install_tables() {
         PRIMARY KEY  (id),
         UNIQUE KEY item_name (item_name)
     ) {$charset_collate};";
+
+    $sql_room_closures = "CREATE TABLE {$room_closures_table} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        room_id bigint(20) unsigned NOT NULL,
+        date_from date NOT NULL,
+        date_to date NOT NULL,
+        reason varchar(255) NOT NULL DEFAULT '',
+        created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY room_id (room_id),
+        KEY date_range (date_from, date_to)
+    ) {$charset_collate};";
+
+    dbDelta( $sql_room_closures );
 
     dbDelta( $sql_daily_notes );
     dbDelta( $sql_booking_notes );
@@ -767,6 +782,11 @@ function simple_hotel_crm_booking_items_table() {
 function simple_hotel_crm_catalog_items_table() {
     global $wpdb;
     return $wpdb->prefix . 'simple_hotel_crm_catalog_items';
+}
+
+function simple_hotel_crm_room_closures_table() {
+    global $wpdb;
+    return $wpdb->prefix . 'simple_hotel_crm_room_closures';
 }
 
 function simple_hotel_crm_get_room_colors() {

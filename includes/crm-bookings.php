@@ -265,6 +265,21 @@ function simple_hotel_crm_check_wp_sync_room_availability( $room_sync_id, $check
         return new WP_Error( 'room_unavailable', __( 'That room already has an overlapping booking for the selected dates.', 'simple-hotel-crm' ) );
     }
 
+    $room_closures_table = simple_hotel_crm_room_closures_table();
+    $closure_conflict = $wpdb->get_var(
+        $wpdb->prepare(
+            "SELECT id FROM {$room_closures_table}
+             WHERE room_id = %d AND date_from < %s AND date_to >= %s
+             LIMIT 1",
+            $crm_room_id,
+            $check_out,
+            $check_in
+        )
+    );
+    if ( $closure_conflict ) {
+        return new WP_Error( 'room_closed', __( 'This room is closed for the selected dates.', 'simple-hotel-crm' ) );
+    }
+
     return true;
 }
 
@@ -302,7 +317,9 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
     $source_created_at = ( '' !== $contacted_date ? $contacted_date : current_time( 'mysql' ) );
 
     $external_booking_id = (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_id), 0) + 1 FROM {$bookings_table}" );
-    $next_booking_room_id = (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_room_id), 0) + 1 FROM {$bookings_table}" );
+    $max_sync = (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_room_id), 0) FROM {$bookings_table}" );
+    $max_legacy = (int) $wpdb->get_var( "SELECT COALESCE(MAX(legacy_reserved_room_id), 0) FROM {$crm_booking_rooms_table}" );
+    $next_booking_room_id = max( 1, max( $max_sync, $max_legacy ) + 1 );
     $calculated_room_lines = [];
 
     foreach ( $room_lines as $line ) {

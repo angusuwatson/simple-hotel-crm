@@ -22,6 +22,7 @@ function simple_hotel_crm_register_admin_menu() {
     add_submenu_page( null, __( 'Booking Merges', 'simple-hotel-crm' ), __( 'Booking Merges', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-booking-merges', 'simple_hotel_crm_render_booking_merges_page' );
     add_submenu_page( null, __( 'Guest Detail', 'simple-hotel-crm' ), __( 'Guest Detail', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-guest-detail', 'simple_hotel_crm_render_guest_detail_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Settings', 'simple-hotel-crm' ), __( 'Settings', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-settings', 'simple_hotel_crm_render_settings_page' );
+    add_submenu_page( 'simple-hotel-crm', __( 'Room Closures', 'simple-hotel-crm' ), __( 'Room Closures', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-room-closures', 'simple_hotel_crm_render_room_closures_page' );
     add_submenu_page( 'simple-hotel-crm', __( 'Tickets', 'simple-hotel-crm' ), __( 'Tickets', 'simple-hotel-crm' ), 'manage_options', 'simple-hotel-crm-tickets', 'simple_hotel_crm_render_tickets_page' );
 }
 
@@ -5111,6 +5112,119 @@ function simple_hotel_crm_render_ics_export_panel() {
     submit_button( __( 'Regenerate All ICS Feeds', 'simple-hotel-crm' ), 'secondary', 'simple_hotel_crm_ics_export_refresh', false );
     echo ' <span class="description">' . esc_html__( 'Refresh all .ics files in /wp-content/uploads/lgf-ics/. Run this after creating or updating direct bookings.', 'simple-hotel-crm' ) . '</span>';
     echo '</form>';
+}
+
+function simple_hotel_crm_render_room_closures_page() {
+    if ( ! simple_hotel_crm_user_can_access() ) {
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'simple-hotel-crm' ) );
+    }
+
+    global $wpdb;
+    $room_closures_table = simple_hotel_crm_room_closures_table();
+    $rooms_table = simple_hotel_crm_rooms_table();
+
+    if ( isset( $_POST['simple_hotel_crm_save_closures'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_room_closures' );
+        $date_from = sanitize_text_field( wp_unslash( $_POST['date_from'] ?? '' ) );
+        $date_to = sanitize_text_field( wp_unslash( $_POST['date_to'] ?? '' ) );
+        $reason = sanitize_text_field( wp_unslash( $_POST['reason'] ?? '' ) );
+        if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date_from ) && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $date_to ) && $date_to >= $date_from ) {
+            if ( isset( $_POST['close_specific_room'] ) && absint( $_POST['close_specific_room'] ) > 0 ) {
+                $room_id = absint( $_POST['close_specific_room'] );
+                $existing = $wpdb->get_var( $wpdb->prepare(
+                    "SELECT id FROM {$room_closures_table} WHERE room_id = %d AND date_from <= %s AND date_to >= %s LIMIT 1",
+                    $room_id, $date_to, $date_from
+                ) );
+                if ( ! $existing ) {
+                    $wpdb->insert( $room_closures_table, [
+                        'room_id' => $room_id,
+                        'date_from' => $date_from,
+                        'date_to' => $date_to,
+                        'reason' => $reason,
+                    ], [ '%d', '%s', '%s', '%s' ] );
+                }
+            } else {
+                $room_ids = $wpdb->get_col( "SELECT id FROM {$rooms_table} WHERE active = 1" );
+                $inserted = 0;
+                foreach ( $room_ids as $room_id ) {
+                    $existing = $wpdb->get_var( $wpdb->prepare(
+                        "SELECT id FROM {$room_closures_table} WHERE room_id = %d AND date_from <= %s AND date_to >= %s LIMIT 1",
+                        $room_id, $date_to, $date_from
+                    ) );
+                    if ( ! $existing ) {
+                        $wpdb->insert( $room_closures_table, [
+                            'room_id' => $room_id,
+                            'date_from' => $date_from,
+                            'date_to' => $date_to,
+                            'reason' => $reason,
+                        ], [ '%d', '%s', '%s', '%s' ] );
+                        $inserted++;
+                    }
+                }
+                echo '<div class="notice notice-success"><p>' . esc_html( sprintf( __( 'Closed %d room(s) from %s to %s.', 'simple-hotel-crm' ), $inserted, $date_from, $date_to ) ) . '</p></div>';
+            }
+        } else {
+            echo '<div class="notice notice-error"><p>' . esc_html__( 'Invalid date range.', 'simple-hotel-crm' ) . '</p></div>';
+        }
+    }
+
+    if ( isset( $_GET['delete_closure'] ) ) {
+        check_admin_referer( 'simple_hotel_crm_delete_closure_' . absint( $_GET['delete_closure'] ) );
+        $wpdb->delete( $room_closures_table, [ 'id' => absint( $_GET['delete_closure'] ) ], [ '%d' ] );
+        echo '<div class="notice notice-success"><p>' . esc_html__( 'Closure removed.', 'simple-hotel-crm' ) . '</p></div>';
+    }
+
+    echo '<div class="wrap">';
+    echo '<h1>' . esc_html__( 'Room Closures', 'simple-hotel-crm' ) . '</h1>';
+
+    echo '<form method="post" style="margin-bottom:24px;padding:16px;background:#fff;border:1px solid #ccd0d4;">';
+    wp_nonce_field( 'simple_hotel_crm_room_closures' );
+    echo '<h2>' . esc_html__( 'Close Rooms', 'simple-hotel-crm' ) . '</h2>';
+    echo '<table class="form-table"><tr><th scope="row"><label for="date_from">' . esc_html__( 'Date from', 'simple-hotel-crm' ) . '</label></th>';
+    echo '<td><input type="date" id="date_from" name="date_from" required /></td></tr>';
+    echo '<tr><th scope="row"><label for="date_to">' . esc_html__( 'Date to', 'simple-hotel-crm' ) . '</label></th>';
+    echo '<td><input type="date" id="date_to" name="date_to" required /></td></tr>';
+    echo '<tr><th scope="row"><label for="reason">' . esc_html__( 'Reason', 'simple-hotel-crm' ) . '</label></th>';
+    echo '<td><input type="text" id="reason" name="reason" class="regular-text" placeholder="' . esc_attr__( 'e.g. Holiday closing', 'simple-hotel-crm' ) . '" /></td></tr></table>';
+    echo '<p class="submit"><button type="submit" name="simple_hotel_crm_save_closures" class="button button-primary">' . esc_html__( 'Close All Rooms', 'simple-hotel-crm' ) . '</button>';
+    echo ' <span class="description">' . esc_html__( 'Creates closures for all active rooms in the selected date range.', 'simple-hotel-crm' ) . '</span></p>';
+    echo '</form>';
+
+    $closures = $wpdb->get_results(
+        "SELECT c.*, r.room_code, r.room_name
+         FROM {$room_closures_table} c
+         LEFT JOIN {$rooms_table} r ON r.id = c.room_id
+         ORDER BY c.date_from DESC, c.date_to DESC, r.room_name ASC",
+        ARRAY_A
+    );
+
+    if ( ! empty( $closures ) ) {
+        echo '<h2>' . esc_html__( 'Existing Closures', 'simple-hotel-crm' ) . '</h2>';
+        echo '<table class="widefat striped"><thead><tr>';
+        echo '<th>' . esc_html__( 'Room', 'simple-hotel-crm' ) . '</th>';
+        echo '<th>' . esc_html__( 'From', 'simple-hotel-crm' ) . '</th>';
+        echo '<th>' . esc_html__( 'To', 'simple-hotel-crm' ) . '</th>';
+        echo '<th>' . esc_html__( 'Reason', 'simple-hotel-crm' ) . '</th>';
+        echo '<th>' . esc_html__( 'Actions', 'simple-hotel-crm' ) . '</th>';
+        echo '</tr></thead><tbody>';
+        foreach ( $closures as $closure ) {
+            $delete_url = wp_nonce_url( admin_url( 'admin.php?page=simple-hotel-crm-room-closures&delete_closure=' . absint( $closure['id'] ) ), 'simple_hotel_crm_delete_closure_' . absint( $closure['id'] ) );
+            $room_label = ( $closure['room_code'] ?? '' ) ? $closure['room_code'] . ' - ' . $closure['room_name'] : ( $closure['room_name'] ?? '#' . $closure['room_id'] );
+            echo '<tr>';
+            echo '<td>' . esc_html( $room_label ) . '</td>';
+            echo '<td>' . esc_html( (string) $closure['date_from'] ) . '</td>';
+            echo '<td>' . esc_html( (string) $closure['date_to'] ) . '</td>';
+            echo '<td>' . esc_html( (string) $closure['reason'] ) . '</td>';
+            echo '<td><a class="button button-small button-link-delete" href="' . esc_url( $delete_url ) . '" onclick="return confirm(' . wp_json_encode( __( 'Remove this closure?', 'simple-hotel-crm' ) ) . ');">' . esc_html__( 'Remove', 'simple-hotel-crm' ) . '</a></td>';
+            echo '</tr>';
+        }
+        echo '</tbody></table>';
+    } else {
+        echo '<p>' . esc_html__( 'No closures defined.', 'simple-hotel-crm' ) . '</p>';
+    }
+
+    simple_hotel_crm_clear_calendar_cache();
+    echo '</div>';
 }
 
 function simple_hotel_crm_shortcode( $atts ) {

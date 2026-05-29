@@ -222,6 +222,8 @@ body.shc-fullscreen #wpbody-content {
 .simple-hotel-crm .calendar-grid .calendar-weekday { font-size: 10px; color: #232323; }
 .simple-hotel-crm .calendar-grid .room-label-cell,
 .simple-hotel-crm .calendar-grid td.calendar-cell { background: #ffffff; color: #161616; }
+.simple-hotel-crm .calendar-grid td.calendar-cell.is-closed { background: #e8e8e8; color: #999; }
+.simple-hotel-crm .calendar-grid .is-closed .closed-label { color: #999; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
 
 .simple-hotel-crm .calendar-grid .notes-row td,
 .simple-hotel-crm .calendar-grid .notes-row th {

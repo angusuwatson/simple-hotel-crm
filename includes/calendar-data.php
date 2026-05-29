@@ -187,9 +187,39 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
         }
     }
 
+    $room_closures_table = simple_hotel_crm_room_closures_table();
+    $closure_rows = $wpdb->get_results(
+        $wpdb->prepare(
+            "SELECT room_id, date_from, date_to FROM {$room_closures_table}
+             WHERE date_from < %s AND date_to >= %s",
+            $month_after_last_day_str,
+            $first_day_str
+        ),
+        ARRAY_A
+    );
+    foreach ( $closure_rows as $closure ) {
+        $room_id = (int) $closure['room_id'];
+        if ( ! isset( $matrix[ $room_id ] ) ) {
+            continue;
+        }
+        $from = max( $closure['date_from'], $first_day_str );
+        $to = min( $closure['date_to'], date( 'Y-m-t', strtotime( $first_day_str ) ) );
+        $d = new DateTime( $from );
+        $end = new DateTime( $to );
+        $end->modify( '+1 day' );
+        while ( $d < $end ) {
+            $d_str = $d->format( 'Y-m-d' );
+            if ( ! isset( $matrix[ $room_id ][ $d_str ] ) ) {
+                $matrix[ $room_id ][ $d_str ] = [ 'booking' => null, 'is_checkin' => false, 'is_checkout' => false ];
+            }
+            $matrix[ $room_id ][ $d_str ]['is_closed'] = true;
+            $d->modify( '+1 day' );
+        }
+    }
+
     return [
         'rooms' => $rooms,
-        'matrix' => $matrix,
+        'matrix'  => $matrix,
         'month' => $month,
         'year' => $year,
         'days_in_month' => $days_in_month,

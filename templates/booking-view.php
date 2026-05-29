@@ -83,6 +83,7 @@ $scroll_to_today = ( (int) $month === $today_month && (int) $year === $today_yea
                                 $date_str = sprintf( '%04d-%02d-%02d', $year, $month, $day );
                                 $entry = $matrix[ $room_id ][ $date_str ] ?? null;
                                 $booking = $entry['booking'] ?? null;
+                                $is_closed = ! empty( $entry['is_closed'] );
                                 $display_value = '';
                                 $booking_detail_url = '';
                                 if ( $booking && isset( $row['display_fn'] ) && is_callable( $row['display_fn'] ) ) {
@@ -93,10 +94,15 @@ $scroll_to_today = ( (int) $month === $today_month && (int) $year === $today_yea
                                 if ( ! empty( $booking ) ) {
                                     $cell_classes[] = 'has-booking';
                                 }
+                                if ( $is_closed ) {
+                                    $cell_classes[] = 'is-closed';
+                                }
                             ?>
                                 <td class="<?php echo esc_attr( implode( ' ', $cell_classes ) ); ?>" data-room-color="<?php echo esc_attr( $row_color ); ?>" style="--room-fill: <?php echo esc_attr( $row_color ); ?>;"<?php echo ( $booking && 'room-name-row' === $row['class'] ) ? ' data-room-day-note-cell="1" data-booking-id="' . esc_attr( $booking->id ) . '" data-booking-room-id="' . esc_attr( $booking->booking_room_id ?? '' ) . '" data-stay-date="' . esc_attr( $date_str ) . '" data-note-text="' . esc_attr( (string) ( $booking->booking_note ?? '' ) ) . '"' : ''; ?><?php echo ( $booking && 'extras-row' === $row['class'] ) ? ' data-room-day-extras-cell="1" data-booking-id="' . esc_attr( $booking->id ) . '" data-booking-room-id="' . esc_attr( $booking->booking_room_id ?? '' ) . '" data-stay-date="' . esc_attr( $date_str ) . '" data-extras-formula="' . esc_attr( (string) ( $booking->extras_formula ?? '' ) ) . '" data-extras-amount="' . esc_attr( (string) ( $booking->extras_total ?? '' ) ) . '"' : ''; ?>>
                                     <?php if ( $booking && 'room-name-row' === $row['class'] ) : ?>
                                         <?php echo esc_html( $booking->booking_note ?? '' ); ?>
+                                    <?php elseif ( $is_closed && 'room-name-row' === $row['class'] ) : ?>
+                                        <span class="closed-label"><?php esc_html_e( 'Closed', 'simple-hotel-crm' ); ?></span>
                                     <?php elseif ( $booking && 'guest-row' === $row['class'] ) : ?>
                                         <a class="calendar-booking-link quick-booking-trigger" href="<?php echo esc_url( $booking_detail_url ); ?>" data-booking-id="<?php echo esc_attr( $booking->id ); ?>" data-reserved-room-id="<?php echo esc_attr( $booking->reserved_room_id ); ?>"><?php echo esc_html( $display_value ); ?></a>
                                     <?php elseif ( $booking && 'occupancy-row' === $row['class'] ) : ?>
