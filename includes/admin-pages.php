@@ -5232,6 +5232,17 @@ function simple_hotel_crm_render_room_closures_page() {
     echo '<input type="hidden" name="simple_hotel_crm_save_closures" value="1" />';
     echo '<p class="submit"><button type="submit" class="button button-primary">' . esc_html__( 'Close Rooms', 'simple-hotel-crm' ) . '</button></p>';
     echo '</form>';
+    echo '<script>
+document.getElementById("date_from").addEventListener("change",function(){
+var d=new Date(this.value);
+if(isNaN(d.getTime()))return;
+d.setDate(d.getDate()+1);
+var next=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+var to=document.getElementById("date_to");
+to.value=next;
+to.focus();if(to.showPicker)to.showPicker();
+});
+</script>';
 
     $closures = $wpdb->get_results(
         "SELECT c.*, r.room_code, r.room_name
