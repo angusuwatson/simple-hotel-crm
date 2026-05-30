@@ -140,6 +140,31 @@ body.shc-fullscreen #wpbody-content {
     to { transform: rotate(360deg); }
 }
 
+.calendar-year-nav {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    background: linear-gradient(180deg, #4b4d5f, #313242);
+    padding: 4px 0 0;
+}
+.calendar-year-label {
+    color: #fff;
+    font-weight: 700;
+    font-size: 15px;
+    min-width: 50px;
+    text-align: center;
+}
+.year-nav-link {
+    color: #d9dbe6;
+    text-decoration: none;
+    font-size: 20px;
+    line-height: 1;
+    padding: 0 8px;
+    user-select: none;
+}
+.year-nav-link:hover { color: #fff; }
+
 .calendar-month-tabs {
     display: flex;
     gap: 0;
