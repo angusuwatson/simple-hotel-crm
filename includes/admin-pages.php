@@ -601,7 +601,7 @@ function simple_hotel_crm_render_bookings_page() {
             echo '<td><a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guest-detail&guest_id=' . absint( $row['guest_id'] ) ) ) . '">' . esc_html( trim( (string) $row['guest_name'] ) ) . '</a></td>';
             echo '<td>' . esc_html( (string) $row['check_in_date'] ) . '</td>';
             echo '<td>' . esc_html( (string) $row['check_out_date'] ) . '</td>';
-            echo '<td>' . ( $row['room_codes'] ? esc_html( $row['room_codes'] ) : '0' ) . '</td>';
+            echo '<td>' . ( '' !== $row['room_codes'] ? esc_html( $row['room_codes'] ) : '0' ) . '</td>';
             echo '<td>' . esc_html( (string) $row['status_code'] ) . '</td>';
             echo '<td>' . esc_html( simple_hotel_crm_get_booking_channel_options()[ (string) $row['source_channel'] ] ?? (string) $row['source_channel'] ) . '</td>';
             echo '<td>' . ( (float) $row['commission_amount'] > 0 ? esc_html( number_format( (float) $row['commission_amount'], 2, '.', '' ) ) : '' ) . '</td>';
