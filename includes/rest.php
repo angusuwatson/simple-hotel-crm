@@ -235,6 +235,30 @@ add_action( 'rest_api_init', function() {
             ],
         ],
     ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-guest-preferences', [
+        'methods'  => 'GET',
+        'callback' => 'simple_hotel_crm_rest_ticket_guest_preferences',
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
+        'args'     => [
+            'guest_id' => [
+                'required' => true,
+                'type'     => 'integer',
+            ],
+        ],
+    ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-guest-preferences', [
+        'methods'  => 'POST',
+        'callback' => 'simple_hotel_crm_rest_ticket_save_guest_preferences',
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
+        'args'     => [
+            'guest_id' => [
+                'required' => true,
+                'type'     => 'integer',
+            ],
+        ],
+    ] );
 } );
 
 function simple_hotel_crm_rest_dashboard( WP_REST_Request $request ) {
@@ -691,6 +715,31 @@ function simple_hotel_crm_rest_ticket_data( WP_REST_Request $request ) {
         }
     }
 
+    $dinner_counts = [];
+    $debug_all_items = [];
+    if ( ! empty( $booking_ids ) ) {
+        $items_table = simple_hotel_crm_booking_items_table();
+        $placeholders = implode( ',', array_fill( 0, count( $booking_ids ), '%d' ) );
+        $dinner_results = $wpdb->get_results( $wpdb->prepare( "
+            SELECT booking_id, SUM(quantity) AS dinner_qty FROM {$items_table}
+            WHERE booking_id IN ({$placeholders})
+            AND (LOWER(item_name) LIKE '%dîner%' OR LOWER(item_name) LIKE '%diner%' OR LOWER(item_name) LIKE '%dinner%')
+            GROUP BY booking_id
+        ", $booking_ids ), ARRAY_A );
+        foreach ( $dinner_results as $dr ) {
+            $dinner_counts[ $dr['booking_id'] ] = (int) $dr['dinner_qty'];
+        }
+        $debug_all_items = $wpdb->get_results( $wpdb->prepare( "
+            SELECT booking_id, item_name, quantity FROM {$items_table}
+            WHERE booking_id IN ({$placeholders})
+            ORDER BY booking_id, item_name
+        ", $booking_ids ), ARRAY_A );
+    }
+    foreach ( $bookings as &$b ) {
+        $b['dinner_count'] = isset( $dinner_counts[ $b['id'] ] ) ? (string) $dinner_counts[ $b['id'] ] : '0';
+    }
+    unset( $b );
+
     $items = [];
     $booking_rooms = [];
     $room_nights = [];
@@ -724,11 +773,15 @@ function simple_hotel_crm_rest_ticket_data( WP_REST_Request $request ) {
     $rooms = $wpdb->get_results( "
         SELECT id, room_name, room_code
         FROM {$rooms_table}
-        WHERE is_deleted = 0
+        WHERE active = 1
         ORDER BY sort_order ASC
     ", ARRAY_A );
     $occupancy = $wpdb->get_results( $wpdb->prepare( "
-        SELECT brn.stay_date, brn.adults, brn.children, brn.babies, brn.guest_count,
+        SELECT brn.stay_date,
+               COALESCE(brn.adults, br.adults, 0) AS adults,
+               COALESCE(brn.children, br.children, 0) AS children,
+               COALESCE(brn.babies, br.babies, 0) AS babies,
+               COALESCE(brn.guest_count, br.guest_count, 0) AS guest_count,
                r.room_code, r.id AS room_id,
                b.id AS booking_id, b.status_code, g.first_name, g.last_name
         FROM {$booking_nights_table} brn
@@ -753,6 +806,7 @@ function simple_hotel_crm_rest_ticket_data( WP_REST_Request $request ) {
         'daily_notes'      => $daily_notes,
         'occupancy'        => $occupancy,
         'rooms'            => $rooms,
+        'debug_items'      => $debug_all_items,
     ] );
 }
 
@@ -1055,6 +1109,10 @@ function simple_hotel_crm_rest_ticket_calendar( WP_REST_Request $request ) {
 
     $occupancy = $wpdb->get_results( $wpdb->prepare( "
         SELECT brn.stay_date, br.room_id, r.room_code, r.room_name,
+               COALESCE(brn.adults, br.adults, 0) AS adults,
+               COALESCE(brn.children, br.children, 0) AS children,
+               COALESCE(brn.babies, br.babies, 0) AS babies,
+               COALESCE(brn.guest_count, br.guest_count, 0) AS guest_count,
                b.id AS booking_id, b.status_code, b.check_in_date, b.check_out_date,
                g.first_name, g.last_name
         FROM {$booking_nights_table} brn
@@ -1225,10 +1283,11 @@ function simple_hotel_crm_rest_ticket_guest_search( WP_REST_Request $request ) {
 
     $guests_table = simple_hotel_crm_guests_table();
     $bookings_table = simple_hotel_crm_bookings_table();
+    $prefs_table = simple_hotel_crm_guest_preferences_table();
 
     $like = '%' . $wpdb->esc_like( $q ) . '%';
     $guests = $wpdb->get_results( $wpdb->prepare( "
-        SELECT g.id, g.first_name, g.last_name, g.phone, g.email,
+        SELECT g.id, g.first_name, g.last_name, g.phone, g.email, g.notes,
                (SELECT COUNT(*) FROM {$bookings_table} b WHERE b.guest_id = g.id AND b.is_deleted = 0 AND b.status_code NOT IN ('cancelled')) AS booking_count,
                (SELECT MAX(b.check_in_date) FROM {$bookings_table} b WHERE b.guest_id = g.id AND b.is_deleted = 0) AS last_visit
         FROM {$guests_table} g
@@ -1238,7 +1297,72 @@ function simple_hotel_crm_rest_ticket_guest_search( WP_REST_Request $request ) {
         LIMIT 20
     ", $like, $like, $like, $like, $like ), ARRAY_A );
 
+    foreach ( $guests as &$guest ) {
+        $prefs = $wpdb->get_results( $wpdb->prepare(
+            "SELECT pref_key, pref_value FROM {$prefs_table} WHERE guest_id = %d ORDER BY pref_key ASC",
+            $guest['id']
+        ), ARRAY_A );
+        $guest['preferences'] = $prefs ?: [];
+    }
+
     return rest_ensure_response( [ 'guests' => $guests ] );
+}
+
+function simple_hotel_crm_rest_ticket_guest_preferences( WP_REST_Request $request ) {
+    global $wpdb;
+
+    $guest_id = (int) $request->get_param( 'guest_id' );
+    if ( ! $guest_id ) {
+        return rest_ensure_response( [ 'preferences' => [] ] );
+    }
+
+    $table = simple_hotel_crm_guest_preferences_table();
+    $preferences = $wpdb->get_results( $wpdb->prepare(
+        "SELECT id, pref_key, pref_value, created_at, updated_at FROM {$table} WHERE guest_id = %d ORDER BY pref_key ASC",
+        $guest_id
+    ), ARRAY_A );
+
+    return rest_ensure_response( [ 'preferences' => $preferences ] );
+}
+
+function simple_hotel_crm_rest_ticket_save_guest_preferences( WP_REST_Request $request ) {
+    global $wpdb;
+
+    $guest_id = (int) $request->get_param( 'guest_id' );
+    $pref_key = trim( sanitize_text_field( (string) $request->get_param( 'pref_key' ) ) );
+    $pref_value = trim( sanitize_text_field( (string) $request->get_param( 'pref_value' ) ) );
+    $delete_id = (int) $request->get_param( 'delete_id' );
+
+    if ( ! $guest_id ) {
+        return rest_ensure_response( [ 'success' => false, 'message' => 'Invalid guest ID.' ] );
+    }
+
+    $table = simple_hotel_crm_guest_preferences_table();
+
+    if ( $delete_id ) {
+        $wpdb->delete( $table, [ 'id' => $delete_id, 'guest_id' => $guest_id ], [ '%d', '%d' ] );
+        return rest_ensure_response( [ 'success' => true, 'message' => 'Preference deleted.' ] );
+    }
+
+    if ( empty( $pref_key ) ) {
+        return rest_ensure_response( [ 'success' => false, 'message' => 'Preference key is required.' ] );
+    }
+
+    $wpdb->insert(
+        $table,
+        [
+            'guest_id' => $guest_id,
+            'pref_key' => $pref_key,
+            'pref_value' => $pref_value,
+        ],
+        [ '%d', '%s', '%s' ]
+    );
+
+    if ( $wpdb->last_error ) {
+        return rest_ensure_response( [ 'success' => false, 'message' => $wpdb->last_error ] );
+    }
+
+    return rest_ensure_response( [ 'success' => true, 'preference_id' => (int) $wpdb->insert_id ] );
 }
 
 function simple_hotel_crm_rest_ticket_get_room_statuses( WP_REST_Request $request ) {
@@ -1313,7 +1437,8 @@ function simple_hotel_crm_rest_ticket_update_booking( WP_REST_Request $request )
     $add_room_id = absint( $request->get_param( 'add_room_id' ) );
     if ( $add_room_id > 0 ) {
         $booking_rooms_table = simple_hotel_crm_booking_rooms_table();
-        $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+    $booking_nights_table = simple_hotel_crm_booking_room_nights_table();
+    $booking_items_table = simple_hotel_crm_booking_items_table();
         $rooms_table = simple_hotel_crm_rooms_table();
 
         $room = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM {$rooms_table} WHERE id = %d AND active = 1 LIMIT 1", $add_room_id ) );

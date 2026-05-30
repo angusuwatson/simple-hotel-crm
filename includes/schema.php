@@ -28,6 +28,7 @@ function simple_hotel_crm_install_tables() {
     $crm_booking_items_table = simple_hotel_crm_booking_items_table();
     $crm_catalog_items_table = simple_hotel_crm_catalog_items_table();
     $room_closures_table = simple_hotel_crm_room_closures_table();
+    $guest_preferences_table = simple_hotel_crm_guest_preferences_table();
 
     $sql_daily_notes = "CREATE TABLE {$daily_notes_table} (
         note_date date NOT NULL,
@@ -307,7 +308,19 @@ function simple_hotel_crm_install_tables() {
         KEY date_range (date_from, date_to)
     ) {$charset_collate};";
 
+    $sql_guest_preferences = "CREATE TABLE {$guest_preferences_table} (
+        id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
+        guest_id bigint(20) unsigned NOT NULL,
+        pref_key varchar(100) NOT NULL,
+        pref_value text NOT NULL,
+        created_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY  (id),
+        KEY guest_id (guest_id)
+    ) {$charset_collate};";
+
     dbDelta( $sql_room_closures );
+    dbDelta( $sql_guest_preferences );
 
     dbDelta( $sql_daily_notes );
     dbDelta( $sql_booking_notes );
@@ -787,6 +800,11 @@ function simple_hotel_crm_catalog_items_table() {
 function simple_hotel_crm_room_closures_table() {
     global $wpdb;
     return $wpdb->prefix . 'simple_hotel_crm_room_closures';
+}
+
+function simple_hotel_crm_guest_preferences_table() {
+    global $wpdb;
+    return $wpdb->prefix . 'simple_hotel_crm_guest_preferences';
 }
 
 function simple_hotel_crm_get_room_colors() {
@@ -1347,8 +1365,7 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         $guest = $guest_id ? $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE id = %d", $guest_id ), ARRAY_A ) : null;
 
         if ( ! $guest ) {
-            $guest_note = 'Booking.com ICS import ' . $source_id;
-            $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE notes LIKE %s LIMIT 1", '%' . $wpdb->esc_like( $guest_note ) . '%' ), ARRAY_A );
+            $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE phone = %s AND first_name = %s AND last_name = %s AND is_deleted = 0 LIMIT 1", (string) $booking_group['phone'], $first_name, $last_name ), ARRAY_A );
         }
 
         if ( ! $guest ) {
@@ -1358,9 +1375,8 @@ function simple_hotel_crm_import_sync_data_to_crm() {
                     'first_name' => $first_name,
                     'last_name' => $last_name,
                     'phone' => (string) $booking_group['phone'],
-                    'notes' => 'Booking.com ICS import ' . $source_id,
                 ],
-                [ '%s', '%s', '%s', '%s' ]
+                [ '%s', '%s', '%s' ]
             );
             if ( false === $guest_inserted ) {
                 $wpdb->query( 'ROLLBACK' );

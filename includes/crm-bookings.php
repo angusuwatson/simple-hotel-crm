@@ -353,30 +353,57 @@ function simple_hotel_crm_create_wp_crm_booking( $data ) {
     $booking_total = round( array_sum( array_column( $calculated_room_lines, 'total_amount' ) ), 2 );
 
     list( $first_name, $last_name ) = simple_hotel_crm_split_guest_name( $guest_name );
+    $existing_guest_id = ! empty( $data['guest_id'] ) ? (int) $data['guest_id'] : 0;
 
     $wpdb->query( 'START TRANSACTION' );
 
-    $guest_inserted = $wpdb->insert(
-        $crm_guests_table,
-        [
-            'first_name' => $first_name,
-            'last_name' => $last_name,
-            'email' => $email,
-            'phone' => $phone,
-            'address_line_1' => $address_line_1,
-            'address_line_2' => $address_line_2,
-            'city' => $city,
-            'postcode' => $postcode,
-            'country' => $country,
-            'notes' => $guest_notes,
-        ],
-        [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ]
-    );
-    if ( false === $guest_inserted ) {
-        $wpdb->query( 'ROLLBACK' );
-        return new WP_Error( 'guest_insert_failed', __( 'Could not create the guest in WordPress CRM tables.', 'simple-hotel-crm' ) );
+    if ( $existing_guest_id > 0 ) {
+        $guest_updated = $wpdb->update(
+            $crm_guests_table,
+            [
+                'first_name' => $first_name,
+                'last_name' => $last_name,
+                'email' => $email,
+                'phone' => $phone,
+                'address_line_1' => $address_line_1,
+                'address_line_2' => $address_line_2,
+                'city' => $city,
+                'postcode' => $postcode,
+                'country' => $country,
+                'notes' => $guest_notes,
+            ],
+            [ 'id' => $existing_guest_id ],
+            [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ],
+            [ '%d' ]
+        );
+        if ( false === $guest_updated ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'guest_update_failed', __( 'Could not update the guest record.', 'simple-hotel-crm' ) );
+        }
+        $guest_id = $existing_guest_id;
+    } else {
+        $guest_inserted = $wpdb->insert(
+            $crm_guests_table,
+            [
+                'first_name' => $first_name,
+                'last_name' => $last_name,
+                'email' => $email,
+                'phone' => $phone,
+                'address_line_1' => $address_line_1,
+                'address_line_2' => $address_line_2,
+                'city' => $city,
+                'postcode' => $postcode,
+                'country' => $country,
+                'notes' => $guest_notes,
+            ],
+            [ '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%s' ]
+        );
+        if ( false === $guest_inserted ) {
+            $wpdb->query( 'ROLLBACK' );
+            return new WP_Error( 'guest_insert_failed', __( 'Could not create the guest in WordPress CRM tables.', 'simple-hotel-crm' ) );
+        }
+        $guest_id = (int) $wpdb->insert_id;
     }
-    $guest_id = (int) $wpdb->insert_id;
 
     $booking_inserted = $wpdb->insert(
         $crm_bookings_table,

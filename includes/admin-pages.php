@@ -2320,7 +2320,22 @@ function simple_hotel_crm_render_booking_detail_page() {
     echo '<form method="post">';
     wp_nonce_field( 'simple_hotel_crm_save_booking' );
     echo '<table class="form-table">';
-    echo '<tr><th>' . esc_html__( 'Guest', 'simple-hotel-crm' ) . '</th><td><div class="simple-hotel-crm-admin-inline-fields" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;"><label style="margin:0;">' . esc_html__( 'Name', 'simple-hotel-crm' ) . '<br><input type="text" name="guest_name" class="regular-text" value="' . esc_attr( trim( (string) $booking['first_name'] . ' ' . (string) $booking['last_name'] ) ) . '" /> <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guest-detail&guest_id=' . absint( $booking['guest_id'] ) ) ) . '" class="button button-small">' . esc_html__( 'View', 'simple-hotel-crm' ) . '</a></label><label style="margin:0;">' . esc_html__( 'Email', 'simple-hotel-crm' ) . '<br><input type="email" name="email" class="regular-text" value="' . esc_attr( (string) $booking['email'] ) . '" /></label><label style="margin:0;">' . esc_html__( 'Phone', 'simple-hotel-crm' ) . '<br><input type="text" name="phone" class="regular-text" value="' . esc_attr( (string) $booking['phone'] ) . '" /></label></div></td></tr>';
+    echo '<tr><th>' . esc_html__( 'Guest', 'simple-hotel-crm' ) . '</th><td><div class="simple-hotel-crm-admin-inline-fields" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;"><label style="margin:0;">' . esc_html__( 'Name', 'simple-hotel-crm' ) . '<br><input type="text" name="guest_name" class="regular-text" value="' . esc_attr( trim( (string) $booking['first_name'] . ' ' . (string) $booking['last_name'] ) ) . '" /> <a href="' . esc_url( admin_url( 'admin.php?page=simple-hotel-crm-guest-detail&guest_id=' . absint( $booking['guest_id'] ) ) ) . '" class="button button-small">' . esc_html__( 'View', 'simple-hotel-crm' ) . '</a></label><label style="margin:0;">' . esc_html__( 'Email', 'simple-hotel-crm' ) . '<br><input type="email" name="email" class="regular-text" value="' . esc_attr( (string) $booking['email'] ) . '" /></label><label style="margin:0;">' . esc_html__( 'Phone', 'simple-hotel-crm' ) . '<br><input type="text" name="phone" class="regular-text" value="' . esc_attr( (string) $booking['phone'] ) . '" /></label></div>';
+    $guest_id = (int) ( $booking['guest_id'] ?? 0 );
+    if ( $guest_id > 0 ) {
+        $prefs_table = simple_hotel_crm_guest_preferences_table();
+        $preferences = $wpdb->get_results( $wpdb->prepare( "SELECT pref_key, pref_value FROM {$prefs_table} WHERE guest_id = %d ORDER BY pref_key ASC", $guest_id ), ARRAY_A );
+        if ( ! empty( $preferences ) ) {
+            echo '<div style="margin-top:8px;padding:8px 12px;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:4px;display:inline-block;">';
+            echo '<strong>' . esc_html__( 'Guest preferences', 'simple-hotel-crm' ) . ':</strong>';
+            echo '<table style="margin-top:4px;border-collapse:collapse;">';
+            foreach ( $preferences as $pref ) {
+                echo '<tr><td style="padding:2px 8px 2px 0;font-weight:600;white-space:nowrap;">' . esc_html( $pref['pref_key'] ) . ':</td><td style="padding:2px 0;">' . esc_html( $pref['pref_value'] ) . '</td></tr>';
+            }
+            echo '</table></div>';
+        }
+    }
+    echo '</td></tr>';
     echo '<tr><th>' . esc_html__( 'Status / Channel', 'simple-hotel-crm' ) . '</th><td><div class="simple-hotel-crm-admin-inline-fields" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;"><label style="margin:0;">' . esc_html__( 'Status', 'simple-hotel-crm' ) . '<br><select name="status_code">';
     foreach ( simple_hotel_crm_get_booking_status_options() as $code => $label ) {
         echo '<option value="' . esc_attr( $code ) . '"' . selected( (string) $booking['status_code'], $code, false ) . '>' . esc_html( $label ) . '</option>';
@@ -2867,6 +2882,113 @@ function simple_hotel_crm_render_guest_detail_page() {
             }
         }
         echo '</tbody></table>';
+
+        $prefs_table = simple_hotel_crm_guest_preferences_table();
+        $preferences = $wpdb->get_results( $wpdb->prepare( "SELECT id, pref_key, pref_value FROM {$prefs_table} WHERE guest_id = %d ORDER BY pref_key ASC", $guest_id ), ARRAY_A );
+
+        echo '<h2>' . esc_html__( 'Guest Preferences', 'simple-hotel-crm' ) . '</h2>';
+        echo '<div id="guest_preferences_container">';
+        echo '<table class="widefat striped" id="guest_preferences_table" style="max-width:600px;">';
+        echo '<thead><tr><th>' . esc_html__( 'Key', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Value', 'simple-hotel-crm' ) . '</th><th style="width:60px;">' . esc_html__( 'Action', 'simple-hotel-crm' ) . '</th></tr></thead><tbody id="guest_preferences_tbody">';
+        if ( ! empty( $preferences ) ) {
+            foreach ( $preferences as $pref ) {
+                echo '<tr data-pref-id="' . esc_attr( (string) $pref['id'] ) . '">';
+                echo '<td>' . esc_html( $pref['pref_key'] ) . '</td>';
+                echo '<td>' . esc_html( $pref['pref_value'] ) . '</td>';
+                echo '<td><button type="button" class="button button-small button-link-delete delete-guest-preference" data-pref-id="' . esc_attr( (string) $pref['id'] ) . '">' . esc_html__( 'Delete', 'simple-hotel-crm' ) . '</button></td>';
+                echo '</tr>';
+            }
+        } else {
+            echo '<tr id="guest_preferences_empty"><td colspan="3">' . esc_html__( 'No preferences recorded.', 'simple-hotel-crm' ) . '</td></tr>';
+        }
+        echo '</tbody></table>';
+        echo '<div style="margin-top:8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+        echo '<input type="text" id="new_pref_key" placeholder="' . esc_attr__( 'Key', 'simple-hotel-crm' ) . '" style="width:150px;" />';
+        echo '<input type="text" id="new_pref_value" placeholder="' . esc_attr__( 'Value', 'simple-hotel-crm' ) . '" style="width:250px;" />';
+        echo '<button type="button" id="add_guest_preference" class="button button-secondary">' . esc_html__( 'Add', 'simple-hotel-crm' ) . '</button>';
+        echo '<span id="pref_message" style="color:#666;"></span>';
+        echo '</div>';
+        echo '</div>';
+        echo '<script>
+        (function(){
+            var restUrl = ' . wp_json_encode( rest_url( 'simple-hotel-crm/v1/' ) ) . ';
+            var guestId = ' . (int) $guest_id . ';
+            var tbody = document.getElementById("guest_preferences_tbody");
+            var emptyRow = document.getElementById("guest_preferences_empty");
+            var msgEl = document.getElementById("pref_message");
+            function msg(s, isError){ msgEl.textContent = s; msgEl.style.color = isError ? "#b32d2e" : "#666"; setTimeout(function(){ msgEl.textContent = ""; }, 3000); }
+            function addRow(id, key, value){
+                if(emptyRow){ emptyRow.remove(); emptyRow = null; }
+                var tr = document.createElement("tr");
+                tr.dataset.prefId = id;
+                tr.innerHTML = "<td>" + escHtml(key) + "</td><td>" + escHtml(value) + "</td><td><button type=\"button\" class=\"button button-small button-link-delete delete-guest-preference\" data-pref-id=\"" + id + "\">Delete</button></td>";
+                tbody.appendChild(tr);
+                tr.querySelector(".delete-guest-preference").addEventListener("click", function(){ deletePref(id, tr); });
+            }
+            function escHtml(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+            document.getElementById("add_guest_preference").addEventListener("click", function(){
+                var key = document.getElementById("new_pref_key").value.trim();
+                var val = document.getElementById("new_pref_value").value.trim();
+                if(!key){ msg("Key is required.", true); return; }
+                var xhr = new XMLHttpRequest();
+                xhr.open("POST", restUrl + "ticket-guest-preferences");
+                xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                xhr.setRequestHeader("X-WP-Nonce", ' . wp_json_encode( wp_create_nonce( 'wp_rest' ) ) . ');
+                xhr.onload = function(){
+                    if(xhr.status === 200){
+                        try {
+                            var d = JSON.parse(xhr.responseText);
+                            if(d.success && d.preference_id){
+                                msg("Preference added.");
+                                document.getElementById("new_pref_key").value = "";
+                                document.getElementById("new_pref_value").value = "";
+                                addRow(d.preference_id, key, val);
+                            } else {
+                                msg(d.message || "Error saving preference.", true);
+                            }
+                        } catch(e){ msg("Error parsing response.", true); }
+                    } else {
+                        msg("Server error.", true);
+                    }
+                };
+                xhr.send("guest_id=" + guestId + "&pref_key=" + encodeURIComponent(key) + "&pref_value=" + encodeURIComponent(val));
+            });
+            function deletePref(id, tr){
+                if(!confirm("Delete this preference?")) return;
+                var xhr = new XMLHttpRequest();
+                xhr.open("POST", restUrl + "ticket-guest-preferences");
+                xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                xhr.setRequestHeader("X-WP-Nonce", ' . wp_json_encode( wp_create_nonce( 'wp_rest' ) ) . ');
+                xhr.onload = function(){
+                    if(xhr.status === 200){
+                        try {
+                            var d = JSON.parse(xhr.responseText);
+                            if(d.success){
+                                msg("Preference deleted.");
+                                tr.remove();
+                                if(!tbody.querySelector("tr")){
+                                    tbody.innerHTML = "<tr id=\"guest_preferences_empty\"><td colspan=\"3\">No preferences recorded.</td></tr>";
+                                    emptyRow = document.getElementById("guest_preferences_empty");
+                                }
+                            } else {
+                                msg(d.message || "Error deleting preference.", true);
+                            }
+                        } catch(e){ msg("Error parsing response.", true); }
+                    } else {
+                        msg("Server error.", true);
+                    }
+                };
+                xhr.send("guest_id=" + guestId + "&delete_id=" + id);
+            }
+            document.querySelectorAll(".delete-guest-preference").forEach(function(btn){
+                btn.addEventListener("click", function(){
+                    var id = this.dataset.prefId;
+                    var tr = this.closest("tr");
+                    deletePref(id, tr);
+                });
+            });
+        })();
+        </script>';
     }
     echo '<script>
     (function() {
@@ -3046,6 +3168,17 @@ function simple_hotel_crm_render_add_booking_page() {
         echo '<option value="' . esc_attr( $code ) . '"' . selected( (string) $form_data['status_code'], $code, false ) . '>' . esc_html( $label ) . '</option>';
     }
     echo '</select></td></tr>';
+    echo '<tr><th colspan="2"><h2 style="margin:0;">' . esc_html__( 'Returning guest lookup', 'simple-hotel-crm' ) . '</h2></th></tr>';
+    echo '<tr><th><label for="guest_search">' . esc_html__( 'Search', 'simple-hotel-crm' ) . '</label></th><td>';
+    echo '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">';
+    echo '<input type="text" id="guest_search" class="regular-text guest-search-input" placeholder="' . esc_attr__( 'Type name, email or phone...', 'simple-hotel-crm' ) . '" autocomplete="off" style="flex:1;min-width:200px;" />';
+    echo '<input type="hidden" name="guest_id" id="guest_id" value="' . esc_attr( (string) ( $form_data['guest_id'] ?? '0' ) ) . '" />';
+    echo '<button type="button" id="clear_guest_search" class="button button-secondary" style="display:none;">' . esc_html__( 'Clear', 'simple-hotel-crm' ) . '</button>';
+    echo '</div>';
+    echo '<div id="guest_search_results" style="max-height:200px;overflow-y:auto;border:1px solid #ccd0d4;background:#fff;display:none;position:absolute;z-index:100;min-width:400px;"></div>';
+    echo '<div id="guest_preferences_display" style="margin-top:8px;display:none;"></div>';
+    echo '<p class="description">' . esc_html__( 'Search for an existing guest to auto-fill details. Leave blank to create a new guest.', 'simple-hotel-crm' ) . '</p>';
+    echo '</td></tr>';
     echo '<tr><th colspan="2"><h2 style="margin:0;">' . esc_html__( 'Guest details', 'simple-hotel-crm' ) . '</h2></th></tr>';
     echo '<tr><th><label for="guest_name">' . esc_html__( 'Guest name', 'simple-hotel-crm' ) . '</label></th><td><input required type="text" name="guest_name" id="guest_name" class="regular-text" value="' . esc_attr( (string) $form_data['guest_name'] ) . '" /></td></tr>';
     echo '<tr><th><label for="phone">' . esc_html__( 'Phone', 'simple-hotel-crm' ) . '</label></th><td><input type="text" name="phone" id="phone" class="regular-text" value="' . esc_attr( (string) $form_data['phone'] ) . '" /></td></tr>';
@@ -3139,7 +3272,110 @@ function simple_hotel_crm_render_add_booking_page() {
     upd(false);
 })();
 JS;
-    echo '<script>window.simpleHotelCrmRoomPricing=' . $pricing_json . ';window.simpleHotelCrmBookingComCommissionPercent=' . wp_json_encode( (float) get_option( 'simple_hotel_crm_booking_com_commission_percent', 15 ) ) . ';' . $pricing_script . '</script>';
+    $guest_search_script = <<<'JS'
+(function(){
+    var searchInput = document.getElementById('guest_search');
+    var guestIdInput = document.getElementById('guest_id');
+    var resultsBox = document.getElementById('guest_search_results');
+    var prefsDisplay = document.getElementById('guest_preferences_display');
+    var clearBtn = document.getElementById('clear_guest_search');
+    if(!searchInput) return;
+    var debounceTimer;
+    searchInput.addEventListener('input', function(){
+        clearTimeout(debounceTimer);
+        var q = searchInput.value.trim();
+        if(q.length < 2){
+            resultsBox.style.display = 'none';
+            return;
+        }
+        debounceTimer = setTimeout(function(){
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', (window.simpleHotelCrmRestUrl || '/wp-json/simple-hotel-crm/v1/') + 'ticket-guest-search?q=' + encodeURIComponent(q));
+            xhr.onload = function(){
+                if(xhr.status !== 200) return;
+                var data;
+                try { data = JSON.parse(xhr.responseText); } catch(e) { return; }
+                var guests = data.guests || [];
+                if(!guests.length){
+                    resultsBox.innerHTML = '<div style="padding:8px;color:#666;">' + 'No guests found' + '</div>';
+                    resultsBox.style.display = 'block';
+                    return;
+                }
+                var html = '';
+                guests.forEach(function(g){
+                    var name = (g.first_name || '') + ' ' + (g.last_name || '');
+                    var lastVisit = g.last_visit ? g.last_visit : 'never';
+                    var bookingCount = g.booking_count || 0;
+                    var infoParts = [];
+                    if(g.email) infoParts.push(g.email);
+                    if(g.phone) infoParts.push(g.phone);
+                    html += '<div class="guest-search-result" data-guest=\'' + JSON.stringify(g).replace(/'/g, '&#39;') + '\' style="padding:8px 12px;cursor:pointer;border-bottom:1px solid #f0f0f0;">';
+                    html += '<strong>' + escHtml(name) + '</strong>';
+                    if(infoParts.length) html += ' &mdash; ' + escHtml(infoParts.join(' | '));
+                    html += ' <span style="color:#888;font-size:0.85em;">(' + bookingCount + ' bookings, last ' + lastVisit + ')</span>';
+                    html += '</div>';
+                });
+                resultsBox.innerHTML = html;
+                resultsBox.style.display = 'block';
+                resultsBox.querySelectorAll('.guest-search-result').forEach(function(el){
+                    el.addEventListener('click', function(){
+                        selectGuest(JSON.parse(el.dataset.guest));
+                    });
+                });
+            };
+            xhr.send();
+        }, 300);
+    });
+    function escHtml(s){
+        if(typeof s !== 'string') return '';
+        return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+    function selectGuest(g){
+        searchInput.value = (g.first_name || '') + ' ' + (g.last_name || '');
+        guestIdInput.value = g.id;
+        resultsBox.style.display = 'none';
+        clearBtn.style.display = 'inline-block';
+        var nameInput = document.getElementById('guest_name');
+        if(nameInput) nameInput.value = (g.first_name || '') + ' ' + (g.last_name || '');
+        var phoneInput = document.getElementById('phone');
+        if(phoneInput) phoneInput.value = g.phone || '';
+        var emailInput = document.getElementById('email');
+        if(emailInput) emailInput.value = g.email || '';
+        var notesInput = document.getElementById('guest_notes');
+        if(notesInput) notesInput.value = g.notes || '';
+        if(g.preferences && g.preferences.length){
+            var html = '<div style="padding:8px 12px;background:#f9f9f9;border:1px solid #e0e0e0;border-radius:4px;">';
+            html += '<strong>' + 'Guest preferences' + ':</strong>';
+            html += '<table style="margin-top:4px;border-collapse:collapse;width:auto;">';
+            g.preferences.forEach(function(p){
+                html += '<tr><td style="padding:2px 8px 2px 0;font-weight:600;white-space:nowrap;">' + escHtml(p.pref_key) + ':</td><td style="padding:2px 0;">' + escHtml(p.pref_value) + '</td></tr>';
+            });
+            html += '</table></div>';
+            prefsDisplay.innerHTML = html;
+            prefsDisplay.style.display = 'block';
+        } else {
+            prefsDisplay.innerHTML = '<div style="padding:4px 0;color:#888;">' + 'No preferences recorded' + '</div>';
+            prefsDisplay.style.display = 'block';
+        }
+    }
+    if(clearBtn){
+        clearBtn.addEventListener('click', function(){
+            searchInput.value = '';
+            guestIdInput.value = '0';
+            resultsBox.style.display = 'none';
+            prefsDisplay.style.display = 'none';
+            clearBtn.style.display = 'none';
+        });
+    }
+    document.addEventListener('click', function(e){
+        if(resultsBox && !e.target.closest('#guest_search_results') && e.target !== searchInput){
+            resultsBox.style.display = 'none';
+        }
+    });
+})();
+JS;
+    $rest_url = rest_url( 'simple-hotel-crm/v1/' );
+    echo '<script>window.simpleHotelCrmRoomPricing=' . $pricing_json . ';window.simpleHotelCrmBookingComCommissionPercent=' . wp_json_encode( (float) get_option( 'simple_hotel_crm_booking_com_commission_percent', 15 ) ) . ';window.simpleHotelCrmRestUrl=' . wp_json_encode( $rest_url ) . ';' . $pricing_script . $guest_search_script . '</script>';
     echo '</div>';
 }
 
