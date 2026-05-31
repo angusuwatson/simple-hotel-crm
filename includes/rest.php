@@ -259,6 +259,16 @@ add_action( 'rest_api_init', function() {
             ],
         ],
     ] );
+
+    register_rest_route( 'simple-hotel-crm/v1', '/ticket-finances', [
+        'methods'             => 'GET',
+        'callback'            => 'simple_hotel_crm_rest_ticket_finances',
+        'permission_callback' => function($r) { return simple_hotel_crm_user_can_access($r); },
+        'args'                => [
+            'year'  => [ 'type' => 'integer' ],
+            'month' => [ 'type' => 'integer' ],
+        ],
+    ] );
 } );
 
 function simple_hotel_crm_rest_dashboard( WP_REST_Request $request ) {
@@ -324,7 +334,7 @@ function simple_hotel_crm_rest_dashboard( WP_REST_Request $request ) {
         JOIN {$rooms_table} r ON r.id = br.room_id
         WHERE b.is_deleted = 0
           AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')
-          AND b.status_code IN ('confirmed', 'checked_in')
+          AND b.status_code IN ('confirmed', 'checked_in', 'checked_out')
           AND brn.stay_date >= %s
           AND brn.stay_date < %s
         ORDER BY brn.stay_date ASC, r.sort_order ASC", $week_start, $week_end ), ARRAY_A );
@@ -382,7 +392,7 @@ function simple_hotel_crm_rest_dashboard( WP_REST_Request $request ) {
         JOIN {$bookings_table} b ON b.id = br.booking_id
         WHERE b.is_deleted = 0
           AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')
-          AND b.status_code IN ('confirmed', 'checked_in')
+          AND b.status_code IN ('confirmed', 'checked_in', 'checked_out')
           AND brn.stay_date >= %s
           AND brn.stay_date < %s
         GROUP BY brn.stay_date
@@ -693,7 +703,7 @@ function simple_hotel_crm_rest_ticket_data( WP_REST_Request $request ) {
         JOIN {$guests_table} g ON g.id = b.guest_id
         WHERE b.is_deleted = 0
           AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')
-          AND b.status_code IN ('confirmed', 'checked_in')
+          AND b.status_code IN ('confirmed', 'checked_in', 'checked_out')
           AND b.check_in_date <= %s
           AND b.check_out_date >= %s
         ORDER BY g.last_name ASC, b.check_in_date ASC
@@ -716,7 +726,6 @@ function simple_hotel_crm_rest_ticket_data( WP_REST_Request $request ) {
     }
 
     $dinner_counts = [];
-    $debug_all_items = [];
     if ( ! empty( $booking_ids ) ) {
         $items_table = simple_hotel_crm_booking_items_table();
         $placeholders = implode( ',', array_fill( 0, count( $booking_ids ), '%d' ) );
@@ -729,11 +738,6 @@ function simple_hotel_crm_rest_ticket_data( WP_REST_Request $request ) {
         foreach ( $dinner_results as $dr ) {
             $dinner_counts[ $dr['booking_id'] ] = (int) $dr['dinner_qty'];
         }
-        $debug_all_items = $wpdb->get_results( $wpdb->prepare( "
-            SELECT booking_id, item_name, quantity FROM {$items_table}
-            WHERE booking_id IN ({$placeholders})
-            ORDER BY booking_id, item_name
-        ", $booking_ids ), ARRAY_A );
     }
     foreach ( $bookings as &$b ) {
         $b['dinner_count'] = isset( $dinner_counts[ $b['id'] ] ) ? (string) $dinner_counts[ $b['id'] ] : '0';
@@ -790,7 +794,7 @@ function simple_hotel_crm_rest_ticket_data( WP_REST_Request $request ) {
         JOIN {$rooms_table} r ON r.id = br.room_id
         JOIN {$guests_table} g ON g.id = b.guest_id
         WHERE b.is_deleted = 0
-          AND b.status_code IN ('confirmed', 'checked_in')
+          AND b.status_code IN ('confirmed', 'checked_in', 'checked_out')
           AND brn.stay_date >= %s
           AND brn.stay_date < %s
         ORDER BY brn.stay_date ASC, r.sort_order ASC
@@ -806,7 +810,6 @@ function simple_hotel_crm_rest_ticket_data( WP_REST_Request $request ) {
         'daily_notes'      => $daily_notes,
         'occupancy'        => $occupancy,
         'rooms'            => $rooms,
-        'debug_items'      => $debug_all_items,
     ] );
 }
 
@@ -961,10 +964,218 @@ function simple_hotel_crm_rest_ticket_checkout_status( WP_REST_Request $request 
             delete_post_meta( $booking_id, '_pending_checkout_amount' );
             delete_post_meta( $booking_id, '_pending_checkout_skip_receipt' );
             delete_post_meta( $booking_id, '_pending_checkout_action_id' );
+            if ( $lower === 'completed' ) {
+                simple_hotel_crm_square_handle_payment_complete( $booking_id, $checkout_id );
+            }
         }
     }
 
     return rest_ensure_response( [ 'status' => $lower, 'checkout_id' => $checkout_id ] );
+}
+
+function simple_hotel_crm_rest_ticket_finances( WP_REST_Request $request ) {
+    global $wpdb;
+    nocache_headers();
+
+    $year  = absint( $request->get_param( 'year' ) ?: (int) current_time( 'Y' ) );
+    $month = absint( $request->get_param( 'month' ) ?: (int) current_time( 'n' ) );
+    $month = max( 1, min( 12, $month ) );
+
+    $month_start   = sprintf( '%04d-%02d-01', $year, $month );
+    $month_end     = gmdate( 'Y-m-t', strtotime( $month_start ) );
+    $next_month    = gmdate( 'Y-m-d', strtotime( $month_end . ' +1 day' ) );
+
+    $bookings_table        = simple_hotel_crm_bookings_table();
+    $booking_rooms_table   = simple_hotel_crm_booking_rooms_table();
+    $booking_nights_table  = simple_hotel_crm_booking_room_nights_table();
+    $booking_items_table   = simple_hotel_crm_booking_items_table();
+    $rooms_table           = simple_hotel_crm_rooms_table();
+
+    $status_filter = "b.is_deleted = 0 AND b.status_code IN ('confirmed','checked_in','checked_out')";
+
+    // Monthly room-night aggregations
+    $monthly = $wpdb->get_row( $wpdb->prepare( "
+        SELECT
+            COALESCE(SUM(brn.room_rate_amount),0)    AS room_revenue,
+            COALESCE(SUM(brn.extras_amount),0)       AS extras_revenue,
+            COALESCE(SUM(brn.tourist_tax_amount),0)  AS taxe_sejour,
+            COALESCE(SUM(brn.total_amount),0)        AS total_room_revenue,
+            COUNT(*)                                  AS occupied_nights
+        FROM {$booking_nights_table} brn
+        JOIN {$booking_rooms_table} br ON br.id = brn.booking_room_id
+        JOIN {$bookings_table} b ON b.id = br.booking_id
+        WHERE {$status_filter}
+          AND brn.stay_date >= %s
+          AND brn.stay_date < %s
+    ", $month_start, $next_month ), ARRAY_A );
+
+    // Items revenue (dinner, drinks, etc.) with stay_date in month
+    $items_revenue = (float) $wpdb->get_var( $wpdb->prepare( "
+        SELECT COALESCE(SUM(bi.quantity * bi.unit_price),0)
+        FROM {$booking_items_table} bi
+        JOIN {$bookings_table} b ON b.id = bi.booking_id
+        WHERE {$status_filter}
+          AND bi.stay_date >= %s
+          AND bi.stay_date < %s
+    ", $month_start, $next_month ) );
+
+    // Payment-status breakdown for month's room nights
+    $pay_status_rows = $wpdb->get_results( $wpdb->prepare( "
+        SELECT b.payment_status, COALESCE(SUM(brn.total_amount),0) AS amount
+        FROM {$booking_nights_table} brn
+        JOIN {$booking_rooms_table} br ON br.id = brn.booking_room_id
+        JOIN {$bookings_table} b ON b.id = br.booking_id
+        WHERE {$status_filter}
+          AND brn.stay_date >= %s
+          AND brn.stay_date < %s
+        GROUP BY b.payment_status
+    ", $month_start, $next_month ), ARRAY_A );
+
+    $paid_amount   = 0;
+    $pending_amount = 0;
+    foreach ( $pay_status_rows as $r ) {
+        if ( in_array( $r['payment_status'], [ 'paid', 'completed' ], true ) ) {
+            $paid_amount += (float) $r['amount'];
+        } else {
+            $pending_amount += (float) $r['amount'];
+        }
+    }
+
+    // Total active rooms & max possible nights (for occupancy %)
+    $total_rooms      = (int) $wpdb->get_var( "SELECT COUNT(*) FROM {$rooms_table} WHERE active = 1" );
+    $days_in_month    = (int) gmdate( 't', strtotime( $month_start ) );
+    $max_possible     = $total_rooms * $days_in_month;
+    $occupied_nights  = (int) $monthly['occupied_nights'];
+    $occupancy_pct    = $max_possible > 0 ? round( $occupied_nights / $max_possible * 100, 1 ) : 0;
+
+    // ADR (Average Daily Rate) — room revenue / occupied nights
+    $room_revenue     = (float) $monthly['room_revenue'];
+    $adr              = $occupied_nights > 0 ? round( $room_revenue / $occupied_nights, 2 ) : 0;
+
+    // ---- Trimester (quarter) ----
+    $quarter          = (int) ceil( $month / 3 );
+    $tri_start        = sprintf( '%04d-%02d-01', $year, ( $quarter * 3 ) - 2 );
+    $tri_end          = gmdate( 'Y-m-t', strtotime( sprintf( '%04d-%02d-01', $year, $quarter * 3 ) ) );
+    $tri_end_plus     = gmdate( 'Y-m-d', strtotime( $tri_end . ' +1 day' ) );
+
+    $tri_income = (float) $wpdb->get_var( $wpdb->prepare( "
+        SELECT COALESCE(SUM(brn.total_amount),0)
+        FROM {$booking_nights_table} brn
+        JOIN {$booking_rooms_table} br ON br.id = brn.booking_room_id
+        JOIN {$bookings_table} b ON b.id = br.booking_id
+        WHERE {$status_filter}
+          AND brn.stay_date >= %s
+          AND brn.stay_date < %s
+    ", $tri_start, $tri_end_plus ) );
+
+    // Last year same quarter
+    $ly_tri_start    = sprintf( '%04d-%02d-01', $year - 1, ( $quarter * 3 ) - 2 );
+    $ly_tri_end      = gmdate( 'Y-m-t', strtotime( sprintf( '%04d-%02d-01', $year - 1, $quarter * 3 ) ) );
+    $ly_tri_end_plus = gmdate( 'Y-m-d', strtotime( $ly_tri_end . ' +1 day' ) );
+
+    $ly_tri_income = (float) $wpdb->get_var( $wpdb->prepare( "
+        SELECT COALESCE(SUM(brn.total_amount),0)
+        FROM {$booking_nights_table} brn
+        JOIN {$booking_rooms_table} br ON br.id = brn.booking_room_id
+        JOIN {$bookings_table} b ON b.id = br.booking_id
+        WHERE {$status_filter}
+          AND brn.stay_date >= %s
+          AND brn.stay_date < %s
+    ", $ly_tri_start, $ly_tri_end_plus ) );
+
+    $tri_change_pct = $ly_tri_income > 0 ? round( ( $tri_income - $ly_tri_income ) / $ly_tri_income * 100, 1 ) : 0;
+
+    // ---- Year-to-date monthly breakdown ----
+    $year_start = sprintf( '%04d-01-01', $year );
+    $year_end   = sprintf( '%04d-01-01', $year + 1 );
+
+    $yearly_months = $wpdb->get_results( $wpdb->prepare( "
+        SELECT
+            MONTH(brn.stay_date) AS m,
+            COALESCE(SUM(brn.room_rate_amount),0)   AS room_revenue,
+            COALESCE(SUM(brn.extras_amount),0)      AS extras_revenue,
+            COALESCE(SUM(brn.tourist_tax_amount),0)  AS taxe_sejour,
+            COALESCE(SUM(brn.total_amount),0)        AS total
+        FROM {$booking_nights_table} brn
+        JOIN {$booking_rooms_table} br ON br.id = brn.booking_room_id
+        JOIN {$bookings_table} b ON b.id = br.booking_id
+        WHERE {$status_filter}
+          AND brn.stay_date >= %s
+          AND brn.stay_date < %s
+        GROUP BY MONTH(brn.stay_date)
+        ORDER BY m
+    ", $year_start, $year_end ), ARRAY_A );
+
+    // Items revenue by month for the year
+    $yearly_items = $wpdb->get_results( $wpdb->prepare( "
+        SELECT
+            MONTH(bi.stay_date) AS m,
+            COALESCE(SUM(bi.quantity * bi.unit_price),0) AS items_total
+        FROM {$booking_items_table} bi
+        JOIN {$bookings_table} b ON b.id = bi.booking_id
+        WHERE {$status_filter}
+          AND bi.stay_date >= %s
+          AND bi.stay_date < %s
+        GROUP BY MONTH(bi.stay_date)
+        ORDER BY m
+    ", $year_start, $year_end ), ARRAY_A );
+
+    $items_by_month = [];
+    foreach ( $yearly_items as $yi ) {
+        $items_by_month[ (int) $yi['m'] ] = (float) $yi['items_total'];
+    }
+
+    // Build a full 12-month array (fill missing months with zeros)
+    $yearly = [];
+    for ( $m = 1; $m <= 12; $m++ ) {
+        $found = null;
+        foreach ( $yearly_months as $ym ) {
+            if ( (int) $ym['m'] === $m ) {
+                $found = $ym;
+                break;
+            }
+        }
+        $rm  = $found ? round( (float) $found['room_revenue'], 2 ) : 0;
+        $ex  = $found ? round( (float) $found['extras_revenue'], 2 ) : 0;
+        $tax = $found ? round( (float) $found['taxe_sejour'], 2 ) : 0;
+        $it  = isset( $items_by_month[ $m ] ) ? round( $items_by_month[ $m ], 2 ) : 0;
+        $yearly[] = [
+            'month'         => $m,
+            'room_revenue'  => $rm,
+            'extras_revenue'=> $ex,
+            'taxe_sejour'   => $tax,
+            'items_revenue' => $it,
+            'total'         => $rm + $ex + $tax + $it,
+        ];
+    }
+
+    $month_labels = [ '', 'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec' ];
+
+    return rest_ensure_response( [
+        'month' => [
+            'year'          => $year,
+            'month'         => $month,
+            'label'         => $month_labels[ $month ] . ' ' . $year,
+            'room_revenue'  => round( $room_revenue, 2 ),
+            'extras_revenue'=> round( (float) $monthly['extras_revenue'], 2 ),
+            'items_revenue' => round( $items_revenue, 2 ),
+            'taxe_sejour'   => round( (float) $monthly['taxe_sejour'], 2 ),
+            'total_income'  => round( (float) $monthly['total_room_revenue'] + $items_revenue, 2 ),
+            'paid'          => round( $paid_amount, 2 ),
+            'pending'       => round( $pending_amount, 2 ),
+            'occupied_nights' => $occupied_nights,
+            'total_nights'  => $max_possible,
+            'occupancy_pct' => $occupancy_pct,
+            'adr'           => $adr,
+        ],
+        'trimester' => [
+            'label'     => 'Q' . $quarter . ' ' . $year,
+            'income'    => round( $tri_income, 2 ),
+            'last_year' => round( $ly_tri_income, 2 ),
+            'change_pct'=> $tri_change_pct,
+        ],
+        'yearly' => $yearly,
+    ] );
 }
 
 function simple_hotel_crm_rest_ticket_checkin( WP_REST_Request $request ) {
@@ -1122,7 +1333,7 @@ function simple_hotel_crm_rest_ticket_calendar( WP_REST_Request $request ) {
         JOIN {$rooms_table} r ON r.id = br.room_id
         WHERE b.is_deleted = 0
           AND (b.internal_notes IS NULL OR b.internal_notes NOT LIKE '%[MERGED_ARCHIVE]%')
-          AND b.status_code IN ('confirmed', 'checked_in')
+          AND b.status_code IN ('confirmed', 'checked_in', 'checked_out')
           AND brn.stay_date >= %s
           AND brn.stay_date < %s
         ORDER BY brn.stay_date ASC, r.sort_order ASC

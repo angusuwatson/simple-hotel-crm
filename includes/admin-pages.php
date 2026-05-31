@@ -1753,7 +1753,7 @@ function simple_hotel_crm_replace_booking_room_data( $booking_id, $data, $existi
         $wpdb->query( "DELETE FROM {$crm_booking_nights_table} WHERE booking_room_id IN (" . implode( ',', array_map( 'intval', $room_ids ) ) . ")" );
     }
     $wpdb->delete( $crm_booking_rooms_table, [ 'booking_id' => $booking_id ], [ '%d' ] );
-    $wpdb->query( $wpdb->prepare( "DELETE FROM {$booking_notes_table} WHERE booking_id = %d AND booking_room_id IS NOT NULL", $booking_id ) );
+    $wpdb->query( $wpdb->prepare( "DELETE FROM {$booking_notes_table} WHERE booking_id = %d AND booking_room_id IS NOT NULL AND stay_date IS NULL", $booking_id ) );
 
     $max_sync = (int) $wpdb->get_var( "SELECT COALESCE(MAX(external_booking_room_id), 0) FROM {$sync_bookings_table}" );
     $max_legacy = (int) $wpdb->get_var( "SELECT COALESCE(MAX(legacy_reserved_room_id), 0) FROM {$crm_booking_rooms_table}" );
@@ -2348,6 +2348,7 @@ function simple_hotel_crm_render_booking_detail_page() {
     $total_currency = sprintf( '%.2f €', $total_amount );
     echo '</select></label><label style="margin:0;">' . esc_html__( 'Total', 'simple-hotel-crm' ) . '<br><input type="text" class="regular-text" value="' . esc_attr( $total_currency ) . '" readonly style="background:#f5f5f5;" /></label></div></td></tr>';
     echo '<tr><th>' . esc_html__( 'Dates', 'simple-hotel-crm' ) . '</th><td><div class="simple-hotel-crm-admin-inline-fields" style="display:flex;gap:12px;flex-wrap:nowrap;align-items:flex-end;"><label style="flex:1 1 33%;min-width:180px;">' . esc_html__( 'Contacted', 'simple-hotel-crm' ) . '<br><input type="date" name="contacted_date" value="' . esc_attr( (string) $booking['contacted_date'] ) . '" /></label><label style="flex:1 1 33%;min-width:180px;">' . esc_html__( 'Check-in', 'simple-hotel-crm' ) . '<br><input type="date" name="check_in_date" value="' . esc_attr( (string) $booking['check_in_date'] ) . '" /></label><label style="flex:1 1 33%;min-width:180px;">' . esc_html__( 'Check-out', 'simple-hotel-crm' ) . '<br><input type="date" name="check_out_date" value="' . esc_attr( (string) $booking['check_out_date'] ) . '" /></label></div></td></tr>';
+    echo '<tr><th><label for="booking_note">' . esc_html__( 'Booking note', 'simple-hotel-crm' ) . '</label></th><td><textarea name="booking_note" id="booking_note" rows="3" class="large-text">' . esc_textarea( simple_hotel_crm_get_booking_note_text( $booking_id ) ) . '</textarea></td></tr>';
     echo '<tr><th>' . esc_html__( 'Internal notes', 'simple-hotel-crm' ) . '</th><td><textarea name="internal_notes" rows="5" class="large-text">' . esc_textarea( (string) $booking['internal_notes'] ) . '</textarea></td></tr>';
     echo '</table>';
     echo '<h2>' . esc_html__( 'Stored Notes', 'simple-hotel-crm' ) . '</h2>';
@@ -2377,7 +2378,7 @@ function simple_hotel_crm_render_booking_detail_page() {
         echo '</ul>';
     }
     echo '<h2>' . esc_html__( 'Rooms', 'simple-hotel-crm' ) . '</h2>';
-    echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Remove', 'simple-hotel-crm' ) . '</th><th>ID</th><th>' . esc_html__( 'Room', 'simple-hotel-crm' ) . '</th><th>A</th><th>C</th><th>BB</th><th>' . esc_html__( 'Rate', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Discount', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Discount value', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Extras total', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Tax', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Comm', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Total', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
+    echo '<table class="widefat striped"><thead><tr><th>' . esc_html__( 'Remove', 'simple-hotel-crm' ) . '</th><th>ID</th><th>' . esc_html__( 'Room', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Room note', 'simple-hotel-crm' ) . '</th><th>A</th><th>C</th><th>BB</th><th>' . esc_html__( 'Rate', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Discount', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Discount value', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Extras total', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Tax', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Comm', 'simple-hotel-crm' ) . '</th><th>' . esc_html__( 'Total', 'simple-hotel-crm' ) . '</th></tr></thead><tbody>';
     foreach ( $rooms as $index => $room ) {
         echo '<tr>';
         echo '<td><input type="checkbox" name="room_lines[' . esc_attr( $index ) . '][remove]" value="1" /></td>';
@@ -2389,6 +2390,7 @@ function simple_hotel_crm_render_booking_detail_page() {
             echo '<option value="' . esc_attr( (string) $available_room['id'] ) . '"' . selected( (string) ( $room['room_sync_id'] ?? '' ), (string) $available_room['id'], false ) . '>' . esc_html( $label ) . '</option>';
         }
         echo '</select></td>';
+        echo '<td><input type="text" style="width:140px;" name="room_lines[' . esc_attr( $index ) . '][room_note]" value="' . esc_attr( (string) ( $room['room_note'] ?? '' ) ) . '" placeholder="' . esc_attr__( 'Room note…', 'simple-hotel-crm' ) . '" /></td>';
         echo '<td><input type="number" min="0" style="width:55px;" name="room_lines[' . esc_attr( $index ) . '][adults]" value="' . esc_attr( (string) ( $room['adults'] ?? 0 ) ) . '" /></td>';
         echo '<td><input type="number" min="0" style="width:55px;" name="room_lines[' . esc_attr( $index ) . '][children]" value="' . esc_attr( (string) ( $room['children'] ?? 0 ) ) . '" /></td>';
         echo '<td><input type="number" min="0" style="width:55px;" name="room_lines[' . esc_attr( $index ) . '][babies]" value="' . esc_attr( (string) ( $room['babies'] ?? 0 ) ) . '" /></td>';
@@ -3143,6 +3145,7 @@ function simple_hotel_crm_render_add_booking_page() {
             echo '<option value="' . esc_attr( $room_id_value ) . '"' . selected( $current_selected, $room_id_value, false ) . '>' . esc_html( $room_number . ' - ' . $room['room_name'] ) . '</option>';
         }
         echo '</select></label></p>';
+        echo '<p><label>' . esc_html__( 'Room note', 'simple-hotel-crm' ) . ' <input type="text" name="room_lines[' . esc_attr( $line_index ) . '][room_note]" value="' . esc_attr( (string) ( $line['room_note'] ?? '' ) ) . '" /></label></p>';
         $selected_room_ids[] = (string) ( $line['room_sync_id'] ?? '' );
         echo '<p><label>' . esc_html__( 'Adults', 'simple-hotel-crm' ) . ' <input type="number" min="0" name="room_lines[' . esc_attr( $line_index ) . '][adults]" value="' . esc_attr( (string) ( $line['adults'] ?? 0 ) ) . '" /></label> ';
         echo '<label>' . esc_html__( 'Children', 'simple-hotel-crm' ) . ' <input type="number" min="0" name="room_lines[' . esc_attr( $line_index ) . '][children]" value="' . esc_attr( (string) ( $line['children'] ?? 0 ) ) . '" /></label> ';

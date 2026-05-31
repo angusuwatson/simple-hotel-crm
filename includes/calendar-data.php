@@ -126,12 +126,6 @@ function simple_hotel_crm_get_wp_sync_calendar_data( $month, $year ) {
 
         $room_day_note = simple_hotel_crm_get_booking_note_text( (int) $row['booking_id'], (int) $row['booking_room_id'], $date_str );
         $room_booking_note = $room_day_note;
-        if ( '' === $room_booking_note ) {
-            $room_booking_note = simple_hotel_crm_get_booking_note_text( (int) $row['booking_id'], (int) $row['booking_room_id'] );
-        }
-        if ( '' === $room_booking_note ) {
-            $room_booking_note = simple_hotel_crm_get_booking_note_text( (int) $row['booking_id'] );
-        }
 
         $booking_payload = (object) [
             'id' => (int) $row['booking_id'],
