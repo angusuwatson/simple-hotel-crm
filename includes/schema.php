@@ -1365,10 +1365,6 @@ function simple_hotel_crm_import_sync_data_to_crm() {
         $guest = $guest_id ? $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE id = %d", $guest_id ), ARRAY_A ) : null;
 
         if ( ! $guest ) {
-            $guest = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM " . simple_hotel_crm_guests_table() . " WHERE phone = %s AND first_name = %s AND last_name = %s AND is_deleted = 0 LIMIT 1", (string) $booking_group['phone'], $first_name, $last_name ), ARRAY_A );
-        }
-
-        if ( ! $guest ) {
             $guest_inserted = $wpdb->insert(
                 simple_hotel_crm_guests_table(),
                 [
